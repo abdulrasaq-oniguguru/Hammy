@@ -1,0 +1,34 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Your description here">
+    <meta name="author" content="Your Name">
+
+    <title>{% block title %}Home Page{% endblock %}</title>
+
+    <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'css/morph/bootstrap.min.css' %}">
+
+    <!-- Include Your Custom CSS (if any) -->
+    <link rel="stylesheet" type="text/css" href="{% static 'css/custom.min.css' %}">
+
+    <!-- Add additional <head> content here, such as scripts or meta tags -->
+</head>
+<body>
+
+<!-- Content -->
+<div class="container mt-5"> <!-- Add top margin to content to prevent overlap with the fixed-top navigation bar -->
+    {% block content %}{% endblock %}
+</div>
+<!-- End Content -->
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+
+<!-- Add any custom scripts here, if needed -->
+
+</body>
+</html>

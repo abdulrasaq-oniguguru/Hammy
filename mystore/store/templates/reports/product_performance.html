@@ -1,0 +1,260 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load math_filters %}  {# Load custom math filters #}
+{% block title %}Product Performance Report{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Product Performance Report</h1>
+        <div>
+            <button class="btn btn-success" onclick="exportTableToExcel('productPerformanceTable', 'product_performance_report')">
+                <i class="fas fa-file-excel"></i> Export to Excel
+            </button>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <form method="get" class="form-inline">
+                <div class="form-group mr-3 mb-2">
+                    <label for="start_date" class="mr-2">Start Date</label>
+                    <input type="date" class="form-control" id="start_date" name="start_date"
+                           value="{{ start_date|date:'Y-m-d' }}">
+                </div>
+                <div class="form-group mr-3 mb-2">
+                    <label for="end_date" class="mr-2">End Date</label>
+                    <input type="date" class="form-control" id="end_date" name="end_date"
+                           value="{{ end_date|date:'Y-m-d' }}">
+                </div>
+                <button type="submit" class="btn btn-primary mb-2">Apply Filters</button>
+                <a href="{% url 'product_performance_report' %}" class="btn btn-secondary mb-2 ml-2">Clear Filters</a>
+            </form>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Revenue</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">₦{{ total_revenue|floatformat:2 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Total Units Sold</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_units_sold }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-box fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Avg. Price Per Unit</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">₦{{ avg_price_per_unit|floatformat:2 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-tag fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Top Product</div>
+                            <div class="h6 mb-0 font-weight-bold text-gray-800">{{ top_product.product__brand|default:"N/A" }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-trophy fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Revenue by Category Chart -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Revenue by Product Category</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-bar">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Performance Table -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Product Performance Details</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="productPerformanceTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Category</th>
+                            <th>Units Sold</th>
+                            <th>Total Revenue</th>
+                            <th>Avg. Price</th>
+                            <th>% of Total Revenue</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for product in product_performance %}
+                        <tr>
+                            <td>{{ product.product__brand }}</td>
+                            <td>{{ product.product__category }}</td>
+                            <td>{{ product.total_quantity }}</td>
+                            <td>₦{{ product.total_revenue|floatformat:2 }}</td>
+                            <td>₦{{ product.avg_price|floatformat:2 }}</td>
+                            <td>{{ product.percentage_of_total|floatformat:2 }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// Category Chart
+var ctx = document.getElementById("categoryChart");
+var categoryChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: [
+            {% for category in category_performance %}
+                "{{ category.product__category }}"{% if not forloop.last %}, {% endif %}
+            {% endfor %}
+        ],
+        datasets: [{
+            label: "Revenue",
+            backgroundColor: "#4e73df",
+            hoverBackgroundColor: "#2e59d9",
+            borderColor: "#4e73df",
+            data: [
+                {% for category in category_performance %}
+                    {{ category.total_revenue }}{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+            ],
+        }],
+    },
+    options: {
+        maintainAspectRatio: false,
+        layout: {
+            padding: {
+                left: 10,
+                right: 25,
+                top: 25,
+                bottom: 0
+            }
+        },
+        scales: {
+            xAxes: [{
+                gridLines: {
+                    display: false,
+                    drawBorder: false
+                },
+                ticks: {
+                    maxTicksLimit: 6
+                }
+            }],
+            yAxes: [{
+                ticks: {
+                    min: 0,
+                    max: {{ category_performance|first|get_item:"total_revenue"|add:category_performance|first|get_item:"total_revenue"|div:4|floatformat:0 }},
+                    maxTicksLimit: 5,
+                    padding: 10,
+                    callback: function(value) {
+                        return '₦' + value.toLocaleString();
+                    }
+                },
+                gridLines: {
+                    color: "rgb(234, 236, 244)",
+                    zeroLineColor: "rgb(234, 236, 244)",
+                    drawBorder: false,
+                    borderDash: [2],
+                    zeroLineBorderDash: [2]
+                }
+            }],
+        },
+        legend: { display: false },
+        tooltips: {
+            titleMarginBottom: 10,
+            titleFontColor: '#6e707e',
+            titleFontSize: 14,
+            backgroundColor: "rgb(255,255,255)",
+            bodyFontColor: "#858796",
+            borderColor: '#dddfeb',
+            borderWidth: 1,
+            xPadding: 15,
+            yPadding: 15,
+            displayColors: false,
+            caretPadding: 10,
+            callbacks: {
+                label: function(tooltipItem) {
+                    return 'Revenue: ₦' + Number(tooltipItem.yLabel).toLocaleString();
+                }
+            }
+        }
+    }
+});
+
+// Export table to Excel
+function exportTableToExcel(tableID, filename = '') {
+    const table = document.getElementById(tableID);
+    const html = table.outerHTML;
+    const url = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename + '.xls';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+</script>
+
+<style>
+.chart-bar {
+    height: 300px;
+}
+</style>
+
+{% endblock %}

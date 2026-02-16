@@ -1,0 +1,1084 @@
+@login_required(login_url='login')
+def transfer_create_view(request):
+    try:
+        from_location = request.user.profile.location
+    except:
+        from_location = 'ABUJA'  # Fallback
+
+    # ✅ Get filtered product IDs (cached!)
+    filtered_qs = filter_products(
+        request,
+        queryset=Product.objects.filter(location=from_location)
+    )
+    product_ids = list(filtered_qs.values_list("id", flat=True))
+
+    # Apply sorting
+    products = Product.objects.filter(id__in=product_ids).order_by('brand', 'category', 'size')
+
+    # Pagination
+    paginator = Paginator(products.only(
+        'id', 'brand', 'category', 'size', 'color', 'design', 'quantity', 'price', 'location'
+    ), 100)  # Still 100 per page
+    page_number = request.GET.get('page')
+    products_page = paginator.get_page(page_number)
+
+    # ✅ GET CACHED DROPDOWN CHOICES
+    categories = get_location_cached_choices('category', from_location)
+    sizes = get_location_cached_choices('size', from_location)
+    colors = get_location_cached_choices('color', from_location)
+    designs = get_location_cached_choices('design', from_location)
+
+    # Check if filters are active
+    has_filters = any([
+        request.GET.get('search', ''),
+        request.GET.get('category', ''),
+        request.GET.get('size', ''),
+        request.GET.get('color', ''),
+        request.GET.get('design', ''),
+        request.GET.get('min_quantity', ''),
+        request.GET.get('max_quantity', ''),
+    ])
+
+    # Handle POST
+    if request.method == 'POST':
+        transfer_form = LocationTransferForm(request.POST)
+        selected_products = []
+        has_errors = False
+
+        # IMPORTANT: We must re-filter ALL products (not paginated) for POST
+        # But we can still use cached IDs for speed
+        all_filtered_products = Product.objects.filter(id__in=product_ids)
+
+        for product in all_filtered_products:
+            selected_key = f'product_{product.id}_selected'
+            quantity_key = f'product_{product.id}_quantity'
+
+            if request.POST.get(selected_key):
+                try:
+                    qty = int(request.POST.get(quantity_key, 1))
+                    if qty <= 0:
+                        messages.error(request, f"Invalid quantity for {product.brand}.")
+                        has_errors = True
+                    elif qty > product.quantity:
+                        messages.error(request, f"Not enough stock for {product.brand}. Max: {product.quantity}")
+                        has_errors = True
+                    else:
+                        selected_products.append({'product': product, 'quantity': qty})
+                except (ValueError, TypeError):
+                    messages.error(request, f"Invalid quantity for {product.brand}.")
+                    has_errors = True
+
+        if not selected_products and not has_errors:
+            messages.error(request, "Please select at least one product.")
+            has_errors = True
+
+        if not has_errors and transfer_form.is_valid():
+            try:
+                with transaction.atomic():
+                    transfer = transfer_form.save(commit=False)
+                    transfer.from_location = from_location
+                    transfer.transfer_reference = LocationTransfer.generate_transfer_reference(
+                        from_location, transfer.to_location
+                    )
+                    transfer.created_by = request.user
+                    transfer.save()
+
+                    for item in selected_products:
+                        TransferItem.objects.create(
+                            transfer=transfer,
+                            product=item['product'],
+                            quantity=item['quantity'],
+                            unit_price=item['product'].price
+                        )
+
+                    # Update product quantities at source location
+                    for item in selected_products:
+                        product = item['product']
+                        product.quantity -= item['quantity']
+                        product.save()
+
+                        # 👇 Invalidate caches related to this product
+                        from django.core.cache import cache
+                        cache_keys_to_invalidate = [
+                            'product_stats',
+                            f"filtered_product_ids_*",  # Ideally clear all, but depends on cache backend
+                            f"location_choices_category_{from_location}",
+                            f"location_choices_size_{from_location}",
+                            f"location_choices_color_{from_location}",
+                            f"location_choices_design_{from_location}",
+                        ]
+                        # For Redis, you can scan and delete keys matching pattern
+                        try:
+                            from django_redis import get_redis_connection
+                            r = get_redis_connection("default")
+                            for pattern in ["filtered_product_ids_*", "location_choices_*"]:
+                                for key in r.scan_iter(pattern):
+                                    r.delete(key)
+                        except:
+                            # Fallback: delete specific keys
+                            cache.delete_many([
+                                'product_stats',
+                                f"location_choices_category_{from_location}",
+                                f"location_choices_size_{from_location}",
+                                f"location_choices_color_{from_location}",
+                                f"location_choices_design_{from_location}",
+                            ])
+
+                    messages.success(request, f"Transfer {transfer.transfer_reference} created successfully!")
+                    return redirect('transfer_detail', transfer_id=transfer.id)
+
+            except Exception as e:
+                error_msg = f"Error creating transfer: {str(e)}"
+                messages.error(request, error_msg)
+        else:
+            # Form validation errors
+            for field, errors in transfer_form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{field}: {error}")
+    else:
+        transfer_form = LocationTransferForm()
+
+    context = {
+        'transfer_form': transfer_form,
+        'products': products_page,
+        'from_location': from_location,
+        'categories': categories,
+        'sizes': sizes,
+        'colors': colors,
+        'designs': designs,
+        'current_filters': {
+            'search': request.GET.get('search', ''),
+            'category': request.GET.get('category', ''),
+            'size': request.GET.get('size', ''),
+            'color': request.GET.get('color', ''),
+            'design': request.GET.get('design', ''),
+            'min_quantity': request.GET.get('min_quantity', ''),
+            'max_quantity': request.GET.get('max_quantity', ''),
+        },
+        'has_filters': has_filters,
+    }
+    return render(request, 'transfers/create_transfer.html', context)def filter_products(request, queryset):
+    """Apply filters to product queryset based on request parameters"""
+    query = request.GET.get('search', '')
+    category = request.GET.get('category', '')
+    shop = request.GET.get('shop', '')
+    size = request.GET.get('size', '')
+    color = request.GET.get('color', '')
+    design = request.GET.get('design', '')
+    min_price = request.GET.get('min_price', '')
+    max_price = request.GET.get('max_price', '')
+    min_quantity = request.GET.get('min_quantity', '')
+    max_quantity = request.GET.get('max_quantity', '')
+
+    if query:
+        queryset = queryset.filter(
+            Q(brand__icontains=query) |
+            Q(color__icontains=query) |
+            Q(category__icontains=query) |
+            Q(design__icontains=query) |
+            Q(size__icontains=query)
+        )
+    if category:
+        queryset = queryset.filter(category=category)
+    if shop:
+        queryset = queryset.filter(shop=shop)
+    if size:
+        queryset = queryset.filter(size__icontains=size)
+    if color:
+        queryset = queryset.filter(color=color)
+    if design:
+        queryset = queryset.filter(design=design)
+    if min_price:
+        queryset = queryset.filter(price__gte=min_price)
+    if max_price:
+        queryset = queryset.filter(price__lte=max_price)
+    if min_quantity:
+        queryset = queryset.filter(quantity__gte=min_quantity)
+    if max_quantity:
+        queryset = queryset.filter(quantity__lte=max_quantity)from django.core.cache import cache
+from django.db import models  # ← ✅ ADD THIS — needed for F and Sum
+from .choices import ProductChoices
+from .models import Product
+
+def flatten_choices_completely(choices):
+    """Completely flatten nested choice structures to simple (value, label) tuples"""
+    flattened = []
+    try:
+        for choice in choices:
+            if not choice:  # Skip None or empty choices
+                continue
+
+            if isinstance(choice, (tuple, list)) and len(choice) >= 2:
+                if isinstance(choice[1], (tuple, list)):
+                    for nested_choice in choice[1]:
+                        if isinstance(nested_choice, (tuple, list)) and len(nested_choice) >= 2:
+                            flattened.append((nested_choice[0], nested_choice[1]))
+                        elif isinstance(nested_choice, str):
+                            flattened.append((nested_choice, nested_choice))
+                else:
+                    flattened.append((choice[0], choice[1]))
+            elif isinstance(choice, str):
+                flattened.append((choice, choice))
+    except Exception:
+        return []
+
+    seen = set()
+    unique_flattened = []
+    for item in flattened:
+        if item[0] not in seen:
+            seen.add(item[0])
+            unique_flattened.append(item)
+
+    return unique_flattened
+
+
+def get_cached_choices(choice_type):
+    key = f"product_choices_{choice_type}"
+    choices = cache.get(key)
+    if choices is None:
+        if choice_type == 'color':
+            raw = ProductChoices.get_all_colors_with_custom(Product)
+            choices = flatten_choices_completely(raw)
+        elif choice_type == 'design':
+            raw = ProductChoices.get_all_designs_with_custom(Product)
+            choices = flatten_choices_completely(raw)
+        elif choice_type == 'category':
+            raw = ProductChoices.get_all_categories_with_custom(Product)
+            choices = flatten_choices_completely(raw)
+        cache.set(key, choices, 3600)  # Cache 1 hour
+    return choices
+
+
+def get_product_stats():
+    stats = cache.get('product_stats')
+    if stats is None:
+        products = Product.objects.all()
+        total_items = products.count()
+        total_quantity = products.aggregate(total_qty=models.Sum('quantity'))['total_qty'] or 0
+        total_inventory_value = products.aggregate(
+            total_value=models.Sum(models.F('price') * models.F('quantity'))
+        )['total_value'] or 0.0
+        stats = {
+            'total_items': total_items,
+            'total_quantity': total_quantity,
+            'total_inventory_value': total_inventory_value,
+        }
+        cache.set('product_stats', stats, 300)  # Cache 5 minutes
+    return stats
+
+
+def get_location_cached_choices(field_name, location):
+    """
+    Cache unique values for a field filtered by location.
+    field_name: 'category', 'size', 'color', 'design'
+    """
+    cache_key = f"location_choices_{field_name}_{location}"
+    choices = cache.get(cache_key)
+
+    if choices is None:
+        # Use iexact for case-insensitive distinct — if your DB supports it
+        # Otherwise, just use distinct()
+        if field_name in ['color', 'design', 'category', 'size']:
+            # Get distinct values, excluding blanks
+            values = Product.objects.filter(
+                location=location
+            ).exclude(
+                **{f"{field_name}__isnull": True}
+            ).exclude(
+                **{field_name: ''}
+            ).values_list(field_name, flat=True).distinct().order_by(field_name)
+
+            choices = [(v, v) for v in values if v]
+        else:
+            choices = []
+
+        cache.set(cache_key, choices, 3600)  # Cache 1 hour
+
+    return choices
+
+    return querysetclass Product(models.Model):
+    LOCATION_CHOICES = [
+        ('ABUJA', 'Abuja'),
+        ('LAGOS', 'Lagos'),
+    ]
+
+    brand = models.CharField(max_length=100)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    color = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+    )
+    design = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        default='plain',
+    )
+    size = models.CharField(max_length=10)
+    category = models.CharField(max_length=100)
+    quantity = models.IntegerField(default=0)
+    markup_type = models.CharField(max_length=10, choices=ProductChoices.MARKUP_TYPE_CHOICES, default='percentage')
+    markup = models.DecimalField(max_digits=8, decimal_places=2)
+    selling_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True,)
+    shop = models.CharField(max_length=100, choices=ProductChoices.SHOP_TYPE)
+    barcode_number = models.CharField(max_length=50, unique=True, null=True, blank=True)
+    barcode_image = models.ImageField(upload_to='barcodes/', blank=True, null=True)
+    image = models.ImageField(upload_to='product_images/', blank=True, null=True)
+    location = models.CharField(max_length=10, choices=LOCATION_CHOICES, default='ABUJA')
+
+    def __str__(self):
+        return self.brand
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['barcode_number']),
+            models.Index(fields=['brand']),
+            models.Index(fields=['category']),
+            models.Index(fields=['shop']),
+            models.Index(fields=['color']),
+            models.Index(fields=['design']),
+            models.Index(fields=['price']),
+            models.Index(fields=['quantity']),
+            models.Index(fields=['location']),
+            models.Index(fields=['barcode_number', 'brand']),
+            models.Index(fields=['category', 'shop']),
+            models.Index(fields=['category', 'color']),
+            models.Index(fields=['shop', 'location']),
+            models.Index(fields=['price', 'quantity']),
+        ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._original_barcode_number = self.barcode_number
+        self._original_brand = self.brand
+        self._original_size = self.size
+        self._original_color = self.color
+        self._original_selling_price = self.selling_price
+        self._original_design = self.design
+        self._original_category = self.category
+
+    def has_changed(self, field):
+        original = getattr(self, f'_original_{field}', None)
+        current = getattr(self, field)
+        if field == 'barcode_number':
+            original = (original or '').strip()
+            current = (current or '').strip()
+            return original != current
+        if isinstance(current, str):
+            current = current.strip()
+        if isinstance(original, str):
+            original = original.strip()
+        return original != current
+
+    def calculate_selling_price(self):
+        if self.markup_type == 'percentage':
+            return self.price * (1 + (self.markup / 100))
+        elif self.markup_type == 'fixed':
+            return self.price + self.markup
+        return self.price
+
+    def get_display_color(self):
+        """Get display name for color, checking predefined choices first"""
+        result = ProductChoices.get_display_value(ProductChoices.COLOR_CHOICES, self.color)
+        return result
+
+    def get_display_design(self):
+        """Get display name for design, checking predefined choices first"""
+        result = ProductChoices.get_display_value(ProductChoices.DESIGN_CHOICES, self.design)
+        return result
+
+    def get_display_category(self):
+        """Get display name for category, checking predefined choices first"""
+        result = ProductChoices.get_display_value(ProductChoices.CATEGORY_CHOICES, self.category)
+        return result
+
+    def get_shop_display(self):
+        """Get display name for shop, checking predefined choices first"""
+        result = ProductChoices.get_display_value(ProductChoices.SHOP_TYPE, self.shop)
+        return result
+
+    # Cached display properties for templates
+    @property
+    def color_display(self):
+        return self.get_display_color()
+
+    @property
+    def design_display(self):
+        return self.get_display_design()
+
+    @property
+    def category_display(self):
+        return self.get_display_category()
+
+    @property
+    def shop_display(self):
+        return self.get_shop_display()
+
+    @classmethod
+    def get_all_colors_with_custom(cls):
+        """Get all colors including custom ones from database"""
+        return ProductChoices.get_all_colors_with_custom(cls)
+
+    @classmethod
+    def get_all_designs_with_custom(cls):
+        """Get all designs including custom ones from database"""
+        return ProductChoices.get_all_designs_with_custom(cls)
+
+    @classmethod
+    def get_all_categories_with_custom(cls):
+        """Get all categories including custom ones from database"""
+        return ProductChoices.get_all_categories_with_custom(cls)
+
+    def _calculate_ean13_check_digit(self, base_12):
+        """Helper to calculate EAN13 check digit"""
+        digits = [int(d) for d in base_12]
+        odd_sum = sum(digits[i] for i in range(0, 12, 2))
+        even_sum = sum(digits[i] for i in range(1, 12, 2)) * 3
+        total = odd_sum + even_sum
+        mod = total % 10
+        return (10 - mod) % 10 if mod != 0 else 0
+
+    def generate_barcode(self):
+        """Optimized barcode generation with better error handling"""
+        if not self.barcode_number:
+            if not self.pk:
+                logger.error("Cannot generate barcode: Product must be saved first to have an ID.")
+                return
+            base_number = f"200{str(self.id).zfill(9)}"
+            check_digit = self._calculate_ean13_check_digit(base_number)
+            self.barcode_number = base_number + str(check_digit)
+
+        if len(self.barcode_number) != 13 or not self.barcode_number.isdigit():
+            logger.warning(f"Invalid barcode number for EAN-13: {self.barcode_number}")
+            return
+
+        try:
+            # Precompute values
+            label_width = int(55 * 300 / 25.4)
+            label_height = int(25 * 300 / 25.4)
+
+            # Generate barcode
+            writer = ImageWriter()
+            options = {
+                'module_width': 0.45,
+                'module_height': 10.0,
+                'quiet_zone': 0.8,
+                'background': 'white',
+                'foreground': 'black',
+                'write_text': False,
+            }
+
+            formatted_barcode = self.barcode_number.zfill(13)
+            ean = EAN13(formatted_barcode, writer=writer)
+            buffer = BytesIO()
+            ean.write(buffer, options)
+            barcode_img = Image.open(buffer)
+
+            # Create final image
+            final_img = Image.new('RGB', (label_width, label_height), 'white')
+            draw = ImageDraw.Draw(final_img)
+
+            # Use cached fonts
+            font_brand = get_thermal_optimized_font_cached(30)
+            font_details = get_thermal_optimized_font_cached(22)
+            font_barcode_num = get_thermal_optimized_font_cached(24)
+            font_price = get_thermal_optimized_font_cached(32)
+
+            def draw_thermal_text(draw_obj, position, text, font, fill="black", extra_bold=False):
+                x, y = position
+                offsets = [
+                    (0, 0), (1, 0), (0, 1), (1, 1),
+                ]
+                if extra_bold:
+                    offsets += [
+                        (-1, 0), (0, -1), (2, 0), (0, 2),
+                        (-1, -1), (2, 1),
+                    ]
+                for offset_x, offset_y in offsets:
+                    draw_obj.text((x + offset_x, y + offset_y), text, font=font, fill=fill)
+
+            left_margin = 10
+
+            # Top: Brand
+            brand_text = self.brand[:14]
+            draw_thermal_text(draw, (left_margin, 2), brand_text, font_brand)
+
+            # Middle: Barcode
+            barcode_height = int(label_height * 0.35)
+            barcode_aspect = barcode_img.width / barcode_img.height
+            barcode_width = int(barcode_height * barcode_aspect)
+            max_barcode_width = label_width - left_margin - 10
+            if barcode_width > max_barcode_width:
+                barcode_width = max_barcode_width
+                barcode_height = int(barcode_width / barcode_aspect)
+
+            barcode_resized = barcode_img.resize((barcode_width, barcode_height), Image.Resampling.LANCZOS)
+            barcode_y = 38
+            final_img.paste(barcode_resized, (left_margin, barcode_y))
+
+            # Below barcode: number
+            barcode_num_text = formatted_barcode
+            barcode_num_bbox = draw.textbbox((0, 0), barcode_num_text, font=font_barcode_num)
+            barcode_num_width = barcode_num_bbox[2] - barcode_num_bbox[0]
+            barcode_num_x = left_margin + (barcode_width - barcode_num_width) // 2
+            barcode_num_y = barcode_y + barcode_height + 1
+            draw_thermal_text(draw, (barcode_num_x, barcode_num_y), barcode_num_text, font_barcode_num)
+
+            # Size & Color
+            details_y = barcode_num_y + 18
+            current_y = details_y
+
+            if self.size and self.color:
+                size_text = f"Size: {self.size}"
+                draw_thermal_text(draw, (left_margin, current_y), size_text, font_details)
+                current_y += 20
+
+                color_display = self.color_display
+                color_text = f"Color: {color_display}"
+                max_width = label_width - left_margin - 5
+                color_bbox = draw.textbbox((0, 0), color_text, font=font_details)
+                if color_bbox[2] > max_width:
+                    max_chars = int(max_width / (color_bbox[2] / len(color_text)))
+                    color_text = color_text[:max_chars - 3] + "..."
+                draw_thermal_text(draw, (left_margin, current_y), color_text, font_details)
+            elif self.size:
+                size_text = f"Size: {self.size}"
+                draw_thermal_text(draw, (left_margin, current_y), size_text, font_details)
+            elif self.color:
+                color_display = self.color_display
+                color_text = f"Color: {color_display}"
+                max_width = label_width - left_margin - 5
+                color_bbox = draw.textbbox((0, 0), color_text, font=font_details)
+                if color_bbox[2] > max_width:
+                    max_chars = int(max_width / (color_bbox[2] / len(color_text)))
+                    color_text = color_text[:max_chars - 3] + "..."
+                draw_thermal_text(draw, (left_margin, current_y), color_text, font_details)
+
+            # Bottom: Price
+            price_text = f"₦{self.selling_price:.2f}"
+            price_bbox = draw.textbbox((0, 0), price_text, font=font_price)
+            price_width = price_bbox[2] - price_bbox[0]
+            price_height = price_bbox[3] - price_bbox[1]
+            if self.size or self.color:
+                price_y = current_y + 12
+            else:
+                price_y = barcode_num_y + 25
+
+            if price_y + price_height > label_height - 3:
+                price_y = label_height - price_height - 3
+
+            price_x = (label_width - price_width) // 2
+            draw_thermal_text(draw, (price_x, price_y), price_text, font_price, extra_bold=True)
+
+            # Save the final image
+            final_buffer = BytesIO()
+            final_img.save(final_buffer, format='PNG', optimize=True, dpi=(300, 300))
+            filename = f'{self.brand}_{formatted_barcode}.png'
+
+            # Only update if the barcode has changed
+            if not self.barcode_image or not self.barcode_image.name.endswith(filename):
+                self.barcode_image.save(filename, ContentFile(final_buffer.getvalue()), save=False)
+
+            self.barcode_number = formatted_barcode
+
+        except Exception as e:
+            logger.error(f"Error generating barcode for product {self.id}: {e}")
+
+    def save(self, *args, **kwargs):
+        self.selling_price = self.calculate_selling_price()
+
+        is_new = self.pk is None
+        if not is_new:
+            original = Product.objects.get(pk=self.pk)
+        else:
+            original = None
+
+        super().save(*args, **kwargs)
+
+        critical_fields = ['brand', 'size', 'color', 'selling_price', 'design', 'category', 'barcode_number']
+        should_regenerate = is_new
+
+        if not is_new and original:
+            for field in critical_fields:
+                old_val = getattr(original, field, None)
+                new_val = getattr(self, field, None)
+                if old_val != new_val:
+                    should_regenerate = True
+                    break
+
+        if should_regenerate:
+            self.generate_barcode()
+            super().save(update_fields=['barcode_image', 'barcode_number'])
+
+
+class ProductHistory(models.Model):
+    ACTION_CHOICES = [
+        ('EDIT', 'Edit'),
+        ('DELETE', 'Delete'),
+    ]
+
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    action = models.CharField(max_length=10, choices=ACTION_CHOICES)
+
+    reason = models.TextField()
+    quantity_changed = models.IntegerField(null=True, blank=True)  # Track quantity change
+    date = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.product.brand} - {self.get_action_display()} by {self.user.username} on {self.date}"
+
+
+class LocationTransfer(models.Model):
+    TRANSFER_STATUS_CHOICES = [
+        ('PENDING', 'Pending'),
+        ('IN_TRANSIT', 'In Transit'),
+        ('RECEIVED', 'Received'),
+        ('CANCELLED', 'Cancelled'),
+    ]
+
+    transfer_reference = models.CharField(max_length=50, unique=True)
+    from_location = models.CharField(max_length=10, choices=Product.LOCATION_CHOICES)
+    to_location = models.CharField(max_length=10, choices=Product.LOCATION_CHOICES)
+    transfer_date = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=20, choices=TRANSFER_STATUS_CHOICES, default='PENDING')
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    notes = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.transfer_reference} - {self.from_location} to {self.to_location}"
+
+    @classmethod
+    def generate_transfer_reference(cls, from_location, to_location):
+        count = cls.objects.count() + 1
+        now = datetime.now()
+        return f'TR-{from_location[:2]}{to_location[:2]}-{count:04d}-{now.strftime("%m%y")}'
+
+
+class TransferItem(models.Model):
+    transfer = models.ForeignKey(LocationTransfer, on_delete=models.CASCADE, related_name='transfer_items')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.IntegerField()
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+
+    @property
+    def total_price(self):
+        return self.quantity * self.unit_price
+
+    def save(self, *args, **kwargs):
+        # Validate that product is in the source location
+        if self.product.location != self.transfer.from_location:
+            raise ValidationError(f"Product is not available in {self.transfer.from_location}")
+
+        # Check if enough quantity is available
+        if self.quantity > self.product.quantity:
+            raise ValidationError(f"Not enough stock. Available: {self.product.quantity}, Requested: {self.quantity}")
+
+        # Store the unit price from product
+        if not self.unit_price:
+            self.unit_price = self.product.price
+
+        super().save(*args, **kwargs)
+
+        # Update product quantity (reduce from source location)
+        self.product.quantity -= self.quantity
+        self.product.save()<!-- templates/transfers/create_transfer.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Create Transfer{% endblock %}
+
+{% block content %}
+<div class="py-4" style="background: linear-gradient(rgba(26, 26, 26, 0.9), rgba(26, 26, 26, 0.9)), url({% static 'img/homepage.jpg' %}); background-size: cover; background-position: center; min-height: 100vh;">
+    <div class="container-fluid px-4">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h2 class="text-white fw-bold"><i class="fas fa-exchange-alt"></i> Create Transfer</h2>
+                <p class="text-white-50 mb-0">From: <strong>{{ from_location }}</strong></p>
+            </div>
+            <a href="{% url 'transfer_list' %}" class="btn btn-outline-light btn-sm">
+                <i class="fas fa-arrow-left"></i> Back
+            </a>
+        </div>
+
+        <div class="row g-3">
+            <!-- Compact Sidebar Filters -->
+            <div class="col-lg-3 col-md-4">
+                <div class="card border-0 shadow-sm" style="background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(8px);">
+                    <div class="card-body p-3">
+                        <h6 class="text-white mb-3"><i class="fas fa-filter"></i> Filters</h6>
+
+                        <form method="GET" action="" class="small">
+                            <!-- Search -->
+                            <div class="mb-2">
+                                <input type="text" name="search" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="Search..." value="{{ current_filters.search|default:'' }}">
+                            </div>
+
+                            <!-- Category -->
+                            <div class="mb-2">
+                                <select name="category" class="form-select form-select-sm bg-dark text-white border-secondary">
+                                    <option value="">All Categories</option>
+                                    {% for cat in categories %}
+                                    <option value="{{ cat }}" {% if current_filters.category == cat %}selected{% endif %}>{{ cat|title }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Size -->
+                            <div class="mb-2">
+                                <select name="size" class="form-select form-select-sm bg-dark text-white border-secondary">
+                                    <option value="">All Sizes</option>
+                                    {% for sz in sizes %}
+                                    <option value="{{ sz }}" {% if current_filters.size == sz %}selected{% endif %}>{{ sz }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Color & Design -->
+                            <div class="row g-1 mb-2">
+                                <div class="col-6">
+                                    <select name="color" class="form-select form-select-sm bg-dark text-white border-secondary">
+                                        <option value="">Color</option>
+                                        {% for clr in colors %}
+                                        <option value="{{ clr }}" {% if current_filters.color == clr %}selected{% endif %}>{{ clr|title }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <select name="design" class="form-select form-select-sm bg-dark text-white border-secondary">
+                                        <option value="">Design</option>
+                                        {% for dsg in designs %}
+                                        <option value="{{ dsg }}" {% if current_filters.design == dsg %}selected{% endif %}>{{ dsg|title }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Quantity Range -->
+                            <div class="row g-1 mb-2">
+                                <div class="col-6">
+                                    <input type="number" name="min_quantity" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="Min Qty" value="{{ current_filters.min_quantity|default:'' }}">
+                                </div>
+                                <div class="col-6">
+                                    <input type="number" name="max_quantity" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="Max Qty" value="{{ current_filters.max_quantity|default:'' }}">
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="d-grid gap-1 mb-2">
+                                <button type="submit" class="btn btn-danger btn-sm">
+                                    <i class="fas fa-filter"></i> Apply
+                                </button>
+                                <a href="{% url 'transfer_create' %}" class="btn btn-outline-light btn-sm">
+                                    <i class="fas fa-undo"></i> Reset
+                                </a>
+                            </div>
+
+                            <!-- Active Filters -->
+                            {% if has_filters %}
+                            <div class="mt-2 pt-2 border-top border-secondary">
+                                <div class="d-flex flex-wrap gap-1">
+                                    {% if current_filters.search %}
+                                    <span class="badge bg-secondary xsmall">S:"{{ current_filters.search }}"</span>
+                                    {% endif %}
+                                    {% if current_filters.category %}
+                                    <span class="badge bg-secondary xsmall">Cat:{{ current_filters.category }}</span>
+                                    {% endif %}
+                                    {% if current_filters.size %}
+                                    <span class="badge bg-secondary xsmall">S:{{ current_filters.size }}</span>
+                                    {% endif %}
+                                    {% if current_filters.color %}
+                                    <span class="badge bg-secondary xsmall">C:{{ current_filters.color }}</span>
+                                    {% endif %}
+                                    {% if current_filters.design %}
+                                    <span class="badge bg-secondary xsmall">D:{{ current_filters.design }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endif %}
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Selection Summary -->
+                <div class="card border-0 shadow-sm mt-3" style="background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(8px);">
+                    <div class="card-body p-3">
+                        <h6 class="text-white mb-2"><i class="fas fa-check-circle"></i> Summary</h6>
+                        <div class="small text-white-50">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Selected:</span>
+                                <strong id="selected-count">0</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Total Qty:</span>
+                                <strong id="total-quantity">0</strong>
+                            </div>
+                        </div>
+                        <hr class="my-2 border-secondary">
+                        <div class="d-grid gap-1">
+                            <button id="quick-select-all" class="btn btn-outline-info btn-sm">Select All</button>
+                            <button id="clear-selection" class="btn btn-outline-danger btn-sm">Clear</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content Area -->
+            <div class="col-lg-9 col-md-8">
+                <!-- Form now wraps both the transfer details AND the product table -->
+                <form method="post" id="transfer-form">
+                    {% csrf_token %}
+
+                    <!-- Compact Transfer Details -->
+                    <div class="card border-0 shadow-sm mb-3" style="background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(8px);">
+                        <div class="card-body p-2">
+                            <div class="row g-2 align-items-center">
+                                <div class="col-md-5">
+                                    <label class="form-label text-white small mb-0">{{ transfer_form.to_location.label }}</label>
+                                    {{ transfer_form.to_location }}
+                                    {% if transfer_form.to_location.errors %}
+                                    <div class="text-danger xsmall">{{ transfer_form.to_location.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label text-white small mb-0">{{ transfer_form.notes.label }}</label>
+                                    {{ transfer_form.notes }}
+                                </div>
+                                <div class="col-md-2 text-end">
+                                    <button type="submit" class="btn btn-success btn-sm w-100 mt-3" id="submit-btn" disabled>
+                                        <i class="fas fa-paper-plane"></i> Create
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Product Table - Now inside the form -->
+                    <div class="card border-0 shadow-sm" style="background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(8px);">
+                        <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center py-2">
+                            <h6 class="text-white mb-0"><i class="fas fa-boxes"></i> Select Products</h6>
+                            <span class="badge bg-light text-dark">{{ products.paginator.count }} items</span>
+                        </div>
+                        <div class="card-body p-0">
+                            {% if products %}
+                            <div class="table-responsive" style="max-height: 70vh; overflow-y: auto;">
+                                <table class="table table-hover table-sm align-middle mb-0">
+                                    <thead class="bg-dark text-white" style="position: sticky; top: 0; z-index: 10;">
+                                        <tr>
+                                            <th style="width: 40px;">
+                                                <input type="checkbox" id="select-all" class="form-check-input">
+                                            </th>
+                                            <th>Brand</th>
+                                            <th>Category</th>
+                                            <th>Size</th>
+                                            <th>Color</th>
+                                            <th>Design</th>
+                                            <th class="text-center">Stock</th>
+                                            <th>Price</th>
+                                            <th style="width: 100px;">Transfer Qty</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for product in products %}
+                                        <tr class="product-row" data-product-id="{{ product.id }}">
+                                            <td>
+                                                <input type="checkbox"
+                                                       class="form-check-input product-checkbox"
+                                                       name="product_{{ product.id }}_selected"
+                                                       data-product-id="{{ product.id }}">
+                                            </td>
+                                            <td><strong class="text-white">{{ product.brand }}</strong></td>
+                                            <td><span class="badge bg-primary">{{ product.get_display_category|default:"-" }}</span></td>
+                                            <td>{{ product.size|default:"-" }}</td>
+                                            <td>
+                                                {% if product.get_display_color %}
+                                                <span class="badge bg-info">{{ product.get_display_color }}</span>
+                                                {% else %}<span class="text-muted">-</span>{% endif %}
+                                            </td>
+                                            <td>{{ product.get_display_design|default:"–" }}</td>
+                                            <td class="text-center">
+                                                <span class="badge {% if product.quantity < 5 %}bg-danger{% elif product.quantity < 20 %}bg-warning{% else %}bg-success{% endif %}">
+                                                    {{ product.quantity }}
+                                                </span>
+                                            </td>
+                                            <td class="text-white">₦{{ product.price|floatformat:2 }}</td>
+                                            <td>
+                                                <input type="number"
+                                                       name="product_{{ product.id }}_quantity"
+                                                       class="form-control form-control-sm bg-dark text-white border-secondary quantity-input"
+                                                       min="1"
+                                                       max="{{ product.quantity }}"
+                                                       value="1"
+                                                       disabled
+                                                       style="width: 80px;">
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Pagination -->
+                            {% if products.has_other_pages %}
+                            <nav class="p-2 border-top border-secondary">
+                                <ul class="pagination pagination-sm justify-content-center mb-0">
+                                    {% if products.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link bg-dark text-white border-secondary" href="?page={{ products.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            Prev
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                    {% for i in products.paginator.page_range %}
+                                    <li class="page-item {% if products.number == i %}active{% endif %}">
+                                        <a class="page-link bg-dark text-white border-secondary" href="?page={{ i }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            {{ i }}
+                                        </a>
+                                    </li>
+                                    {% endfor %}
+                                    {% if products.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link bg-dark text-white border-secondary" href="?page={{ products.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            Next
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                            {% endif %}
+                            {% else %}
+                            <div class="text-center py-4 text-white-50">
+                                <i class="fas fa-box-open fa-2x opacity-50"></i>
+                                <p class="mb-1">No products available in <strong>{{ from_location }}</strong></p>
+                                {% if has_filters %}
+                                <a href="{% url 'transfer_create' %}" class="btn btn-sm btn-outline-light">Clear Filters</a>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Compact Styles -->
+<style>
+    :root {
+        --dark-bg: #1e1e1e;
+        --border: #444;
+    }
+
+    .form-control, .form-select {
+        background-color: var(--dark-bg) !important;
+        color: white !important;
+        border-color: var(--border) !important;
+        font-size: 0.85rem;
+        padding: 0.25rem 0.5rem;
+        height: 32px;
+    }
+
+    .form-control::placeholder {
+        color: #aaa;
+        opacity: 0.7;
+    }
+
+    .table {
+        --bs-table-bg: transparent;
+        --bs-table-striped-bg: rgba(255, 255, 255, 0.02);
+        --bs-table-hover-bg: rgba(255, 255, 255, 0.05);
+        color: #f5f5f5;
+        margin-bottom: 0;
+    }
+
+    .table th, .table td {
+        padding: 0.4rem 0.5rem;
+        border-color: rgba(255, 255, 255, 0.1);
+        font-size: 0.875rem;
+    }
+
+    .table thead th {
+        border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .card {
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .xsmall {
+        font-size: 0.75rem;
+    }
+
+    /* Sticky header in scrollable table */
+    .table-responsive {
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+</style>
+
+<!-- JavaScript (same as before, just optimized) -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const masterCheckbox = document.getElementById('select-all');
+    const checkboxes = document.querySelectorAll('.product-checkbox');
+    const quantityInputs = document.querySelectorAll('.quantity-input');
+    const selectedCount = document.getElementById('selected-count');
+    const totalQuantity = document.getElementById('total-quantity');
+    const submitBtn = document.getElementById('submit-btn');
+    const quickSelectAllBtn = document.getElementById('quick-select-all');
+    const clearSelectionBtn = document.getElementById('clear-selection');
+
+    function updateSummary() {
+        let count = 0;
+        let totalQty = 0;
+        checkboxes.forEach(cb => {
+            if (cb.checked) {
+                const input = document.querySelector(`input[name="product_${cb.dataset.productId}_quantity"]`);
+                totalQty += parseInt(input?.value) || 0;
+                count++;
+            }
+        });
+        selectedCount.textContent = count;
+        totalQuantity.textContent = totalQty;
+        submitBtn.disabled = count === 0;
+    }
+
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', function () {
+            const input = document.querySelector(`input[name="product_${this.dataset.productId}_quantity"]`);
+            if (input) input.disabled = !this.checked;
+            updateSummary();
+        });
+    });
+
+    if (masterCheckbox) {
+        masterCheckbox.addEventListener('change', () => {
+            checkboxes.forEach(cb => {
+                if (cb.checked !== masterCheckbox.checked) {
+                    cb.click();
+                }
+            });
+        });
+    }
+
+    quickSelectAllBtn.addEventListener('click', () => {
+        checkboxes.forEach(cb => !cb.checked && cb.click());
+    });
+
+    clearSelectionBtn.addEventListener('click', () => {
+        checkboxes.forEach(cb => cb.checked && cb.click());
+    });
+
+    quantityInputs.forEach(input => {
+        input.addEventListener('input', updateSummary);
+    });
+
+    // Initial update
+    updateSummary();
+});
+</script>
+
+{% endblock %}

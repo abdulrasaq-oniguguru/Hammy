@@ -1,0 +1,257 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Barcode Lookup{% endblock %}
+
+{% block content %}
+<div class="py-5" style="background: linear-gradient(rgba(26, 26, 26, 0.8), rgba(26, 26, 26, 0.8)), url({% static 'img/homepage.jpg' %}) no-repeat center center fixed; background-size: cover; min-height: 100vh;">
+    <div class="container">
+        <h1 class="text-center mb-5 display-4 fw-bold text-white">🔍 Barcode Lookup</h1>
+
+        <div class="row justify-content-center">
+            <div class="col-lg-10 col-md-12">
+                <div class="card border-0 shadow-lg" style="background: rgba(30, 30, 30, 0.7); backdrop-filter: blur(10px); border-radius: 1rem; overflow: hidden;">
+                    <div class="card-header bg-danger py-4 text-white text-center">
+                        <h2 class="mb-0">
+                            <i class="bi bi-upc-scan me-2"></i> Scan Product Barcode
+                        </h2>
+                    </div>
+                    <div class="card-body p-4 p-lg-5 text-white">
+
+                        <!-- Scan Form -->
+                        <form id="lookup-form" method="GET" action="{% url 'barcode_lookup_page' %}">
+                            <div class="input-group mb-4">
+                                <span class="input-group-text bg-dark text-white border-secondary">
+                                    <i class="bi bi-upc"></i>
+                                </span>
+                                <input type="text"
+                                       name="barcode"
+                                       id="barcode-scan"
+                                       class="form-control form-control-lg bg-dark text-white border-secondary"
+                                       placeholder="Scan or enter barcode (e.g. 13-digit)..."
+                                       value="{{ request.GET.barcode }}"
+                                       autofocus
+                                       autocomplete="off">
+                                <button type="submit" class="btn btn-outline-light">
+                                    <i class="bi bi-search"></i> Lookup
+                                </button>
+                            </div>
+                        </form>
+
+                        <!-- Error Message -->
+                        {% if error %}
+                            <div class="text-center py-5">
+                                <div class="alert alert-danger d-inline-flex align-items-center px-4 py-3"
+                                     style="background: rgba(220, 53, 69, 0.2); border: 1px solid rgba(220, 53, 69, 0.4); border-radius: 0.5rem; max-width: 600px;">
+                                    <i class="bi bi-exclamation-triangle-fill me-2 fs-4"></i>
+                                    <strong class="fs-5">{{ error }}</strong>
+                                </div>
+                            </div>
+                        {% elif product %}
+                            <!-- Product Found Card -->
+                            <div class="text-center mt-4" style="color: #eee;">
+                                <!-- Success Header -->
+                                <div class="d-flex align-items-center justify-content-center mb-4">
+                                    <i class="bi bi-check-circle-fill text-success me-2" style="font-size: 2rem;"></i>
+                                    <h3 class="mb-0 text-success fw-bold">✅ Product Found!</h3>
+                                </div>
+
+                                <!-- Product Image -->
+                                <div class="d-flex justify-content-center mb-4">
+                                    {% if product.image %}
+                                        <img src="{{ product.image.url }}"
+                                             alt="{{ product.brand }}"
+                                             class="img-fluid rounded shadow-lg product-image"
+                                             style="max-width: 600px; width: 100%; max-height: 500px; object-fit: contain; border: 3px solid #c8003e;">
+                                    {% else %}
+                                        <div class="no-image-placeholder d-flex flex-column align-items-center justify-content-center rounded"
+                                             style="width: 600px; height: 500px; max-width: 100%; background: rgba(60, 60, 60, 0.6); border: 3px dashed #888; color: #aaa;">
+                                            <i class="bi bi-image" style="font-size: 6rem;"></i>
+                                            <span class="mt-3 fw-bold">No Image Available</span>
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Product Details (Large, Clear Text) -->
+                                <div class="px-3" style="font-size: 1.25rem; line-height: 2;">
+                                    <p class="mb-2"><strong>Brand:</strong> <span class="text-white">{{ product.brand }}</span></p>
+
+                                    <!-- FIXED: Changed from get_color_display to get_display_color -->
+                                    <p class="mb-2">
+                                        <strong>Color:</strong>
+                                        {% if product.get_display_color %}
+                                            <span class="badge bg-info text-dark fs-5 px-3 py-2">{{ product.get_display_color }}</span>
+                                        {% elif data.color_display %}
+                                            <span class="badge bg-info text-dark fs-5 px-3 py-2">{{ data.color_display }}</span>
+                                        {% else %}
+                                            <span class="text-muted">N/A</span>
+                                        {% endif %}
+                                    </p>
+
+                                    <p class="mb-2">
+                                        <strong>Size:</strong>
+                                        <span class="badge bg-warning text-dark fs-5 px-3 py-2">{{ product.size }}</span>
+                                    </p>
+
+                                    <!-- FIXED: Changed from get_category_display to get_display_category -->
+                                    <p class="mb-2">
+                                        <strong>Category:</strong>
+                                        <span class="text-white">
+                                            {{ product.get_display_category|default:data.category_display|default:"N/A" }}
+                                        </span>
+                                    </p>
+
+                                    <!-- FIXED: Changed from get_shop_display to get_shop_display (this one was correct) -->
+                                    <p class="mb-2">
+                                        <strong>Shop:</strong>
+                                        <span class="text-white">
+                                            {{ product.get_shop_display|default:data.shop_display|default:"N/A" }}
+                                        </span>
+                                    </p>
+
+                                    <!-- FIXED: Changed from get_design_display to get_display_design -->
+                                    <p class="mb-2">
+                                        <strong>Design:</strong>
+                                        {% if product.design %}
+                                            <span class="badge bg-primary fs-5 px-3 py-2">
+                                                {{ product.get_display_design|default:data.design_display|default:product.design }}
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">N/A</span>
+                                        {% endif %}
+                                    </p>
+
+                                    <p class="mb-2">
+                                        <strong>Price:</strong>
+                                        <span class="text-success fw-bold fs-4">₦{{ product.selling_price|floatformat:2 }}</span>
+                                    </p>
+                                    <p class="mb-0">
+                                        <strong>Stock:</strong>
+                                        {% if product.quantity > 10 %}
+                                            <span class="badge bg-success fs-5 px-3 py-2">{{ product.quantity }}</span>
+                                        {% elif product.quantity > 0 %}
+                                            <span class="badge bg-warning text-dark fs-5 px-3 py-2">{{ product.quantity }}</span>
+                                        {% else %}
+                                            <span class="badge bg-danger fs-5 px-3 py-2">Out of Stock</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                        {% else %}
+                            <!-- Default Message -->
+                            <div class="text-center mt-5 py-5" style="color: #aaa;">
+                                <i class="bi bi-upc-scan" style="font-size: 5rem; opacity: 0.5;"></i>
+                                <h4 class="mt-3 fw-light">Scan a Barcode to Lookup Product</h4>
+                                <p class="lead text-muted">Use a USB barcode scanner or type manually.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Larger, clearer fonts for visibility */
+    .card-body {
+        font-size: 1.2rem;
+    }
+
+    .form-control-lg {
+        font-size: 1.3rem;
+        padding: 0.75rem 1rem;
+    }
+
+    .input-group-text {
+        font-size: 1.3rem;
+    }
+
+    .btn {
+        font-size: 1.1rem;
+        padding: 0.75rem 1.25rem;
+    }
+
+    .product-image,
+    .no-image-placeholder {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+    }
+
+    .product-image:hover {
+        transform: scale(1.02);
+        box-shadow: 0 14px 28px rgba(0, 0, 0, 0.5);
+    }
+
+    @media (max-width: 768px) {
+        .product-image,
+        .no-image-placeholder {
+            max-width: 400px !important;
+            max-height: 400px !important;
+            width: 400px;
+            height: 400px;
+        }
+        .card-body {
+            font-size: 1.1rem;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .product-image,
+        .no-image-placeholder {
+            max-width: 300px !important;
+            max-height: 300px !important;
+            width: 300px;
+            height: 300px;
+        }
+        .form-control-lg, .input-group-text, .btn {
+            font-size: 1.1rem;
+        }
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const barcodeInput = document.getElementById('barcode-scan');
+
+        if (barcodeInput) {
+            barcodeInput.focus();
+
+            // Auto-submit after 13-digit scan
+            barcodeInput.addEventListener('input', function () {
+                const barcode = barcodeInput.value.trim();
+                if (barcode.length === 13 && /^\d+₦/.test(barcode)) {
+                    setTimeout(() => {
+                        document.getElementById('lookup-form').submit();
+                    }, 150);
+                }
+            });
+
+            // Manual submit on Enter
+            barcodeInput.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    document.getElementById('lookup-form').submit();
+                }
+            });
+        }
+
+        // Smooth fade-in animation for product result
+        const resultCard = document.querySelector('.text-center[style*="color"]');
+        if (resultCard) {
+            resultCard.style.opacity = '0';
+            resultCard.style.transform = 'translateY(10px)';
+            resultCard.style.transition = 'all 0.4s ease';
+            setTimeout(() => {
+                resultCard.style.opacity = '1';
+                resultCard.style.transform = 'translateY(0)';
+            }, 100);
+        }
+    });
+</script>
+
+{% endblock %}
+
+{% block extra_css %}
+<!-- Bootstrap Icons -->
+<link href="{% static 'css/bootstrap-icons.css' %}" rel="stylesheet">
+{% endblock %}

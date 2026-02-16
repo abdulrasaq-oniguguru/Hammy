@@ -1,0 +1,175 @@
+@echo off
+REM ════════════════════════════════════════════════════════════════
+REM SERVICE STATUS CHECKER - Batch File Version
+REM Checks if all Django services are running properly:
+REM - Django Server (port 8080)
+REM - Celery Worker
+REM - Celery Beat
+REM - Redis Server
+REM ════════════════════════════════════════════════════════════════
+
+setlocal enabledelayedexpansion
+color 0B
+
+REM Set paths
+set "PROJECT_DIR=C:\III"
+set "DJANGO_DIR=%PROJECT_DIR%\mystore"
+set "PYTHON_EXE=%PROJECT_DIR%\.venv\Scripts\python.exe"
+set "LOG_DIR=%DJANGO_DIR%\logs"
+
+REM Initialize status
+set "ALL_GOOD=1"
+
+echo.
+echo ════════════════════════════════════════════════════════
+echo         SERVICE STATUS CHECKER
+echo         %date% %time%
+echo ════════════════════════════════════════════════════════
+echo.
+
+REM ═══════════════════════════════════════════════════════════════════
+REM Check 1: Python Processes
+REM ═══════════════════════════════════════════════════════════════════
+echo [1/5] Checking Python processes...
+
+tasklist /FI "IMAGENAME eq python.exe" 2>NUL | find /I /N "python.exe">NUL
+if "%ERRORLEVEL%"=="0" (
+    for /f %%A in ('tasklist /FI "IMAGENAME eq python.exe" ^| find /C "python.exe"') do set "PYTHON_COUNT=%%A"
+    if !PYTHON_COUNT! GEQ 3 (
+        echo    [OK] Python Processes: !PYTHON_COUNT! running ^(Expected: 3+^)
+    ) else (
+        echo    [!!] Python Processes: !PYTHON_COUNT! running ^(Expected: 3^)
+        echo        Missing: Django/Celery Worker/Celery Beat
+        set "ALL_GOOD=0"
+    )
+) else (
+    echo    [!!] Python Processes: 0 running ^(Expected: 3^)
+    echo        No Python processes detected!
+    set "ALL_GOOD=0"
+)
+echo.
+
+REM ═══════════════════════════════════════════════════════════════════
+REM Check 2: Redis Server
+REM ═══════════════════════════════════════════════════════════════════
+echo [2/5] Checking Redis server...
+
+redis-cli ping >NUL 2>&1
+if "%ERRORLEVEL%"=="0" (
+    echo    [OK] Redis Server: Running
+) else (
+    echo    [!!] Redis Server: Not detected
+    echo        Celery requires Redis to function!
+    set "ALL_GOOD=0"
+)
+echo.
+
+REM ═══════════════════════════════════════════════════════════════════
+REM Check 3: Django Server (Port 8080)
+REM ═══════════════════════════════════════════════════════════════════
+echo [3/5] Checking Django server on port 8080...
+
+powershell -Command "Test-NetConnection -ComputerName 127.0.0.1 -Port 8080 -WarningAction SilentlyContinue -InformationLevel Quiet" >NUL 2>&1
+if "%ERRORLEVEL%"=="0" (
+    echo    [OK] Django Server ^(0.0.0.0:8080^): Responding
+) else (
+    echo    [!!] Django Server ^(0.0.0.0:8080^): Not responding
+    echo        Cannot connect to port 8080
+    set "ALL_GOOD=0"
+)
+echo.
+
+REM ═══════════════════════════════════════════════════════════════════
+REM Check 4: Log Files
+REM ═══════════════════════════════════════════════════════════════════
+echo [4/5] Checking log files...
+
+if exist "%LOG_DIR%\service_startup.log" (
+    findstr /C:"ALL SERVICES STARTED SUCCESSFULLY" "%LOG_DIR%\service_startup.log" >NUL 2>&1
+    if "%ERRORLEVEL%"=="0" (
+        echo    [OK] Startup Log: Found ^(Services started successfully^)
+    ) else (
+        echo    [!!] Startup Log: Found ^(Check for errors^)
+    )
+) else (
+    echo    [!!] Startup Log: Not found
+    set "ALL_GOOD=0"
+)
+
+if exist "%LOG_DIR%\celery_worker.log" (
+    echo    [OK] Celery Worker Log: Found
+) else (
+    echo    [!!] Celery Worker Log: Not found
+)
+
+if exist "%LOG_DIR%\celery_beat.log" (
+    echo    [OK] Celery Beat Log: Found
+) else (
+    echo    [!!] Celery Beat Log: Not found
+)
+echo.
+
+REM ═══════════════════════════════════════════════════════════════════
+REM Check 5: Detailed Process Information
+REM ═══════════════════════════════════════════════════════════════════
+echo [5/5] Checking individual service processes...
+
+REM Check Django Server
+wmic process where "name='python.exe'" get commandline 2>NUL | findstr /C:"manage.py runserver" >NUL 2>&1
+if "%ERRORLEVEL%"=="0" (
+    echo    [OK] Django Server: Running
+) else (
+    echo    [!!] Django Server: Process not found
+    set "ALL_GOOD=0"
+)
+
+REM Check Celery Worker
+wmic process where "name='python.exe'" get commandline 2>NUL | findstr /C:"celery" | findstr /C:"worker" >NUL 2>&1
+if "%ERRORLEVEL%"=="0" (
+    echo    [OK] Celery Worker: Running
+) else (
+    echo    [!!] Celery Worker: Process not found
+    set "ALL_GOOD=0"
+)
+
+REM Check Celery Beat
+wmic process where "name='python.exe'" get commandline 2>NUL | findstr /C:"celery" | findstr /C:"beat" >NUL 2>&1
+if "%ERRORLEVEL%"=="0" (
+    echo    [OK] Celery Beat: Running
+) else (
+    echo    [!!] Celery Beat: Process not found
+    set "ALL_GOOD=0"
+)
+echo.
+
+REM ═══════════════════════════════════════════════════════════════════
+REM Final Summary
+REM ═══════════════════════════════════════════════════════════════════
+echo ════════════════════════════════════════════════════════
+
+if "%ALL_GOOD%"=="1" (
+    color 0A
+    echo.
+    echo    ✓✓✓ ALL SERVICES RUNNING NORMALLY ✓✓✓
+    echo.
+    echo    Your Django application is ready to use!
+    echo    Access it at: http://localhost:8080
+    echo.
+) else (
+    color 0C
+    echo.
+    echo    !!! SOME SERVICES HAVE ISSUES !!!
+    echo.
+    echo    Action needed:
+    echo    1. Check the log files in %LOG_DIR%
+    echo    2. Run start_services.vbs to restart services
+    echo    3. If Redis is missing, start it manually
+    echo.
+)
+
+echo ════════════════════════════════════════════════════════
+echo.
+echo Log Directory: %LOG_DIR%
+echo.
+echo Press any key to exit...
+pause >NUL

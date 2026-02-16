@@ -1,0 +1,89 @@
+=================================================================
+GIFT & PARTIAL PAYMENT FEATURES - IMPLEMENTATION COMPLETE
+=================================================================
+
+✅ GIFT FEATURE (Admin Only)
+------------------------------
+Location: http://127.0.0.1:8000/sales/
+
+How it works:
+1. When adding products in POS, admins see a GIFT icon (🎁) button next to each item
+2. Click the gift icon to expand gift options
+3. Check "GIFT THIS ITEM" checkbox
+4. Enter gift reason (required)
+5. Item total becomes ₦0.00 (GIFT)
+6. Original price is saved for reporting
+7. Gift items are excluded from sale total
+
+Backend Changes:
+- views.py: Lines 2132-2168 (gift processing in sell_product)
+- Template: Gift button and options added to each product row
+- JavaScript: Gift toggle and calculation logic
+
+Reports:
+- View all gifts: http://127.0.0.1:8000/reports/gift/
+
+✅ PARTIAL PAYMENT FEATURE
+------------------------------
+Location: http://127.0.0.1:8000/sales/
+
+How it works:
+1. After adding products and payment methods, check "Allow Partial Payment"
+2. Enter amount customer is paying now (default suggests 50%)
+3. See balance remaining automatically calculated
+4. Complete the sale
+5. Receipt status = "Partially Paid"
+6. Receipt appears in Outstanding Balances dashboard
+7. Customer can make additional payments later
+
+Backend Changes:
+- views.py: Lines 2280-2318 (partial payment processing)
+- Template: Partial payment section added after payment methods
+- JavaScript: Balance calculation and payment method sync
+
+Outstanding Balances:
+- View all: http://127.0.0.1:8000/customer-debt/
+- Add payment: http://127.0.0.1:8000/receipts/<receipt_id>/add-payment/
+
+=================================================================
+TESTING CHECKLIST
+=================================================================
+
+GIFT FEATURE:
+[ ] Login as admin/superuser
+[ ] Go to POS: http://127.0.0.1:8000/sales/
+[ ] Add a product
+[ ] Click gift icon (🎁) on the product row
+[ ] Check "GIFT THIS ITEM"
+[ ] Enter gift reason
+[ ] Verify item shows "₦0.00 (GIFT)"
+[ ] Verify grand total excludes gift item
+[ ] Complete sale
+[ ] Check gift report: http://127.0.0.1:8000/reports/gift/
+
+PARTIAL PAYMENT:
+[ ] Go to POS: http://127.0.0.1:8000/sales/
+[ ] Add products
+[ ] Select payment method
+[ ] Check "Allow Partial Payment"
+[ ] Enter partial amount (e.g., 5000 of 10000 total)
+[ ] Verify balance remaining shows correctly
+[ ] Complete sale
+[ ] Check receipt shows "Partially Paid" status
+[ ] Go to Outstanding Balances: http://127.0.0.1:8000/customer-debt/
+[ ] Verify receipt appears in list
+[ ] Click on receipt to add more payment
+
+=================================================================
+FILES MODIFIED
+=================================================================
+1. mystore/store/templates/sales/sell_product.html
+   - Added gift button and options for each product row
+   - Added partial payment section
+   - Added JavaScript for gift and partial payment handling
+
+2. mystore/store/views.py - sell_product() function
+   - Added gift item processing (lines ~2132-2168)
+   - Added partial payment processing (lines ~2280-2318)
+
+=================================================================

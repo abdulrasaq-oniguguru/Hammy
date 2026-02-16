@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Delivery Report{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-lg border-0" style="border-radius: 20px;">
+                <div class="card-header text-white text-center" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px 20px 0 0; padding: 2rem;">
+                    <h2 class="mb-0"><i class="bi bi-truck me-2"></i>Delivery Report</h2>
+                </div>
+                <div class="card-body p-4">
+                    <!-- Filters -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <form method="GET" class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Start Date</label>
+                                    <input type="date" name="start_date" class="form-control" value="{{ start_date }}">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">End Date</label>
+                                    <input type="date" name="end_date" class="form-control" value="{{ end_date }}">
+                                </div>
+                                <div class="col-md-4 d-flex align-items-end">
+                                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-funnel me-2"></i>Filter</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Summary Cards -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="card bg-primary text-white h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">Total Delivery Fees</h6>
+                                    <h3 class="mb-0">₦{{ total_delivery_fees|floatformat:2 }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-info text-white h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">Total Deliveries</h6>
+                                    <h3 class="mb-0">{{ total_deliveries }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-success text-white h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">Average Delivery Fee</h6>
+                                    <h3 class="mb-0">₦{{ avg_delivery_fee|floatformat:2 }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Table -->
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Receipt</th>
+                                    <th>Customer</th>
+                                    <th>Items</th>
+                                    <th>Subtotal</th>
+                                    <th>Delivery Fee</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for receipt in receipts %}
+                                    <tr>
+                                        <td>{{ receipt.date|date:"M d, Y H:i" }}</td>
+                                        <td>
+                                            <a href="{% url 'receipt_detail' receipt.pk %}" class="text-decoration-none">
+                                                #{{ receipt.receipt_number }}
+                                            </a>
+                                        </td>
+                                        <td>
+                                            {% if receipt.customer %}
+                                                {{ receipt.customer.name }}
+                                            {% else %}
+                                                <span class="text-muted">Walk-in</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% for sale in receipt.sales.all %}
+                                                {{ sale.product.brand }}{% if not forloop.last %}, {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td>₦{{ receipt.subtotal|floatformat:2 }}</td>
+                                        <td class="fw-bold text-primary">₦{{ receipt.delivery_cost|floatformat:2 }}</td>
+                                        <td class="fw-bold">₦{{ receipt.total_with_delivery|floatformat:2 }}</td>
+                                    </tr>
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="7" class="text-center text-muted py-4">
+                                            <i class="bi bi-inbox fs-1"></i>
+                                            <p class="mt-2">No deliveries found for the selected period</p>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Back Button -->
+                    <div class="text-center mt-4">
+                        <a href="{% url 'reports_menu' %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left me-2"></i>Back to Reports
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

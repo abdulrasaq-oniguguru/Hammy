@@ -1,0 +1,492 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Delivered Items{% endblock %}
+
+{% block content %}
+<style>
+    /* Use the same theme variables from base.html */
+    :root[data-theme="light"] .delivered-items-page {
+        --page-bg: var(--bg-primary);
+        --card-bg: var(--bg-secondary);
+        --input-bg: var(--bg-secondary);
+        --text-color: var(--text-primary);
+        --text-muted: var(--text-secondary);
+        --border: var(--border-color);
+        --accent: var(--accent-primary);
+        --shadow: var(--shadow-md);
+        --hover-bg: var(--card-hover-bg);
+    }
+
+    :root[data-theme="dark"] .delivered-items-page {
+        --page-bg: var(--bg-primary);
+        --card-bg: var(--bg-secondary);
+        --input-bg: var(--bg-tertiary);
+        --text-color: var(--text-primary);
+        --text-muted: var(--text-secondary);
+        --border: var(--border-color);
+        --accent: var(--accent-primary);
+        --shadow: var(--shadow-md);
+        --hover-bg: var(--card-hover-bg);
+    }
+
+    .delivered-items-page {
+        background: var(--page-bg);
+        min-height: 100vh;
+        padding: 3rem 0;
+    }
+
+    .page-header {
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+
+    .page-header h1 {
+        color: var(--text-color);
+        font-weight: 700;
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+    }
+
+    .page-header i {
+        color: var(--accent);
+        font-size: 2.5rem;
+    }
+
+    .filter-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow);
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+        color: var(--text-muted);
+        font-size: 1rem;
+        margin-bottom: 0.75rem;
+        font-weight: 600;
+        display: block;
+    }
+
+    .form-control,
+    .form-select {
+        background: var(--input-bg) !important;
+        color: var(--text-color) !important;
+        border: 2px solid var(--border) !important;
+        border-radius: 12px;
+        height: 58px;
+        padding: 1rem 1.25rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: var(--accent) !important;
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1) !important;
+        outline: none;
+    }
+
+    .form-control::placeholder {
+        color: var(--text-muted);
+        opacity: 0.6;
+    }
+
+    .btn-filter {
+        background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 1rem 2rem;
+        font-weight: 700;
+        font-size: 1rem;
+        height: 58px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .btn-filter:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-clear {
+        background: var(--card-bg);
+        color: var(--text-color);
+        border: 2px solid var(--border);
+        border-radius: 12px;
+        padding: 1rem 2rem;
+        font-weight: 700;
+        font-size: 1rem;
+        height: 58px;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+        width: 100%;
+    }
+
+    .btn-clear:hover {
+        background: var(--border);
+        color: var(--text-color);
+        transform: translateY(-2px);
+    }
+
+    .deliveries-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 0;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+    }
+
+    .deliveries-header {
+        background: var(--input-bg);
+        border-bottom: 2px solid var(--border);
+        padding: 1.25rem 1.5rem;
+        display: flex;
+        align-items: center;
+        font-weight: 700;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+    }
+
+    .delivery-row {
+        display: flex;
+        align-items: center;
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid var(--border);
+        transition: all 0.2s;
+        color: var(--text-color);
+    }
+
+    .delivery-row:last-child {
+        border-bottom: none;
+    }
+
+    .delivery-row:hover {
+        background: var(--hover-bg);
+    }
+
+    .delivery-id {
+        color: var(--accent);
+        font-weight: 700;
+        font-size: 1rem;
+    }
+
+    .delivery-customer {
+        color: var(--text-color);
+        font-size: 1rem;
+        font-weight: 600;
+    }
+
+    .delivery-option {
+        color: var(--text-muted);
+        font-size: 0.95rem;
+    }
+
+    .delivery-address {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    .status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 12px;
+        font-size: 0.875rem;
+        font-weight: 700;
+        text-transform: capitalize;
+    }
+
+    .status-pending {
+        background: rgba(245, 158, 11, 0.15);
+        color: #f59e0b;
+    }
+
+    .status-delivered {
+        background: rgba(16, 185, 129, 0.15);
+        color: #10b981;
+    }
+
+    .action-select {
+        height: 42px !important;
+        padding: 0.5rem 0.75rem !important;
+        font-size: 0.9rem !important;
+        border-radius: 8px !important;
+        min-width: 120px;
+    }
+
+    .btn-go {
+        background: linear-gradient(135deg, #d9003f, #c8003e);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.5rem 1.25rem;
+        font-size: 0.9rem;
+        font-weight: 700;
+        transition: all 0.2s;
+        height: 42px;
+    }
+
+    .btn-go:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(217, 0, 63, 0.4);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: var(--bg-tertiary);
+        border-radius: 16px;
+    }
+
+    .empty-state i {
+        color: var(--text-muted);
+        opacity: 0.4;
+        margin-bottom: 1.5rem;
+        font-size: 4rem;
+    }
+
+    .empty-state p {
+        font-size: 1.5rem;
+        margin-bottom: 0.75rem;
+        color: var(--text-color);
+        font-weight: 600;
+    }
+
+    .empty-state small {
+        color: var(--text-muted);
+        font-size: 1rem;
+    }
+
+    @media (max-width: 768px) {
+        .delivered-items-page {
+            padding: 1.5rem 0;
+        }
+
+        .page-header h1 {
+            font-size: 1.75rem;
+        }
+
+        .filter-card,
+        .deliveries-card {
+            padding: 1.25rem;
+        }
+
+        .form-control,
+        .form-select,
+        .btn-filter,
+        .btn-clear {
+            height: 52px;
+            font-size: 0.95rem;
+        }
+
+        .deliveries-header,
+        .delivery-row {
+            font-size: 0.85rem;
+            padding: 1rem;
+        }
+
+        .delivery-row {
+            flex-wrap: wrap;
+        }
+
+        .delivery-row > div {
+            margin-bottom: 0.5rem;
+        }
+    }
+
+    /* Dark mode specific enhancements */
+    :root[data-theme="dark"] .btn-filter {
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+    }
+
+    :root[data-theme="dark"] .btn-filter:hover {
+        box-shadow: 0 6px 16px rgba(102, 126, 234, 0.3);
+    }
+
+    :root[data-theme="dark"] .form-control:focus,
+    :root[data-theme="dark"] .form-select:focus {
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15) !important;
+    }
+</style>
+
+<div class="delivered-items-page">
+    <div class="container">
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1>
+                <i class="bi bi-truck"></i>
+                Deliveries
+            </h1>
+        </div>
+
+        <!-- Filter Section -->
+        <div class="row justify-content-center">
+            <div class="col-lg-11 col-xl-10">
+                <div class="filter-card">
+                    <form method="GET" action="{% url 'delivered_items' %}">
+                        <div class="row g-4">
+                            <!-- Status Filter -->
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="status-filter" class="form-label">
+                                        <i class="bi bi-funnel me-2"></i>Status
+                                    </label>
+                                    <select id="status-filter" name="status" class="form-select" onchange="this.form.submit()">
+                                        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All</option>
+                                        <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                                        <option value="delivered" {% if status_filter == 'delivered' %}selected{% endif %}>Delivered</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Start Date -->
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="start_date" class="form-label">
+                                        <i class="bi bi-calendar-event me-2"></i>Start Date
+                                    </label>
+                                    <input type="date"
+                                           id="start_date"
+                                           name="start_date"
+                                           class="form-control"
+                                           value="{{ start_date }}">
+                                </div>
+                            </div>
+
+                            <!-- End Date -->
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="end_date" class="form-label">
+                                        <i class="bi bi-calendar-check me-2"></i>End Date
+                                    </label>
+                                    <input type="date"
+                                           id="end_date"
+                                           name="end_date"
+                                           class="form-control"
+                                           value="{{ end_date }}">
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="col-md-6">
+                                <label class="form-label" style="opacity: 0;">Actions</label>
+                                <button type="submit" class="btn-filter">
+                                    <i class="bi bi-funnel-fill"></i>
+                                    Apply Filters
+                                </button>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label" style="opacity: 0;">Actions</label>
+                                <a href="{% url 'delivered_items' %}" class="btn-clear">
+                                    <i class="bi bi-x-circle"></i>
+                                    Clear Filters
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Deliveries Table -->
+        <div class="row justify-content-center">
+            <div class="col-lg-11 col-xl-10">
+                {% if deliveries %}
+                    <div class="deliveries-card">
+                        <!-- Header -->
+                        <div class="deliveries-header">
+                            <div style="width: 8%;">ID</div>
+                            <div style="width: 18%;">Customer</div>
+                            <div style="width: 15%;">Option</div>
+                            <div style="width: 25%;">Address</div>
+                            <div style="width: 14%;">Status</div>
+                            <div style="width: 20%;">Action</div>
+                        </div>
+
+                        <!-- Delivery Rows -->
+                        {% for delivery in deliveries %}
+                        <div class="delivery-row">
+                            <!-- ID -->
+                            <div style="width: 8%;">
+                                <span class="delivery-id">{{ delivery.id }}</span>
+                            </div>
+
+                            <!-- Customer -->
+                            <div style="width: 18%;">
+                                <span class="delivery-customer" title="{{ delivery.customer.name|default:'Not assigned' }}">
+                                    {{ delivery.customer.name|default:"Not assigned"|truncatechars:20 }}
+                                </span>
+                            </div>
+
+                            <!-- Option -->
+                            <div style="width: 15%;">
+                                <span class="delivery-option">
+                                    {{ delivery.delivery_option|title }}
+                                </span>
+                            </div>
+
+                            <!-- Address -->
+                            <div style="width: 25%;">
+                                <span class="delivery-address" title="{{ delivery.delivery_address|default:'–' }}">
+                                    {{ delivery.delivery_address|default:"–"|truncatechars:35 }}
+                                </span>
+                            </div>
+
+                            <!-- Status -->
+                            <div style="width: 14%;">
+                                <span class="status-badge {% if delivery.delivery_status == 'delivered' %}status-delivered{% else %}status-pending{% endif %}">
+                                    {{ delivery.delivery_status }}
+                                </span>
+                            </div>
+
+                            <!-- Action -->
+                            <div style="width: 20%;">
+                                <form method="POST" class="d-flex gap-2 align-items-center">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="delivery_id" value="{{ delivery.id }}">
+                                    <select name="delivery_status" class="form-select action-select">
+                                        <option value="pending" {% if delivery.delivery_status == 'pending' %}selected{% endif %}>Pending</option>
+                                        <option value="delivered" {% if delivery.delivery_status == 'delivered' %}selected{% endif %}>Delivered</option>
+                                    </select>
+                                    <button type="submit" class="btn-go">Go</button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="deliveries-card">
+                        <div class="empty-state">
+                            <i class="bi bi-inbox"></i>
+                            <p>No deliveries found</p>
+                            <small>Try adjusting your filters or check back later</small>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

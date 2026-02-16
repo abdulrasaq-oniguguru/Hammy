@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Add Printer{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3">🖨️ Add New Printer</h1>
+                <a href="{% url 'printer_management' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+            </div>
+
+            <!-- Form Card -->
+            <div class="card shadow">
+                <div class="card-body">
+                    <form method="post" id="printerForm">
+                        {% csrf_token %}
+
+                        <!-- General Information -->
+                        <h5 class="border-bottom pb-2 mb-3">General Information</h5>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.name.id_for_label }}" class="form-label">Printer Name *</label>
+                                {{ form.name }}
+                                {% if form.name.errors %}
+                                    <div class="text-danger small">{{ form.name.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.printer_type.id_for_label }}" class="form-label">Printer Type *</label>
+                                {{ form.printer_type }}
+                                {% if form.printer_type.errors %}
+                                    <div class="text-danger small">{{ form.printer_type.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- System Configuration -->
+                        <h5 class="border-bottom pb-2 mb-3 mt-4">System Configuration</h5>
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <label for="{{ form.system_printer_name.id_for_label }}" class="form-label">System Printer Name *</label>
+                                {{ form.system_printer_name }}
+                                <small class="form-text text-muted">Select from your installed printers</small>
+                                {% if form.system_printer_name.errors %}
+                                    <div class="text-danger small">{{ form.system_printer_name.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Paper Settings -->
+                        <h5 class="border-bottom pb-2 mb-3 mt-4">Paper Settings</h5>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ form.paper_size.id_for_label }}" class="form-label">Paper Size *</label>
+                                {{ form.paper_size }}
+                                {% if form.paper_size.errors %}
+                                    <div class="text-danger small">{{ form.paper_size.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4 mb-3" id="custom-width-field" style="display: none;">
+                                <label for="{{ form.paper_width_mm.id_for_label }}" class="form-label">Width (mm)</label>
+                                {{ form.paper_width_mm }}
+                                {% if form.paper_width_mm.errors %}
+                                    <div class="text-danger small">{{ form.paper_width_mm.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4 mb-3" id="custom-height-field" style="display: none;">
+                                <label for="{{ form.paper_height_mm.id_for_label }}" class="form-label">Height (mm)</label>
+                                {{ form.paper_height_mm }}
+                                {% if form.paper_height_mm.errors %}
+                                    <div class="text-danger small">{{ form.paper_height_mm.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Print Settings -->
+                        <h5 class="border-bottom pb-2 mb-3 mt-4">Print Settings</h5>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.dpi.id_for_label }}" class="form-label">DPI (Dots Per Inch)</label>
+                                {{ form.dpi }}
+                                <small class="form-text text-muted">Typical: 203 (thermal), 300 (laser)</small>
+                                {% if form.dpi.errors %}
+                                    <div class="text-danger small">{{ form.dpi.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.copies.id_for_label }}" class="form-label">Default Copies</label>
+                                {{ form.copies }}
+                                {% if form.copies.errors %}
+                                    <div class="text-danger small">{{ form.copies.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Barcode Settings (shown only for barcode printer) -->
+                        <div id="barcode-settings" style="display: none;">
+                            <h5 class="border-bottom pb-2 mb-3 mt-4">Barcode Label Settings</h5>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.barcode_width.id_for_label }}" class="form-label">Label Width (mm)</label>
+                                    {{ form.barcode_width }}
+                                    {% if form.barcode_width.errors %}
+                                        <div class="text-danger small">{{ form.barcode_width.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.barcode_height.id_for_label }}" class="form-label">Label Height (mm)</label>
+                                    {{ form.barcode_height }}
+                                    {% if form.barcode_height.errors %}
+                                        <div class="text-danger small">{{ form.barcode_height.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Printer Options -->
+                        <h5 class="border-bottom pb-2 mb-3 mt-4">Options</h5>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <div class="form-check">
+                                    {{ form.is_default }}
+                                    <label class="form-check-label" for="{{ form.is_default.id_for_label }}">
+                                        Set as Default
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <div class="form-check">
+                                    {{ form.is_active }}
+                                    <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                        Active
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <div class="form-check">
+                                    {{ form.auto_print }}
+                                    <label class="form-check-label" for="{{ form.auto_print.id_for_label }}">
+                                        Auto Print
+                                    </label>
+                                    <small class="form-text text-muted d-block">Automatically print when generating documents</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="mt-4 d-flex justify-content-between">
+                            <a href="{% url 'printer_management' %}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> Save Printer
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const printerTypeField = document.getElementById('{{ form.printer_type.id_for_label }}');
+    const paperSizeField = document.getElementById('{{ form.paper_size.id_for_label }}');
+    const barcodeSettings = document.getElementById('barcode-settings');
+    const customWidthField = document.getElementById('custom-width-field');
+    const customHeightField = document.getElementById('custom-height-field');
+
+    // Show/hide barcode settings based on printer type
+    function toggleBarcodeSettings() {
+        if (printerTypeField.value === 'barcode') {
+            barcodeSettings.style.display = 'block';
+        } else {
+            barcodeSettings.style.display = 'none';
+        }
+    }
+
+    // Show/hide custom paper size fields
+    function toggleCustomPaperSize() {
+        if (paperSizeField.value === 'custom') {
+            customWidthField.style.display = 'block';
+            customHeightField.style.display = 'block';
+        } else {
+            customWidthField.style.display = 'none';
+            customHeightField.style.display = 'none';
+        }
+    }
+
+    printerTypeField.addEventListener('change', toggleBarcodeSettings);
+    paperSizeField.addEventListener('change', toggleCustomPaperSize);
+
+    // Initial state
+    toggleBarcodeSettings();
+    toggleCustomPaperSize();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,287 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Transfer Products to Warehouse{% endblock %}
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow-sm border-0 rounded-3">
+        <div class="card-header bg-primary text-white py-4 text-center">
+            <h2 class="mb-0">Transfer Products to Warehouse</h2>
+        </div>
+
+        <div class="card-body p-4">
+            <!-- Transfer Form -->
+            <form id="transfer-form" method="POST" action="">
+                {% csrf_token %}
+                {{ formset.management_form }}
+
+                <!-- Barcode Scan Field -->
+                <div class="form-group mb-4">
+                    <label for="barcode-scan" class="form-label fw-bold">Scan Product Barcode</label>
+                    <input type="text"
+                           id="barcode-scan"
+                           class="form-control form-control-lg"
+                           placeholder="Scan barcode here..."
+                           autofocus>
+                    <small class="form-text text-muted">Product will be auto-selected if found.</small>
+                </div>
+
+                <!-- Product Table -->
+                <table class="table table-bordered table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Product</th>
+                            <th>Quantity</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="form-body">
+                        {% for form in formset %}
+                            <tr class="product-row">
+                                <td>
+                                    {{ form.product }}
+                                </td>
+                                <td>
+                                    {{ form.quantity }}
+                                </td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-danger btn-sm remove-product w-100">
+                                        <i class="bi bi-trash me-1"></i>Remove
+                                    </button>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <!-- Add More & Submit -->
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <button type="button" id="add-more-products" class="btn btn-success btn-lg">
+                        <i class="bi bi-plus-circle me-2"></i>Add Another Product
+                    </button>
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="bi bi-arrow-bar-right me-2"></i>Transfer to Warehouse
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+
+<link href="{% static 'css/bootstrap-icons.css' %}" rel="stylesheet" />
+
+<script src="{% static 'js/jquery-3.6.0.min.js' %}"></script>
+
+<link href="{% static 'css/select2.min.css' %}" rel="stylesheet" />
+<script src="{% static 'js/select2.full.min.js' %}"></script>
+
+
+<script>
+₦(document).ready(function () {
+    // Initialize Select2 on existing selects
+    ₦('.product-select').each(function () {
+        ₦(this).select2();
+    });
+
+    // === Add New Row Functionality ===
+    ₦('#add-more-products').on('click', function () {
+        const container = ₦('#form-body');
+        const totalFormsInput = ₦('#id_form-TOTAL_FORMS');
+        let formCount = parseInt(totalFormsInput.val());
+
+        const newRow = `
+            <tr class="product-row">
+                <td>
+                    <select name="form-₦{formCount}-product" class="form-control product-select" style="width: 100%;">
+                        <option value="">Select a product</option>
+                        {% for product in products %}
+                            <option value="{{ product.id }}"
+                                    data-size="{{ product.size }}"
+                                    data-color="{{ product.color }}">
+                                {{ product.brand }} - Size: {{ product.size }} - Color: {{ product.color }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </td>
+                <td>
+                    <input type="number" name="form-₦{formCount}-quantity" class="form-control quantity-input" min="1" value="1">
+                </td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-danger btn-sm remove-product w-100">
+                        <i class="bi bi-trash me-1"></i>Remove
+                    </button>
+                </td>
+            </tr>
+        `;
+        const ₦newRow = ₦(newRow);
+        container.append(₦newRow);
+
+        totalFormsInput.val(formCount + 1);
+        ₦newRow.find('.product-select').select2(); // Init Select2
+        updateFormIndices(); // Reindex rows
+    });
+
+    // === Remove Row ===
+    ₦('#form-body').on('click', '.remove-product', function () {
+        ₦(this).closest('tr').remove();
+        updateFormIndices();
+    });
+
+    // Re-index formset rows
+    function updateFormIndices() {
+        ₦('#form-body tr.product-row').each(function(index) {
+            ₦(this).find('select, input').each(function() {
+                const nameAttr = ₦(this).attr('name');
+                if (nameAttr) {
+                    const newName = nameAttr.replace(/form-\d+/, `form-₦{index}`);
+                    ₦(this).attr('name', newName);
+                }
+            });
+        });
+        ₦('#id_form-TOTAL_FORMS').val(₦('#form-body tr.product-row').length);
+    }
+
+    // === Barcode Scanning Logic ===
+    const barcodeInput = document.getElementById('barcode-scan');
+    if (barcodeInput) {
+        barcodeInput.focus(); // Focus on load
+        barcodeInput.addEventListener('input', function () {
+            const barcode = barcodeInput.value.trim();
+            if (barcode.length !== 13) return;
+
+            fetch(`/lookup-product/?barcode=₦{barcode}&context=transfer_to_warehouse`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.found) {
+                        let targetRow = ₦('.product-row')
+                            .filter(function() {
+                                return ₦(this).find('.product-select').val() === '';
+                            })
+                            .first();
+
+                        if (!targetRow.length) {
+                            const formIdx = ₦('#id_form-TOTAL_FORMS').val();
+                            const fullName = `₦{data.brand} - Size: ₦{data.size} - Color: ₦{data.color}`;
+                            const newRow = `
+                                <tr class="product-row">
+                                    <td>
+                                        <select name="form-₦{formIdx}-product" class="form-control product-select" style="width: 100%;">
+                                            <option value="">Select a product</option>
+                                            <option value="₦{data.id}" selected>₦{fullName}</option>
+                                            {% for product in products %}
+                                                <option value="{{ product.id }}">
+                                                    {{ product.brand }} - Size: {{ product.size }} - Color: {{ product.color }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="number" name="form-₦{formIdx}-quantity" class="form-control" min="1" value="1">
+                                    </td>
+                                    <td class="text-center">
+                                        <button type="button" class="btn btn-danger btn-sm remove-product w-100">
+                                            <i class="bi bi-trash me-1"></i>Remove
+                                        </button>
+                                    </td>
+                                </tr>
+                            `;
+                            ₦('#form-body').append(newRow);
+                            targetRow = ₦('#form-body tr:last');
+                            targetRow.find('.product-select').select2();
+                            ₦('#id_form-TOTAL_FORMS').val(parseInt(formIdx) + 1);
+                        } else {
+                            const productSelect = targetRow.find('.product-select');
+
+                            let option = productSelect.find(`option[value='₦{data.id}']`);
+                            if (option.length === 0) {
+                                const fullName = `₦{data.brand} - Size: ₦{data.size} - Color: ₦{data.color}`;
+                                option = new Option(fullName, data.id, true, true);
+                                productSelect.append(option);
+                            }
+
+                            if (!productSelect.data('select2')) {
+                                productSelect.select2();
+                            }
+
+                            productSelect.val(data.id);
+                            productSelect.trigger('change.select2');
+                        }
+
+                        // Set quantity and focus
+                        targetRow.find('.quantity-input').focus().val(1);
+                        barcodeInput.value = '';
+                    } else {
+                        alert("Product not found in Inventory Please check the Warehouse!");
+                        barcodeInput.value = '';
+                        barcodeInput.focus();
+                    }
+                })
+                .catch(err => {
+                    console.error("Barcode lookup error:", err);
+                    alert("Error looking up product!");
+                    barcodeInput.value = '';
+                    barcodeInput.focus();
+                });
+        });
+    }
+
+    // Ensure all inputs are reindexed before submit
+    ₦('#transfer-form').on('submit', function () {
+        updateFormIndices();
+    });
+});
+</script>
+
+<style>
+    /* Card Styling */
+    .card {
+        border-radius: 1rem;
+    }
+
+    .card-header {
+        font-size: 1.25rem;
+        background-color: #007bff;
+        border-top-left-radius: 1rem;
+        border-top-right-radius: 1rem;
+    }
+
+    input.form-control,
+    select.form-select {
+        padding: 0.5rem 0.75rem;
+        font-size: 1rem;
+    }
+
+    .product-row:hover {
+        transform: scale(1.005);
+        transition: transform 0.2s ease-in-out;
+    }
+
+    .btn i.bi {
+        vertical-align: -0.1em;
+    }
+
+    .btn-remove {
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        padding: 0.375rem 0.75rem;
+        border-radius: 0.5rem;
+    }
+
+    .btn-remove:hover {
+        background-color: #bb2d3b;
+    }
+
+    .bi-trash {
+        color: white;
+    }
+
+    @media (max-width: 768px) {
+        .product-row td:last-child button.remove-product {
+            width: auto;
+        }
+    }
+</style>
+
+{% endblock %}

@@ -1,0 +1,201 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Alerts - OEM Reporting</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #f8f9fc; font-family: 'Nunito', sans-serif; }
+        .navbar { background: linear-gradient(135deg, #e74a3b 0%, #c0392b 100%); }
+        .stat-card { background: white; border-radius: 10px; padding: 1.5rem; box-shadow: 0 0.15rem 1.75rem rgba(58, 59, 69, 0.15); }
+        .stat-value { font-size: 2rem; font-weight: 700; }
+        .table-responsive { background: white; border-radius: 10px; padding: 1.5rem; box-shadow: 0 0.15rem 1.75rem rgba(58, 59, 69, 0.15); margin-bottom: 2rem; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark mb-4">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{% url 'oem_reporting:reports_menu' %}">
+                <i class="fas fa-arrow-left me-2"></i> Back to Reports
+            </a>
+            <span class="text-white"><i class="fas fa-user me-1"></i>{{ request.user.username }}</span>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-4">
+        {% if using_local_data %}
+        <div class="alert alert-info"><i class="fas fa-info-circle me-2"></i>Using local store data (Development mode)</div>
+        {% endif %}
+
+        <div class="row mb-4">
+            <div class="col-12">
+                <h2><i class="fas fa-exclamation-triangle me-2"></i>Stock Alerts</h2>
+                <p class="text-muted">Low stock warnings and critical inventory alerts</p>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <form method="GET" class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Location</label>
+                        <select name="location" class="form-select">
+                            <option value="">All Locations</option>
+                            <option value="ABUJA" {% if location_filter == 'ABUJA' %}selected{% endif %}>Abuja</option>
+                            <option value="LAGOS" {% if location_filter == 'LAGOS' %}selected{% endif %}>Lagos</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Category</label>
+                        <input type="text" name="category" class="form-control" value="{{ category_filter }}" placeholder="Enter category">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Severity</label>
+                        <select name="severity" class="form-select">
+                            <option value="">All Alerts</option>
+                            <option value="critical" {% if severity_filter == 'critical' %}selected{% endif %}>Critical Only</option>
+                            <option value="low" {% if severity_filter == 'low' %}selected{% endif %}>Low Stock</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="submit" class="btn btn-primary w-100"><i class="fas fa-search me-1"></i>Filter</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="stat-value text-danger">{{ critical_count }}</div>
+                    <div class="text-muted">Critical Alerts</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="stat-value text-warning">{{ low_count }}</div>
+                    <div class="text-muted">Low Stock Alerts</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="stat-value text-info">{{ total_alerts }}</div>
+                    <div class="text-muted">Total Alerts</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alerts Table -->
+        <div class="table-responsive">
+            <h5 class="mb-3">Low Stock Items</h5>
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Category</th>
+                        <th>Location</th>
+                        <th>Shop</th>
+                        <th>Quantity</th>
+                        <th>Severity</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for alert in alerts %}
+                    <tr>
+                        <td>{{ alert.brand }}</td>
+                        <td>{{ alert.category }}</td>
+                        <td>{{ alert.location }}</td>
+                        <td>{{ alert.shop }}</td>
+                        <td>
+                            {% if alert.quantity_available < 5 %}
+                            <span class="badge bg-danger">{{ alert.quantity_available }}</span>
+                            {% else %}
+                            <span class="badge bg-warning">{{ alert.quantity_available }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if alert.severity == 'CRITICAL' or alert.quantity_available < 5 %}
+                            <span class="badge bg-danger"><i class="fas fa-exclamation-circle me-1"></i>Critical</span>
+                            {% else %}
+                            <span class="badge bg-warning"><i class="fas fa-exclamation-triangle me-1"></i>Low</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="alert('Restock functionality coming soon')">
+                                <i class="fas fa-plus me-1"></i>Restock
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="text-center text-success"><i class="fas fa-check-circle me-2"></i>No stock alerts - All inventory levels are healthy!</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Category & Location Breakdown -->
+        <div class="row">
+            {% if category_alerts %}
+            <div class="col-md-6">
+                <div class="table-responsive">
+                    <h5 class="mb-3">Alerts by Category</h5>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Total Alerts</th>
+                                <th>Critical</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cat in category_alerts %}
+                            <tr>
+                                <td>{{ cat.category }}</td>
+                                <td>{{ cat.alert_count }}</td>
+                                <td><span class="badge bg-danger">{{ cat.critical }}</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if location_alerts %}
+            <div class="col-md-6">
+                <div class="table-responsive">
+                    <h5 class="mb-3">Alerts by Location</h5>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Location</th>
+                                <th>Total Alerts</th>
+                                <th>Critical</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for loc in location_alerts %}
+                            <tr>
+                                <td>{{ loc.location }}</td>
+                                <td>{{ loc.alert_count }}</td>
+                                <td><span class="badge bg-danger">{{ loc.critical }}</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,304 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Customer Analysis Report{% endblock %}
+{% block content %}
+
+<div class="container-fluid py-4">
+    <div class="row">
+
+        <!-- Left Sidebar: Filters -->
+        <div class="col-lg-2 col-md-3 col-sm-4 mb-4">
+            <div class="card shadow-sm" style="background: #2c2c2d; border: none; border-radius: 12px;">
+                <div class="card-header" style="background: #1f1f1f; color: #e0e0e0; border-bottom: 1px solid #444;">
+                    <h6 class="mb-0">Filters</h6>
+                </div>
+                <div class="card-body p-3" style="color: #e0e0e0;">
+                    <form method="get" class="small">
+                        <!-- Start Date -->
+                        <div class="form-group mb-3">
+                            <label for="start_date" class="form-label text-white-50">Start Date</label>
+                            <input type="date" class="form-control form-control-sm" id="start_date" name="start_date"
+                                   value="{{ start_date|date:'Y-m-d' }}">
+                        </div>
+
+                        <!-- End Date -->
+                        <div class="form-group mb-3">
+                            <label for="end_date" class="form-label text-white-50">End Date</label>
+                            <input type="date" class="form-control form-control-sm" id="end_date" name="end_date"
+                                   value="{{ end_date|date:'Y-m-d' }}">
+                        </div>
+
+                        <!-- Gender -->
+                        <div class="form-group mb-3">
+                            <label for="gender" class="form-label text-white-50">Gender</label>
+                            <select class="form-control form-control-sm" id="gender" name="gender">
+                                <option value="">All Genders</option>
+                                <option value="male" {% if selected_gender == 'male' %}selected{% endif %}>Male</option>
+                                <option value="female" {% if selected_gender == 'female' %}selected{% endif %}>Female</option>
+                            </select>
+                        </div>
+
+                        <!-- Actions -->
+                        <button type="submit" class="btn btn-primary btn-sm w-100 mb-2">Apply</button>
+                        <a href="{% url 'customer_analysis_report' %}" class="btn btn-outline-secondary btn-sm w-100">Clear</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-lg-10 col-md-9 col-sm-8">
+
+            <!-- Title & Export Button -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0 text-white">Customer Analysis Report</h1>
+                <button class="btn btn-success btn-sm" onclick="exportTableToExcel('customerAnalysisTable', 'customer_analysis_report')">
+                    <i class="fas fa-file-excel"></i> Export to Excel
+                </button>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="row mb-4">
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-left-primary shadow h-100 py-2" style="background: #2c2c2d; color: #e0e0e0;">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Customers</div>
+                                    <div class="h5 mb-0 font-weight-bold">{{ total_customers }}</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-users fa-2x text-gray-500"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-left-success shadow h-100 py-2" style="background: #2c2c2d; color: #e0e0e0;">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Frequent Customers</div>
+                                    <div class="h5 mb-0 font-weight-bold">{{ frequent_customers_count }}</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-star fa-2x text-gray-500"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-left-info shadow h-100 py-2" style="background: #2c2c2d; color: #e0e0e0;">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Avg. Customer Value</div>
+                                    <div class="h5 mb-0 font-weight-bold">₦{{ avg_customer_value|floatformat:2 }}</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-dollar-sign fa-2x text-gray-500"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-left-warning shadow h-100 py-2" style="background: #2c2c2d; color: #e0e0e0;">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Top Customer</div>
+                                    <div class="h6 mb-0 font-weight-bold">{{ top_customer.name|default:"N/A" }}</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-crown fa-2x text-gray-500"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="row mb-4">
+                <!-- Gender Chart -->
+                <div class="col-xl-6 mb-4">
+                    <div class="card shadow" style="background: #2c2c2d; border: none; border-radius: 12px;">
+                        <div class="card-header" style="background: #1f1f1f; border-bottom: 1px solid #444;">
+                            <h6 class="m-0 font-weight-bold text-primary">Gender Distribution</h6>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="genderChart" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Customer Value Chart -->
+                <div class="col-xl-6 mb-4">
+                    <div class="card shadow" style="background: #2c2c2d; border: none; border-radius: 12px;">
+                        <div class="card-header" style="background: #1f1f1f; border-bottom: 1px solid #444;">
+                            <h6 class="m-0 font-weight-bold text-primary">Top Customer Values</h6>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="customerValueChart" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Customer Table -->
+            <div class="card shadow mb-4" style="background: #2c2c2d; border: none; border-radius: 12px;">
+                <div class="card-header" style="background: #1f1f1f; border-bottom: 1px solid #444;">
+                    <h6 class="m-0 font-weight-bold text-primary">Customer Analysis Details</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-dark table-bordered table-sm" id="customerAnalysisTable" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Customer</th>
+                                    <th>Gender</th>
+                                    <th>Phone</th>
+                                    <th>Total Purchases</th>
+                                    <th>Total Value</th>
+                                    <th>Avg. Value</th>
+                                    <th>Frequent</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for customer in customers %}
+                                <tr>
+                                    <td>{{ customer.name }}</td>
+                                    <td>{{ customer.sex|title|default:"N/A" }}</td>
+                                    <td>{{ customer.phone_number|default:"N/A" }}</td>
+                                    <td>{{ customer.purchase_count }}</td>
+                                    <td>₦{{ customer.total_purchases|floatformat:2 }}</td>
+                                    <td>₦{{ customer.avg_purchase|floatformat:2 }}</td>
+                                    <td>
+                                        {% if customer.frequent_customer %}
+                                        <span class="badge bg-success">Yes</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">No</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// Gender Doughnut Chart
+var genderChart = new Chart(document.getElementById("genderChart"), {
+    type: 'doughnut',
+    data: {
+        labels: ["Male", "Female", "Not Specified"],
+        datasets: [{
+            data: [{{ male_count }}, {{ female_count }}, {{ unspecified_gender_count }}],
+            backgroundColor: ['#4e73df', '#e74a3b', '#858796'],
+            hoverBackgroundColor: ['#2e59d9', '#c73a2b', '#60616f'],
+            borderWidth: 1
+        }]
+    },
+    options: {
+        maintainAspectRatio: false,
+        responsive: true,
+        plugins: {
+            legend: { position: 'bottom', labels: { color: '#e0e0e0' } },
+            tooltip: {
+                backgroundColor: '#343a40',
+                titleColor: '#ffffff',
+                bodyColor: '#ffffff',
+                borderColor: '#444',
+                borderWidth: 1
+            }
+        },
+        cutout: '70%'
+    }
+});
+
+// Customer Value Bar Chart
+var customerValueChart = new Chart(document.getElementById("customerValueChart"), {
+    type: 'bar',
+    data: {
+        labels: [{% for customer in top_customers %}"{{ customer.name }}"{% if not forloop.last %}, {% endif %}{% endfor %}],
+        datasets: [{
+            label: "Total Value (₦)",
+            backgroundColor: "#1cc88a",
+            borderColor: "#1cc88a",
+            data: [{% for customer in top_customers %}{{ customer.total_purchases }}{% if not forloop.last %}, {% endif %}{% endfor %}],
+        }]
+    },
+    options: {
+        maintainAspectRatio: false,
+        responsive: true,
+        scales: {
+            x: {
+                ticks: { color: '#e0e0e0' },
+                grid: { color: 'rgba(255,255,255,0.1)' }
+            },
+            y: {
+                ticks: {
+                    color: '#e0e0e0',
+                    callback: function(value) {
+                        return '₦' + value.toLocaleString();
+                    }
+                },
+                grid: { color: 'rgba(255,255,255,0.1)' }
+            }
+        },
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: '#343a40',
+                titleColor: '#ffffff',
+                bodyColor: '#ffffff',
+                callbacks: {
+                    label: function(context) {
+                        return '₦' + context.parsed.y.toLocaleString();
+                    }
+                }
+            }
+        }
+    }
+});
+
+// Export Table to Excel
+function exportTableToExcel(tableID, filename = '') {
+    const table = document.getElementById(tableID);
+    const html = table.outerHTML;
+
+    const a = document.createElement("a");
+    a.href = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
+    a.download = filename + '.xls';
+    a.click();
+}
+</script>
+
+<style>
+    .form-label, .form-control, .form-select {
+        font-size: 0.85rem;
+    }
+    .table th, .table td {
+        padding: 0.5rem;
+        font-size: 0.85rem;
+    }
+    .card {
+        border-radius: 12px !important;
+    }
+    .chart-bar, .chart-pie {
+        height: 200px;
+    }
+</style>
+
+{% endblock %}

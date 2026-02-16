@@ -1,0 +1,483 @@
+<!-- user_management/profile.html -->
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}My Profile{% endblock %}
+
+{% block extra_css %}
+<style>
+    .profile-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .profile-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 3rem 2rem;
+        text-align: center;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .profile-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 10px,
+            rgba(255,255,255,0.05) 10px,
+            rgba(255,255,255,0.05) 20px
+        );
+        animation: move 20s linear infinite;
+    }
+
+    @keyframes move {
+        0% { transform: translate(-50%, -50%) rotate(0deg); }
+        100% { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+
+    .profile-avatar {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1rem auto;
+        border: 4px solid rgba(255,255,255,0.3);
+        backdrop-filter: blur(10px);
+        position: relative;
+        z-index: 1;
+    }
+
+    .info-card {
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border: none;
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+    }
+
+    .info-card-header {
+        background: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        padding: 1rem 1.5rem;
+        font-weight: 600;
+    }
+
+    .info-item {
+        padding: 1rem 0;
+        border-bottom: 1px solid #f1f3f4;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .info-item:last-child {
+        border-bottom: none;
+    }
+
+    .info-label {
+        font-weight: 600;
+        color: #495057;
+        display: flex;
+        align-items: center;
+    }
+
+    .info-value {
+        color: #6c757d;
+        font-weight: 500;
+    }
+
+    .access-badge {
+        font-size: 0.8rem;
+        padding: 0.4rem 0.8rem;
+        border-radius: 20px;
+        font-weight: 600;
+    }
+
+    .access-md { background: linear-gradient(45deg, #dc3545, #c82333); color: white; }
+    .access-accountant { background: linear-gradient(45deg, #28a745, #20c997); color: white; }
+    .access-cashier { background: linear-gradient(45deg, #007bff, #0056b3); color: white; }
+
+    .permissions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    .permission-card {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1rem;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+
+    .permission-card.active {
+        background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
+        border: 2px solid #2196f3;
+    }
+
+    .permission-card.inactive {
+        background: #fafafa;
+        border: 2px solid #e0e0e0;
+    }
+
+    .permission-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 0.5rem auto;
+        font-size: 1.2rem;
+    }
+
+    .permission-icon.active {
+        background: linear-gradient(135deg, #2196f3, #21cbf3);
+        color: white;
+    }
+
+    .permission-icon.inactive {
+        background: #e0e0e0;
+        color: #9e9e9e;
+    }
+
+    .stats-row {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        padding: 2rem;
+        color: white;
+        margin-bottom: 2rem;
+    }
+
+    .stat-item {
+        text-align: center;
+    }
+
+    .stat-number {
+        font-size: 2rem;
+        font-weight: bold;
+        display: block;
+    }
+
+    .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <div class="profile-container">
+        <!-- Profile Header -->
+        <div class="profile-header">
+            <div class="profile-avatar">
+                <i class="fas fa-user fa-3x text-white"></i>
+            </div>
+            <h1 class="mb-2" style="position: relative; z-index: 1;">{{ user.first_name }} {{ user.last_name }}</h1>
+            <p class="mb-3" style="position: relative; z-index: 1;">@{{ user.username }}</p>
+            <span class="access-badge access-{{ profile.access_level }}" style="position: relative; z-index: 1;">
+                {{ profile.get_access_level_display }}
+            </span>
+        </div>
+
+        <!-- Stats Row -->
+        <div class="stats-row">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="stat-item">
+                        <span class="stat-number">{{ user.date_joined|timesince }}</span>
+                        <span class="stat-label">Member Since</span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-item">
+                        <span class="stat-number">{% if user.last_login %}{{ user.last_login|timesince }}{% else %}Never{% endif %}</span>
+                        <span class="stat-label">Last Login</span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-item">
+                        <span class="stat-number">{% if user.is_active %}Active{% else %}Inactive{% endif %}</span>
+                        <span class="stat-label">Account Status</span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-item">
+                        <span class="stat-number">{% if profile.is_active_staff %}Yes{% else %}No{% endif %}</span>
+                        <span class="stat-label">Staff Member</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loyalty Points Card (if user is also a customer) -->
+        {% if loyalty_info and loyalty_info.has_account %}
+        <div class="card info-card mb-4" style="border: 2px solid #667eea;">
+            <div class="info-card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+                <i class="fas fa-star mr-2"></i>Loyalty Rewards Program
+            </div>
+            <div class="card-body">
+                <div class="row text-center mb-3">
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded">
+                            <i class="fas fa-coins text-warning" style="font-size: 2rem;"></i>
+                            <h3 class="mb-0 mt-2 text-primary">{{ loyalty_info.current_balance }}</h3>
+                            <small class="text-muted">Current Points</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded">
+                            <i class="fas fa-money-bill-wave text-success" style="font-size: 2rem;"></i>
+                            <h3 class="mb-0 mt-2 text-success">₦{{ loyalty_info.redeemable_value|floatformat:2 }}</h3>
+                            <small class="text-muted">Redeemable Value</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded">
+                            <i class="fas fa-arrow-up text-info" style="font-size: 2rem;"></i>
+                            <h3 class="mb-0 mt-2 text-info">{{ loyalty_info.total_earned }}</h3>
+                            <small class="text-muted">Total Earned</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded">
+                            <i class="fas fa-arrow-down text-danger" style="font-size: 2rem;"></i>
+                            <h3 class="mb-0 mt-2 text-danger">{{ loyalty_info.total_redeemed }}</h3>
+                            <small class="text-muted">Total Redeemed</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert {% if loyalty_info.can_redeem %}alert-success{% else %}alert-info{% endif %} d-flex align-items-center mb-0">
+                    <i class="fas {% if loyalty_info.can_redeem %}fa-check-circle{% else %}fa-info-circle{% endif %} me-3 fs-4"></i>
+                    <div>
+                        {% if loyalty_info.can_redeem %}
+                            <strong>You can redeem your points!</strong><br>
+                            <small>You have enough points to redeem for discounts on your next purchase.</small>
+                        {% else %}
+                            <strong>Keep earning!</strong><br>
+                            <small>You need more points before you can redeem them for discounts.</small>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if loyalty_info.tier %}
+                <div class="mt-3 text-center">
+                    <span class="badge bg-primary" style="font-size: 1rem; padding: 0.5rem 1rem;">
+                        <i class="fas fa-award me-2"></i>{{ loyalty_info.tier }}
+                    </span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="row">
+            <!-- Personal Information -->
+            <div class="col-md-6">
+                <div class="card info-card">
+                    <div class="info-card-header">
+                        <i class="fas fa-user mr-2"></i>Personal Information
+                    </div>
+                    <div class="card-body">
+                        <div class="info-item">
+                            <span class="info-label">
+                                <i class="fas fa-id-card mr-2 text-primary"></i>Full Name
+                            </span>
+                            <span class="info-value">{{ user.first_name }} {{ user.last_name }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">
+                                <i class="fas fa-at mr-2 text-primary"></i>Username
+                            </span>
+                            <span class="info-value">{{ user.username }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">
+                                <i class="fas fa-envelope mr-2 text-primary"></i>Email
+                            </span>
+                            <span class="info-value">{{ user.email }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">
+                                <i class="fas fa-phone mr-2 text-primary"></i>Phone
+                            </span>
+                            <span class="info-value">
+                                {% if profile.phone_number %}{{ profile.phone_number }}{% else %}Not provided{% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Account Information -->
+            <div class="col-md-6">
+                <div class="card info-card">
+                    <div class="info-card-header">
+                        <i class="fas fa-cog mr-2"></i>Account Information
+                    </div>
+                    <div class="card-body">
+                        <div class="info-item">
+                            <span class="info-label">
+                                <i class="fas fa-shield-alt mr-2 text-success"></i>Access Level
+                            </span>
+                            <span class="access-badge access-{{ profile.access_level }}">
+                                {{ profile.get_access_level_display }}
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">
+                                <i class="fas fa-calendar-plus mr-2 text-info"></i>Join Date
+                            </span>
+                            <span class="info-value">{{ user.date_joined|date:"F d, Y" }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">
+                                <i class="fas fa-clock mr-2 text-warning"></i>Last Login
+                            </span>
+                            <span class="info-value">
+                                {% if user.last_login %}{{ user.last_login|date:"M d, Y - H:i" }}{% else %}Never logged in{% endif %}
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">
+                                <i class="fas fa-user-check mr-2 text-secondary"></i>Created By
+                            </span>
+                            <span class="info-value">
+                                {% if profile.created_by %}{{ profile.created_by.username }}{% else %}System{% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Permissions and Access -->
+        <div class="card info-card">
+            <div class="info-card-header">
+                <i class="fas fa-key mr-2"></i>Permissions & Access Rights
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">
+                    Based on your access level ({{ profile.get_access_level_display }}), you have the following permissions:
+                </p>
+
+                <div class="permissions-grid">
+                    <div class="permission-card {% if profile.can_process_sales %}active{% else %}inactive{% endif %}">
+                        <div class="permission-icon {% if profile.can_process_sales %}active{% else %}inactive{% endif %}">
+                            <i class="fas fa-cash-register"></i>
+                        </div>
+                        <h6 class="mb-1">Sales Processing</h6>
+                        <small class="text-muted">Create and manage sales transactions</small>
+                    </div>
+
+                    <div class="permission-card {% if profile.can_manage_inventory %}active{% else %}inactive{% endif %}">
+                        <div class="permission-icon {% if profile.can_manage_inventory %}active{% else %}inactive{% endif %}">
+                            <i class="fas fa-boxes"></i>
+                        </div>
+                        <h6 class="mb-1">Inventory Management</h6>
+                        <small class="text-muted">Manage products and stock levels</small>
+                    </div>
+
+                    <div class="permission-card {% if profile.can_access_reports %}active{% else %}inactive{% endif %}">
+                        <div class="permission-icon {% if profile.can_access_reports %}active{% else %}inactive{% endif %}">
+                            <i class="fas fa-chart-bar"></i>
+                        </div>
+                        <h6 class="mb-1">Reports & Analytics</h6>
+                        <small class="text-muted">View financial and sales reports</small>
+                    </div>
+
+                    <div class="permission-card {% if profile.can_manage_users %}active{% else %}inactive{% endif %}">
+                        <div class="permission-icon {% if profile.can_manage_users %}active{% else %}inactive{% endif %}">
+                            <i class="fas fa-users-cog"></i>
+                        </div>
+                        <h6 class="mb-1">User Management</h6>
+                        <small class="text-muted">Create and manage user accounts</small>
+                    </div>
+                </div>
+
+                <!-- Access Level Description -->
+                <div class="mt-4 p-3 bg-light rounded">
+                    <h6><i class="fas fa-info-circle mr-2 text-primary"></i>Your Access Level</h6>
+                    <p class="mb-0 small">
+                        {% if profile.access_level == 'md' %}
+                            <strong>Managing Director:</strong> You have full system access including user management, all reports, inventory control, and sales processing. You can create, edit, and delete user accounts and access all system features.
+                        {% elif profile.access_level == 'accountant' %}
+                            <strong>Accountant:</strong> You have access to financial reports, inventory management, and sales data. You can view detailed analytics and manage product inventory but cannot manage user accounts.
+                        {% else %}
+                            <strong>Cashier:</strong> You can process sales transactions, manage customers, and view basic reports. Your access is focused on day-to-day sales operations and customer service.
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="text-center mt-4">
+            {% if profile.can_manage_users %}
+                <a href="{% url 'user_management_dashboard' %}" class="btn btn-primary btn-lg mr-3">
+                    <i class="fas fa-users mr-2"></i>Manage Users
+                </a>
+            {% endif %}
+            <a href="{% url 'reports_dashboard' %}" class="btn btn-outline-primary btn-lg">
+                <i class="fas fa-tachometer-alt mr-2"></i>Go to Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Success/Error Messages -->
+{% if messages %}
+    <div class="position-fixed" style="top: 20px; right: 20px; z-index: 1050;">
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="close" data-dismiss="alert">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+₦(document).ready(function() {
+    // Auto-hide messages after 5 seconds
+    setTimeout(function() {
+        ₦('.alert').fadeOut();
+    }, 5000);
+
+    // Add hover effect to permission cards
+    ₦('.permission-card').hover(
+        function() {
+            ₦(this).css('transform', 'translateY(-5px)');
+        },
+        function() {
+            ₦(this).css('transform', 'translateY(0)');
+        }
+    );
+
+    // Animate stats on load
+    ₦('.stat-number').each(function() {
+        ₦(this).css('opacity', '0').animate({'opacity': '1'}, 1000);
+    });
+});
+</script>
+{% endblock %}

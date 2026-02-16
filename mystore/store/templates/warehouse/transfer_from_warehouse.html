@@ -1,0 +1,282 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Transfer from Warehouse to Product{% endblock %}
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow-sm border-0 rounded-3">
+        <div class="card-header bg-success text-white py-4 text-center">
+            <h2 class="mb-0">Transfer from Warehouse to Product</h2>
+        </div>
+
+        <div class="card-body p-4">
+            <!-- Barcode Scan Field -->
+            <div class="form-group mb-4">
+                <label for="barcode-scan" class="form-label fw-bold">Scan Product Barcode</label>
+                <input type="text"
+                       id="barcode-scan"
+                       class="form-control form-control-lg"
+                       placeholder="Scan barcode here..."
+                       autofocus>
+                <small class="form-text text-muted">Product will be auto-selected if found.</small>
+            </div>
+
+            <!-- Transfer Form -->
+            <form method="POST" id="product-transfer-form">
+                {% csrf_token %}
+                {{ formset.management_form }}
+
+                <table class="table table-bordered table-hover align-middle">
+                    <thead class="table-success">
+                        <tr>
+                            <th>Product</th>
+                            <th>Quantity</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="form-body">
+                        {% for form in formset %}
+                        <tr class="form-row align-items-center">
+                            <td>{{ form.product }}</td>
+                            <td>{{ form.quantity }}</td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-danger btn-sm remove-product w-100">
+                                    <i class="bi bi-trash me-1"></i>Remove
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <button type="button" class="btn btn-success btn-lg" id="add-more-products">
+                        <i class="bi bi-plus-circle me-2"></i>Add Another Product
+                    </button>
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="bi bi-arrow-bar-left me-2"></i>Transfer to Product
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<link href="{% static 'css/bootstrap-icons.css' %}" rel="stylesheet" />
+<script src="{% static 'js/jquery-3.6.0.min.js' %}"></script>
+<link href="{% static 'css/select2.min.css' %}" rel="stylesheet" />
+<script src="{% static 'js/select2.full.min.js' %}"></script>
+
+<script>
+₦(document).ready(function () {
+    // Initialize Select2 on existing selects
+    ₦('.product-select').each(function () {
+        ₦(this).select2();
+    });
+
+    let formIndex = {{ formset.total_form_count }};
+
+    // === Add More Functionality ===
+    ₦('#add-more-products').on('click', function () {
+        const container = ₦('#form-body');
+        const totalFormsInput = ₦('#id_form-TOTAL_FORMS');
+
+        const newRow = `
+            <tr class="form-row align-items-center">
+                <td>
+                    <select name="form-₦{formIndex}-product" class="form-control product-select" style="width: 100%;">
+                        <option value="">Select a product</option>
+                        {% for product in products %}
+                            <option value="{{ product.id }}" data-size="{{ product.size }}" data-color="{{ product.color }}">
+                                {{ product.brand }} - Size: {{ product.size }} - Color: {{ product.color }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </td>
+                <td>
+                    <input type="number" name="form-₦{formIndex}-quantity" class="form-control quantity-input" min="1" value="1">
+                </td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-danger btn-sm remove-product w-100">
+                        <i class="bi bi-trash me-1"></i>Remove
+                    </button>
+                </td>
+            </tr>
+        `;
+        const ₦newRow = ₦(newRow);
+        container.append(₦newRow);
+
+        totalFormsInput.val(formIndex + 1);
+        ₦newRow.find('.product-select').select2(); // Init Select2
+        formIndex++;
+    });
+
+    // === Remove Row ===
+    ₦('#form-body').on('click', '.remove-product', function () {
+        ₦(this).closest('tr').remove();
+        updateFormIndices();
+    });
+
+    function updateFormIndices() {
+        ₦('#form-body tr.form-row').each(function(index) {
+            ₦(this).find('select, input').each(function() {
+                const nameAttr = ₦(this).attr('name');
+                if (nameAttr) {
+                    const newName = nameAttr.replace(/form-\d+/, `form-₦{index}`);
+                    ₦(this).attr('name', newName);
+                }
+            });
+        });
+        ₦('#id_form-TOTAL_FORMS').val(₦('#form-body tr.form-row').length);
+    }
+
+    // === Barcode Scanning Logic ===
+    const barcodeInput = document.getElementById('barcode-scan');
+    if (barcodeInput) {
+        barcodeInput.focus();
+
+        barcodeInput.addEventListener('input', function () {
+            const barcode = barcodeInput.value.trim();
+            if (barcode.length !== 13) return;
+
+            fetch(`/lookup-product/?barcode=₦{barcode}&context=transfer_from_warehouse`)
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.found) {
+                        alert("Product not found in Warehouse!");
+                        barcodeInput.value = '';
+                        barcodeInput.focus();
+                        return;
+                    }
+
+                    let targetRow = ₦('.form-row')
+                        .filter(function() {
+                            return ₦(this).find('.product-select').val() === '';
+                        })
+                        .first();
+
+                    if (!targetRow.length) {
+                        const fullName = `₦{data.brand} - Size: ₦{data.size} - Color: ₦{data.color}`;
+                        const newRow = `
+                            <tr class="form-row align-items-center">
+                                <td>
+                                    <select name="form-₦{formIndex}-product" class="form-control product-select" style="width: 100%;">
+                                        <option value="">Select a product</option>
+                                        <option value="₦{data.id}" selected>₦{fullName}</option>
+                                        {% for product in products %}
+                                            <option value="{{ product.id }}" data-size="{{ product.size }}" data-color="{{ product.color }}">
+                                                {{ product.brand }} - Size: {{ product.size }} - Color: {{ product.color }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="number" name="form-₦{formIndex}-quantity" class="form-control" min="1" value="1">
+                                </td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-danger btn-sm remove-product w-100">
+                                        <i class="bi bi-trash me-1"></i>Remove
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                        ₦('#form-body').append(newRow);
+                        targetRow = ₦('#form-body tr:last');
+                        targetRow.find('.product-select').select2();
+                        ₦('#id_form-TOTAL_FORMS').val(parseInt(formIndex) + 1);
+                        formIndex++;
+                    }
+
+                    const productSelect = targetRow.find('.product-select');
+
+                    let option = productSelect.find(`option[value='₦{data.id}']`);
+                    if (option.length === 0) {
+                        const fullName = `₦{data.brand} - Size: ₦{data.size} - Color: ₦{data.color}`;
+                        option = new Option(fullName, data.id, true, true);
+                        option.setAttribute('data-size', data.size);
+                        option.setAttribute('data-color', data.color);
+                        productSelect.append(option);
+                    }
+
+                    if (!productSelect.data('select2')) {
+                        productSelect.select2();
+                    }
+
+                    productSelect.val(data.id);
+                    productSelect.trigger('change.select2');
+
+                    // Focus quantity input
+                    targetRow.find('.quantity-input').focus().val(1);
+                    barcodeInput.value = '';
+                })
+                .catch(err => {
+                    console.error("Barcode lookup failed:", err);
+                    alert("Error looking up product!");
+                    barcodeInput.value = '';
+                    barcodeInput.focus();
+                });
+        });
+    }
+});
+</script>
+
+<style>
+    /* Card Styling */
+    .card {
+        border-radius: 1rem;
+    }
+
+    .card-header {
+        font-size: 1.25rem;
+        background-color: #198754; /* Green header for visual distinction */
+        border-top-left-radius: 1rem;
+        border-top-right-radius: 1rem;
+    }
+
+    /* Input Fields */
+    input.form-control,
+    select.form-select {
+        padding: 0.5rem 0.75rem;
+        font-size: 1rem;
+    }
+
+    /* Responsive Layout */
+    @media (max-width: 768px) {
+        .form-row td:last-child button.remove-product {
+            width: auto;
+        }
+    }
+
+    /* Hover Effect */
+    .form-row:hover {
+        transform: scale(1.005);
+        transition: transform 0.2s ease-in-out;
+    }
+
+    /* Buttons */
+    .btn i.bi {
+        vertical-align: -0.1em;
+    }
+
+    .btn-remove {
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        padding: 0.375rem 0.75rem;
+        border-radius: 0.5rem;
+    }
+
+    .btn-remove:hover {
+        background-color: #bb2d3b;
+    }
+
+    .bi-trash {
+        color: white;
+    }
+
+    .bi-plus-circle {
+        margin-right: 0.25rem;
+    }
+</style>
+
+{% endblock %}

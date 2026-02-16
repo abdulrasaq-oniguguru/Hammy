@@ -1,0 +1,266 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Returns List{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-wrapper {
+        min-height: 100vh;
+        padding: 3rem 0;
+    }
+
+    .page-header {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        border-radius: 16px;
+        padding: 2.5rem;
+        margin-bottom: 2rem;
+        color: white;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .filter-card, .returns-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        box-shadow: var(--shadow-md);
+        margin-bottom: 2rem;
+    }
+
+    .filter-card .form-control,
+    .filter-card .form-select {
+        background-color: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+    }
+
+    .returns-table {
+        background: var(--card-bg);
+        color: var(--text-primary);
+    }
+
+    .returns-table th {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border-color: var(--border-color);
+    }
+
+    .returns-table td {
+        border-color: var(--border-color);
+        color: var(--text-primary);
+    }
+
+    .returns-table tbody tr:hover {
+        background: var(--card-hover-bg);
+    }
+
+    .stats-card {
+        background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+        border-radius: 12px;
+        padding: 1.5rem;
+        color: white;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+    <div class="container-fluid px-4" style="max-width: 1800px; margin: 0 auto;">
+        <!-- Page Header -->
+        <div class="page-header text-center">
+            <h1 class="display-5 fw-bold mb-2">
+                <i class="bi bi-list-check me-2"></i>Returns Management
+            </h1>
+            <p class="mb-0 opacity-95">View and manage all return requests</p>
+        </div>
+
+        <!-- Statistics -->
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <div class="stats-card text-center">
+                    <h5 class="opacity-90 mb-2">Total Returns</h5>
+                    <h2 class="mb-0">{{ total_returns }}</h2>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="stats-card text-center">
+                    <h5 class="opacity-90 mb-2">Total Refunded</h5>
+                    <h2 class="mb-0">₦{{ total_refunded|floatformat:2 }}</h2>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filter-card">
+            <div class="card-body p-4">
+                <h5 class="mb-3">
+                    <i class="bi bi-funnel me-2"></i>Filters
+                </h5>
+                <form method="get" action="{% url 'return_list' %}">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label for="status" class="form-label">Status</label>
+                            <select class="form-select" id="status" name="status">
+                                <option value="">All Status</option>
+                                <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                                <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>Approved</option>
+                                <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Completed</option>
+                                <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>Rejected</option>
+                                <option value="cancelled" {% if status_filter == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="date_from" class="form-label">From Date</label>
+                            <input type="date" class="form-control" id="date_from" name="date_from" value="{{ date_from }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="date_to" class="form-label">To Date</label>
+                            <input type="date" class="form-control" id="date_to" name="date_to" value="{{ date_to }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="customer_search" class="form-label">Customer</label>
+                            <input type="text" class="form-control" id="customer_search" name="customer_search"
+                                   placeholder="Name or phone" value="{{ customer_search }}">
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-search me-2"></i>Apply Filters
+                            </button>
+                            <a href="{% url 'return_list' %}" class="btn btn-secondary ms-2">
+                                <i class="bi bi-x-circle me-2"></i>Clear
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Returns Table -->
+        <div class="returns-card">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">
+                        <i class="bi bi-table me-2"></i>Returns List
+                    </h5>
+                    <a href="{% url 'return_search' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-2"></i>New Return
+                    </a>
+                </div>
+
+                {% if returns %}
+                <div class="table-responsive">
+                    <table class="table returns-table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Return #</th>
+                                <th>Date</th>
+                                <th>Receipt #</th>
+                                <th>Customer</th>
+                                <th>Items</th>
+                                <th>Refund Amount</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for return in returns %}
+                            <tr>
+                                <td>
+                                    <strong>{{ return.return_number }}</strong>
+                                </td>
+                                <td>{{ return.return_date|date:"Y-m-d H:i" }}</td>
+                                <td>
+                                    <a href="{% url 'receipt_detail' return.receipt.id %}" target="_blank">
+                                        {{ return.receipt.receipt_number }}
+                                    </a>
+                                </td>
+                                <td>
+                                    {% if return.customer %}
+                                        {{ return.customer.name }}<br>
+                                        <small class="text-muted">{{ return.customer.phone }}</small>
+                                    {% else %}
+                                        <span class="text-muted">Walk-in</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ return.return_items.count }}</td>
+                                <td><strong>₦{{ return.refund_amount|floatformat:2 }}</strong></td>
+                                <td>
+                                    {% if return.status == 'pending' %}
+                                        <span class="badge bg-warning text-dark">Pending</span>
+                                    {% elif return.status == 'approved' %}
+                                        <span class="badge bg-info">Approved</span>
+                                    {% elif return.status == 'completed' %}
+                                        <span class="badge bg-success">Completed</span>
+                                    {% elif return.status == 'rejected' %}
+                                        <span class="badge bg-danger">Rejected</span>
+                                    {% elif return.status == 'cancelled' %}
+                                        <span class="badge bg-secondary">Cancelled</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'return_detail' return.id %}" class="btn btn-sm btn-primary">
+                                        <i class="bi bi-eye"></i> View
+                                    </a>
+                                    {% if return.status == 'pending' %}
+                                        <a href="{% url 'return_approve' return.id %}" class="btn btn-sm btn-success"
+                                           onclick="return confirm('Approve this return?')">
+                                            <i class="bi bi-check-circle"></i>
+                                        </a>
+                                    {% elif return.status == 'approved' %}
+                                        <a href="{% url 'return_complete_form' return.id %}" class="btn btn-sm btn-info">
+                                            <i class="bi bi-check-square"></i> Complete
+                                        </a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if returns.has_other_pages %}
+                <nav aria-label="Page navigation" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        {% if returns.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ returns.previous_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}">
+                                Previous
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in returns.paginator.page_range %}
+                            {% if returns.number == num %}
+                                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                            {% elif num > returns.number|add:'-3' and num < returns.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}">
+                                        {{ num }}
+                                    </a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if returns.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ returns.next_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}">
+                                Next
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>No returns found.
+                    <a href="{% url 'return_search' %}">Process a new return</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,641 @@
+<!-- templates/transfers/create_transfer.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Create Transfer{% endblock %}
+
+{% block content %}
+<div class="py-4" style="background: linear-gradient(rgba(26, 26, 26, 0.9), rgba(26, 26, 26, 0.9)), url({% static 'img/homepage.jpg' %}); background-size: cover; background-position: center; min-height: 100vh;">
+    <div class="container-fluid px-4">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h2 class="text-white fw-bold"><i class="fas fa-exchange-alt"></i> Create Transfer</h2>
+                <p class="text-white-50 mb-0">From: <strong>{{ from_location }}</strong></p>
+            </div>
+            <a href="{% url 'transfer_list' %}" class="btn btn-outline-light btn-sm">
+                <i class="fas fa-arrow-left"></i> Back
+            </a>
+        </div>
+
+        <div class="row g-3">
+            <!-- Compact Sidebar Filters -->
+            <div class="col-lg-3 col-md-4">
+                <div class="card border-0 shadow-sm" style="background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(8px);">
+                    <div class="card-body p-3">
+                        <h6 class="text-white mb-3"><i class="fas fa-filter"></i> Filters</h6>
+
+                        <form method="GET" action="" class="small">
+                            <!-- Search -->
+                            <div class="mb-2">
+                                <input type="text" name="search" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="Search..." value="{{ current_filters.search|default:'' }}">
+                            </div>
+
+                            <!-- Category -->
+                            <div class="mb-2">
+                                <select name="category" class="form-select form-select-sm bg-dark text-white border-secondary">
+                                    <option value="">All Categories</option>
+                                    {% for cat in categories %}
+                                    <option value="{{ cat }}" {% if current_filters.category == cat %}selected{% endif %}>{{ cat|title }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Size -->
+                            <div class="mb-2">
+                                <select name="size" class="form-select form-select-sm bg-dark text-white border-secondary">
+                                    <option value="">All Sizes</option>
+                                    {% for sz in sizes %}
+                                    <option value="{{ sz }}" {% if current_filters.size == sz %}selected{% endif %}>{{ sz }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Color & Design -->
+                            <div class="row g-1 mb-2">
+                                <div class="col-6">
+                                    <select name="color" class="form-select form-select-sm bg-dark text-white border-secondary">
+                                        <option value="">Color</option>
+                                        {% for clr in colors %}
+                                        <option value="{{ clr }}" {% if current_filters.color == clr %}selected{% endif %}>{{ clr|title }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <select name="design" class="form-select form-select-sm bg-dark text-white border-secondary">
+                                        <option value="">Design</option>
+                                        {% for dsg in designs %}
+                                        <option value="{{ dsg }}" {% if current_filters.design == dsg %}selected{% endif %}>{{ dsg|title }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Quantity Range -->
+                            <div class="row g-1 mb-2">
+                                <div class="col-6">
+                                    <input type="number" name="min_quantity" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="Min Qty" value="{{ current_filters.min_quantity|default:'' }}">
+                                </div>
+                                <div class="col-6">
+                                    <input type="number" name="max_quantity" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="Max Qty" value="{{ current_filters.max_quantity|default:'' }}">
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="d-grid gap-1 mb-2">
+                                <button type="submit" class="btn btn-danger btn-sm">
+                                    <i class="fas fa-filter"></i> Apply
+                                </button>
+                                <a href="{% url 'transfer_create' %}" class="btn btn-outline-light btn-sm">
+                                    <i class="fas fa-undo"></i> Reset
+                                </a>
+                            </div>
+
+                            <!-- Active Filters -->
+                            {% if has_filters %}
+                            <div class="mt-2 pt-2 border-top border-secondary">
+                                <div class="d-flex flex-wrap gap-1">
+                                    {% if current_filters.search %}
+                                    <span class="badge bg-secondary xsmall">S:"{{ current_filters.search }}"</span>
+                                    {% endif %}
+                                    {% if current_filters.category %}
+                                    <span class="badge bg-secondary xsmall">Cat:{{ current_filters.category }}</span>
+                                    {% endif %}
+                                    {% if current_filters.size %}
+                                    <span class="badge bg-secondary xsmall">S:{{ current_filters.size }}</span>
+                                    {% endif %}
+                                    {% if current_filters.color %}
+                                    <span class="badge bg-secondary xsmall">C:{{ current_filters.color }}</span>
+                                    {% endif %}
+                                    {% if current_filters.design %}
+                                    <span class="badge bg-secondary xsmall">D:{{ current_filters.design }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endif %}
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Selection Summary -->
+                <div class="card border-0 shadow-sm mt-3" style="background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(8px);">
+                    <div class="card-body p-3">
+                        <h6 class="text-white mb-2"><i class="fas fa-check-circle"></i> Selection Summary</h6>
+                        <div class="small text-white-50">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Selected:</span>
+                                <strong id="selected-count">0</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Total Qty:</span>
+                                <strong id="total-quantity">0</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Total Value:</span>
+                                <strong id="total-value">{{ currency_symbol }}0.00</strong>
+                            </div>
+                        </div>
+                        <hr class="my-2 border-secondary">
+                        <div class="d-grid gap-1">
+                            <button id="quick-select-all" class="btn btn-outline-info btn-sm">Select All (Page)</button>
+                            <button id="clear-all-selection" class="btn btn-outline-danger btn-sm">Clear All</button>
+                            <button id="view-selected" class="btn btn-outline-success btn-sm">
+                                <i class="fas fa-eye"></i> View Selected
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Selected Items Detail (Collapsible) -->
+                <div class="card border-0 shadow-sm mt-2" id="selected-items-card" style="background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(8px); display: none;">
+                    <div class="card-body p-2">
+                        <h6 class="text-white mb-2 small"><i class="fas fa-list"></i> Selected Items</h6>
+                        <div id="selected-items-list" class="small" style="max-height: 200px; overflow-y: auto;">
+                            <!-- Selected items will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content Area -->
+            <div class="col-lg-9 col-md-8">
+                <!-- Form now wraps both the transfer details AND the product table -->
+                <form method="post" id="transfer-form">
+                    {% csrf_token %}
+
+                    <!-- Hidden field to store selected products -->
+                    <input type="hidden" id="selected-products-data" name="selected_products_data" value="">
+
+                    <!-- Compact Transfer Details -->
+                    <div class="card border-0 shadow-sm mb-3" style="background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(8px);">
+                        <div class="card-body p-2">
+                            <div class="row g-2 align-items-center">
+                                <div class="col-md-5">
+                                    <label class="form-label text-white small mb-0">{{ transfer_form.to_location.label }}</label>
+                                    {{ transfer_form.to_location }}
+                                    {% if transfer_form.to_location.errors %}
+                                    <div class="text-danger xsmall">{{ transfer_form.to_location.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label text-white small mb-0">{{ transfer_form.notes.label }}</label>
+                                    {{ transfer_form.notes }}
+                                </div>
+                                <div class="col-md-2 text-end">
+                                    <button type="submit" class="btn btn-success btn-sm w-100 mt-3" id="submit-btn" disabled>
+                                        <i class="fas fa-paper-plane"></i> Create
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Product Table - Now inside the form -->
+                    <div class="card border-0 shadow-sm" style="background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(8px);">
+                        <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center py-2">
+                            <h6 class="text-white mb-0"><i class="fas fa-boxes"></i> Select Products</h6>
+                            <span class="badge bg-light text-dark">{{ products.paginator.count }} items</span>
+                        </div>
+                        <div class="card-body p-0">
+                            {% if products %}
+                            <div class="table-responsive" style="max-height: 70vh; overflow-y: auto;">
+                                <table class="table table-hover table-sm align-middle mb-0">
+                                    <thead class="bg-dark text-white" style="position: sticky; top: 0; z-index: 10;">
+                                        <tr>
+                                            <th style="width: 40px;">
+                                                <input type="checkbox" id="select-all" class="form-check-input">
+                                            </th>
+                                            <th>Brand</th>
+                                            <th>Category</th>
+                                            <th>Size</th>
+                                            <th>Color</th>
+                                            <th>Design</th>
+                                            <th class="text-center">Stock</th>
+                                            <th>Price</th>
+                                            <th style="width: 100px;">Transfer Qty</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for product in products %}
+                                        <tr class="product-row" data-product-id="{{ product.id }}">
+                                            <td>
+                                                <input type="checkbox"
+                                                       class="form-check-input product-checkbox"
+                                                       name="product_{{ product.id }}_selected"
+                                                       data-product-id="{{ product.id }}"
+                                                       data-brand="{{ product.brand }}"
+                                                       data-category="{{ product.category }}"
+                                                       data-size="{{ product.size }}"
+                                                       data-color="{{ product.color }}"
+                                                       data-design="{{ product.design }}"
+                                                       data-price="{{ product.price }}"
+                                                       data-stock="{{ product.quantity }}">
+                                            </td>
+                                            <td><strong class="text-white">{{ product.brand }}</strong></td>
+                                            <td><span class="badge bg-primary">{{ product.get_display_category|default:"-" }}</span></td>
+                                            <td>{{ product.size|default:"-" }}</td>
+                                            <td>
+                                                {% if product.get_display_color %}
+                                                <span class="badge bg-info">{{ product.get_display_color }}</span>
+                                                {% else %}<span class="text-muted">-</span>{% endif %}
+                                            </td>
+                                            <td>{{ product.get_display_design|default:"–" }}</td>
+                                            <td class="text-center">
+                                                <span class="badge {% if product.quantity < 5 %}bg-danger{% elif product.quantity < 20 %}bg-warning{% else %}bg-success{% endif %}">
+                                                    {{ product.quantity }}
+                                                </span>
+                                            </td>
+                                            <td class="text-white">{{ currency_symbol }}{{ product.price|floatformat:2 }}</td>
+                                            <td>
+                                                <input type="number"
+                                                       name="product_{{ product.id }}_quantity"
+                                                       class="form-control form-control-sm bg-dark text-white border-secondary quantity-input"
+                                                       min="1"
+                                                       max="{{ product.quantity }}"
+                                                       value="1"
+                                                       disabled
+                                                       style="width: 80px;"
+                                                       data-product-id="{{ product.id }}">
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Pagination -->
+                            {% if products.has_other_pages %}
+                            <nav class="p-2 border-top border-secondary">
+                                <ul class="pagination pagination-sm justify-content-center mb-0">
+                                    {% if products.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link bg-dark text-white border-secondary pagination-link" href="?page={{ products.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            Prev
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                    {% for i in products.paginator.page_range %}
+                                    <li class="page-item {% if products.number == i %}active{% endif %}">
+                                        <a class="page-link bg-dark text-white border-secondary pagination-link" href="?page={{ i }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            {{ i }}
+                                        </a>
+                                    </li>
+                                    {% endfor %}
+                                    {% if products.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link bg-dark text-white border-secondary pagination-link" href="?page={{ products.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                            Next
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                            {% endif %}
+                            {% else %}
+                            <div class="text-center py-4 text-white-50">
+                                <i class="fas fa-box-open fa-2x opacity-50"></i>
+                                <p class="mb-1">No products available in <strong>{{ from_location }}</strong></p>
+                                {% if has_filters %}
+                                <a href="{% url 'transfer_create' %}" class="btn btn-sm btn-outline-light">Clear Filters</a>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Compact Styles -->
+<style>
+    :root {
+        --dark-bg: #1e1e1e;
+        --border: #444;
+    }
+
+    .form-control, .form-select {
+        background-color: var(--dark-bg) !important;
+        color: white !important;
+        border-color: var(--border) !important;
+        font-size: 0.85rem;
+        padding: 0.25rem 0.5rem;
+        height: 32px;
+    }
+
+    .form-control::placeholder {
+        color: #aaa;
+        opacity: 0.7;
+    }
+
+    .table {
+        --bs-table-bg: transparent;
+        --bs-table-striped-bg: rgba(255, 255, 255, 0.02);
+        --bs-table-hover-bg: rgba(255, 255, 255, 0.05);
+        color: #f5f5f5;
+        margin-bottom: 0;
+    }
+
+    .table th, .table td {
+        padding: 0.4rem 0.5rem;
+        border-color: rgba(255, 255, 255, 0.1);
+        font-size: 0.875rem;
+    }
+
+    .table thead th {
+        border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .card {
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .xsmall {
+        font-size: 0.75rem;
+    }
+
+    .selected-item {
+        background: rgba(40, 167, 69, 0.1);
+        border: 1px solid rgba(40, 167, 69, 0.3);
+        border-radius: 4px;
+        padding: 4px 8px;
+        margin-bottom: 4px;
+        font-size: 0.75rem;
+    }
+
+    .selected-item .remove-item {
+        color: #dc3545;
+        cursor: pointer;
+        margin-left: 5px;
+    }
+
+    /* Sticky header in scrollable table */
+    .table-responsive {
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+</style>
+
+<!-- Enhanced JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Global selection storage
+    let selectedProducts = {};
+
+    // DOM elements
+    const masterCheckbox = document.getElementById('select-all');
+    const checkboxes = document.querySelectorAll('.product-checkbox');
+    const quantityInputs = document.querySelectorAll('.quantity-input');
+    const selectedCount = document.getElementById('selected-count');
+    const totalQuantity = document.getElementById('total-quantity');
+    const totalValue = document.getElementById('total-value');
+    const submitBtn = document.getElementById('submit-btn');
+    const quickSelectAllBtn = document.getElementById('quick-select-all');
+    const clearAllBtn = document.getElementById('clear-all-selection');
+    const viewSelectedBtn = document.getElementById('view-selected');
+    const selectedItemsCard = document.getElementById('selected-items-card');
+    const selectedItemsList = document.getElementById('selected-items-list');
+    const selectedProductsData = document.getElementById('selected-products-data');
+
+    // Load from sessionStorage on page load
+    function loadStoredSelections() {
+        const stored = sessionStorage.getItem('transferSelections');
+        if (stored) {
+            try {
+                selectedProducts = JSON.parse(stored);
+                restorePageSelections();
+                updateSummary();
+                updateSelectedItemsList();
+            } catch (e) {
+                console.error('Error loading stored selections:', e);
+                selectedProducts = {};
+            }
+        }
+    }
+
+    // Save to sessionStorage
+    function saveSelections() {
+        sessionStorage.setItem('transferSelections', JSON.stringify(selectedProducts));
+        // Also update hidden field for form submission
+        selectedProductsData.value = JSON.stringify(selectedProducts);
+    }
+
+    // Restore selections on current page
+    function restorePageSelections() {
+        checkboxes.forEach(cb => {
+            const productId = cb.dataset.productId;
+            if (selectedProducts[productId]) {
+                cb.checked = true;
+                const qtyInput = document.querySelector(`input[name="product_₦{productId}_quantity"]`);
+                if (qtyInput) {
+                    qtyInput.disabled = false;
+                    qtyInput.value = selectedProducts[productId].quantity;
+                }
+            }
+        });
+    }
+
+    // Update summary displays
+    function updateSummary() {
+        let count = 0;
+        let totalQty = 0;
+        let totalVal = 0;
+
+        Object.values(selectedProducts).forEach(item => {
+            count++;
+            totalQty += parseInt(item.quantity);
+            totalVal += parseFloat(item.price) * parseInt(item.quantity);
+        });
+
+        selectedCount.textContent = count;
+        totalQuantity.textContent = totalQty;
+        totalValue.textContent = `{{ currency_symbol }}₦{totalVal.toFixed(2)}`;
+        submitBtn.disabled = count === 0;
+
+        // Update master checkbox state
+        if (masterCheckbox) {
+            const currentPageSelected = Array.from(checkboxes).filter(cb => cb.checked).length;
+            const currentPageTotal = checkboxes.length;
+            masterCheckbox.indeterminate = currentPageSelected > 0 && currentPageSelected < currentPageTotal;
+            masterCheckbox.checked = currentPageSelected === currentPageTotal && currentPageTotal > 0;
+        }
+    }
+
+    // Update selected items list
+    function updateSelectedItemsList() {
+        selectedItemsList.innerHTML = '';
+        if (Object.keys(selectedProducts).length === 0) {
+            selectedItemsList.innerHTML = '<div class="text-white-50 small">No items selected</div>';
+            return;
+        }
+
+        Object.entries(selectedProducts).forEach(([productId, item]) => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'selected-item d-flex justify-content-between align-items-center';
+            itemDiv.innerHTML = `
+                <div class="text-white">
+                    <strong>₦{item.brand}</strong> - ₦{item.category}<br>
+                    <small>Size: ₦{item.size} | Qty: ₦{item.quantity}</small>
+                </div>
+                <span class="remove-item" onclick="removeSelectedItem('₦{productId}')">
+                    <i class="fas fa-times"></i>
+                </span>
+            `;
+            selectedItemsList.appendChild(itemDiv);
+        });
+    }
+
+    // Remove item from selection
+    window.removeSelectedItem = function(productId) {
+        delete selectedProducts[productId];
+
+        // Uncheck if on current page
+        const checkbox = document.querySelector(`input[name="product_₦{productId}_selected"]`);
+        if (checkbox) {
+            checkbox.checked = false;
+            const qtyInput = document.querySelector(`input[name="product_₦{productId}_quantity"]`);
+            if (qtyInput) qtyInput.disabled = true;
+        }
+
+        saveSelections();
+        updateSummary();
+        updateSelectedItemsList();
+    };
+
+    // Handle checkbox changes
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', function () {
+            const productId = this.dataset.productId;
+            const qtyInput = document.querySelector(`input[name="product_₦{productId}_quantity"]`);
+
+            if (this.checked) {
+                // Add to selection
+                selectedProducts[productId] = {
+                    brand: this.dataset.brand,
+                    category: this.dataset.category,
+                    size: this.dataset.size,
+                    color: this.dataset.color,
+                    design: this.dataset.design,
+                    price: this.dataset.price,
+                    stock: this.dataset.stock,
+                    quantity: qtyInput ? qtyInput.value : 1
+                };
+                if (qtyInput) qtyInput.disabled = false;
+            } else {
+                // Remove from selection
+                delete selectedProducts[productId];
+                if (qtyInput) qtyInput.disabled = true;
+            }
+
+            saveSelections();
+            updateSummary();
+            updateSelectedItemsList();
+        });
+    });
+
+    // Handle quantity changes
+    quantityInputs.forEach(input => {
+        input.addEventListener('input', function() {
+            const productId = this.dataset.productId;
+            if (selectedProducts[productId]) {
+                selectedProducts[productId].quantity = this.value;
+                saveSelections();
+                updateSummary();
+                updateSelectedItemsList();
+            }
+        });
+    });
+
+    // Master checkbox
+    if (masterCheckbox) {
+        masterCheckbox.addEventListener('change', () => {
+            checkboxes.forEach(cb => {
+                if (cb.checked !== masterCheckbox.checked) {
+                    cb.click();
+                }
+            });
+        });
+    }
+
+    // Quick select all (current page)
+    quickSelectAllBtn.addEventListener('click', () => {
+        checkboxes.forEach(cb => !cb.checked && cb.click());
+    });
+
+    // Clear all selections
+    clearAllBtn.addEventListener('click', () => {
+        if (confirm('Clear all selected items across all pages?')) {
+            selectedProducts = {};
+            checkboxes.forEach(cb => {
+                if (cb.checked) cb.click();
+            });
+            saveSelections();
+            updateSummary();
+            updateSelectedItemsList();
+            selectedItemsCard.style.display = 'none';
+        }
+    });
+
+    // View selected items
+    viewSelectedBtn.addEventListener('click', () => {
+        selectedItemsCard.style.display = selectedItemsCard.style.display === 'none' ? 'block' : 'none';
+    });
+
+    // Handle pagination and form submission with AJAX-like behavior
+    document.querySelectorAll('.pagination-link, form[method="GET"] button[type="submit"]').forEach(link => {
+        link.addEventListener('click', function(e) {
+            // Save current selections before navigation
+            saveSelections();
+        });
+    });
+
+    // Handle form submission
+    document.getElementById('transfer-form').addEventListener('submit', function(e) {
+        if (Object.keys(selectedProducts).length === 0) {
+            e.preventDefault();
+            alert('Please select at least one product for transfer.');
+            return;
+        }
+
+        // Create hidden inputs for all selected products
+        Object.entries(selectedProducts).forEach(([productId, item]) => {
+            // Create checkbox input
+            const checkboxInput = document.createElement('input');
+            checkboxInput.type = 'hidden';
+            checkboxInput.name = `product_₦{productId}_selected`;
+            checkboxInput.value = 'on';
+            this.appendChild(checkboxInput);
+
+            // Create quantity input
+            const qtyInput = document.createElement('input');
+            qtyInput.type = 'hidden';
+            qtyInput.name = `product_₦{productId}_quantity`;
+            qtyInput.value = item.quantity;
+            this.appendChild(qtyInput);
+        });
+    });
+
+    // Clear storage after successful transfer (you can call this from your success page)
+    window.clearTransferSelections = function() {
+        sessionStorage.removeItem('transferSelections');
+        selectedProducts = {};
+    };
+
+    // Initialize
+    loadStoredSelections();
+
+    // Clear selections after successful transfer
+    {% if transfer_created %}
+    // Clear the sessionStorage if transfer was just created
+    sessionStorage.removeItem('transferSelections');
+    selectedProducts = {};
+    updateSummary();
+    updateSelectedItemsList();
+    {% endif %}
+
+});
+</script>
+
+{% endblock %}
+

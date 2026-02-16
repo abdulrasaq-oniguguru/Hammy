@@ -1,0 +1,264 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Search Receipts for Return{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-wrapper {
+        min-height: 100vh;
+        padding: 3rem 0;
+    }
+
+    .page-header {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        border-radius: 16px;
+        padding: 2.5rem;
+        margin-bottom: 2rem;
+        color: white;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .search-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        box-shadow: var(--shadow-md);
+        margin-bottom: 2rem;
+    }
+
+    .search-card .form-label {
+        color: var(--text-primary);
+        font-weight: 500;
+    }
+
+    .search-card .form-control,
+    .search-card .form-select {
+        background-color: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+    }
+
+    .search-card .form-control:focus,
+    .search-card .form-select:focus {
+        background-color: var(--bg-tertiary);
+        border-color: var(--accent-primary);
+        color: var(--text-primary);
+    }
+
+    .results-table {
+        background: var(--card-bg);
+        color: var(--text-primary);
+    }
+
+    .results-table th {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border-color: var(--border-color);
+    }
+
+    .results-table td {
+        border-color: var(--border-color);
+        color: var(--text-primary);
+    }
+
+    .results-table tbody tr:hover {
+        background: var(--card-hover-bg);
+    }
+
+    .badge-eligible {
+        background-color: #28a745;
+    }
+
+    .badge-expired {
+        background-color: #dc3545;
+    }
+
+    .quick-filter-btn {
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+        padding: 0.375rem 0.75rem;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .quick-filter-btn:hover {
+        background: var(--accent-primary);
+        color: white;
+        border-color: var(--accent-primary);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+    <div class="container-fluid px-4" style="max-width: 1600px; margin: 0 auto;">
+        <!-- Page Header -->
+        <div class="page-header text-center">
+            <h1 class="display-5 fw-bold mb-2">
+                <i class="bi bi-arrow-return-left me-2"></i>Process Return
+            </h1>
+            <p class="mb-0 opacity-95">Search for receipts to process returns (7-day window)</p>
+        </div>
+
+        <!-- Search Form -->
+        <div class="search-card">
+            <div class="card-body p-4">
+                <h5 class="mb-4">
+                    <i class="bi bi-search me-2"></i>Search Receipts
+                </h5>
+                <form method="get" action="{% url 'return_search' %}">
+                    <div class="row g-3">
+                        <!-- Date Range -->
+                        <div class="col-md-3">
+                            <label for="date_from" class="form-label">From Date</label>
+                            <input type="date" class="form-control" id="date_from" name="date_from" value="{{ date_from }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="date_to" class="form-label">To Date</label>
+                            <input type="date" class="form-control" id="date_to" name="date_to" value="{{ date_to }}">
+                        </div>
+
+                        <!-- Customer Search -->
+                        <div class="col-md-3">
+                            <label for="customer_search" class="form-label">Customer Name/Phone</label>
+                            <input type="text" class="form-control" id="customer_search" name="customer_search"
+                                   placeholder="Search by name or phone" value="{{ customer_search }}">
+                        </div>
+
+                        <!-- Receipt Number -->
+                        <div class="col-md-3">
+                            <label for="receipt_number" class="form-label">Receipt Number</label>
+                            <input type="text" class="form-control" id="receipt_number" name="receipt_number"
+                                   placeholder="RCPT001/01/2025" value="{{ receipt_number }}">
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-search me-2"></i>Search
+                            </button>
+                            <a href="{% url 'return_search' %}" class="btn btn-secondary ms-2">
+                                <i class="bi bi-x-circle me-2"></i>Clear
+                            </a>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- Quick Filters -->
+                <div class="mt-3">
+                    <small class="text-muted">Quick Filters:</small>
+                    <button type="button" class="quick-filter-btn btn-sm ms-2" onclick="setToday()">Today</button>
+                    <button type="button" class="quick-filter-btn btn-sm ms-2" onclick="setThisWeek()">This Week</button>
+                    <button type="button" class="quick-filter-btn btn-sm ms-2" onclick="setLast7Days()">Last 7 Days</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results -->
+        {% if search_performed %}
+        <div class="search-card">
+            <div class="card-body p-4">
+                <h5 class="mb-4">
+                    <i class="bi bi-list-ul me-2"></i>Search Results ({{ receipts|length }})
+                </h5>
+
+                {% if receipts %}
+                <div class="table-responsive">
+                    <table class="table results-table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Receipt #</th>
+                                <th>Date</th>
+                                <th>Customer</th>
+                                <th>Total</th>
+                                <th>Days Since Purchase</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for receipt in receipts %}
+                            <tr>
+                                <td>
+                                    <strong>{{ receipt.receipt_number }}</strong>
+                                </td>
+                                <td>{{ receipt.date|date:"Y-m-d H:i" }}</td>
+                                <td>
+                                    {% if receipt.customer %}
+                                        {{ receipt.customer.name }}
+                                        <br>
+                                        <small class="text-muted">{{ receipt.customer.phone }}</small>
+                                    {% else %}
+                                        <span class="text-muted">Walk-in Customer</span>
+                                    {% endif %}
+                                </td>
+                                <td>₦{{ receipt.total_with_delivery|floatformat:2 }}</td>
+                                <td>
+                                    <span class="badge {% if receipt.return_eligible %}badge-eligible{% else %}badge-expired{% endif %}">
+                                        {{ receipt.days_since_purchase }} day{{ receipt.days_since_purchase|pluralize }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if receipt.return_eligible %}
+                                        <span class="badge bg-success">Eligible</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Expired (> 7 days)</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if receipt.return_eligible %}
+                                        <a href="{% url 'return_select_receipt' receipt.id %}" class="btn btn-sm btn-primary">
+                                            <i class="bi bi-arrow-return-left me-1"></i>Select Items
+                                        </a>
+                                    {% else %}
+                                        <button class="btn btn-sm btn-secondary" disabled>
+                                            <i class="bi bi-x-circle me-1"></i>Ineligible
+                                        </button>
+                                    {% endif %}
+                                    <a href="{% url 'receipt_detail' receipt.id %}" class="btn btn-sm btn-outline-secondary ms-1" target="_blank">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>No receipts found matching your search criteria.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function setToday() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('date_from').value = today;
+    document.getElementById('date_to').value = today;
+}
+
+function setThisWeek() {
+    const today = new Date();
+    const firstDay = new Date(today.setDate(today.getDate() - today.getDay()));
+    const lastDay = new Date(today.setDate(today.getDate() - today.getDay() + 6));
+
+    document.getElementById('date_from').value = firstDay.toISOString().split('T')[0];
+    document.getElementById('date_to').value = lastDay.toISOString().split('T')[0];
+}
+
+function setLast7Days() {
+    const today = new Date();
+    const last7Days = new Date(today.setDate(today.getDate() - 7));
+
+    document.getElementById('date_from').value = last7Days.toISOString().split('T')[0];
+    document.getElementById('date_to').value = new Date().toISOString().split('T')[0];
+}
+</script>
+{% endblock %}

@@ -1,0 +1,481 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Receipt List{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-wrapper {
+        min-height: 100vh;
+        padding: 3rem 0;
+    }
+
+    .page-header {
+        background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+        border-radius: 16px;
+        padding: 2.5rem;
+        margin-bottom: 2rem;
+        color: white;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .receipt-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        box-shadow: var(--shadow-md);
+    }
+
+    .receipt-card .form-label {
+        color: var(--text-primary);
+        font-weight: 500;
+    }
+
+    .receipt-card .form-control,
+    .receipt-card .form-select {
+        background-color: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+    }
+
+    .receipt-card .form-control:focus,
+    .receipt-card .form-select:focus {
+        background-color: var(--bg-tertiary);
+        border-color: var(--accent-primary);
+        color: var(--text-primary);
+    }
+
+    .receipt-table {
+        background: var(--card-bg);
+        color: var(--text-primary);
+    }
+
+    .receipt-table th {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border-color: var(--border-color);
+    }
+
+    .receipt-table td {
+        border-color: var(--border-color);
+        color: var(--text-primary);
+    }
+
+    .receipt-table tbody tr:hover {
+        background: var(--card-hover-bg);
+    }
+
+    .quick-filter-btn {
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+        padding: 0.375rem 0.75rem;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .quick-filter-btn:hover {
+        background: var(--accent-primary);
+        color: white;
+        border-color: var(--accent-primary);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+    <div class="container-fluid px-4" style="max-width: 1800px; margin: 0 auto;">
+        <!-- Page Header -->
+        <div class="page-header text-center">
+            <h1 class="display-5 fw-bold mb-2">
+                <i class="bi bi-receipt me-2"></i>Receipt List
+            </h1>
+            <p class="mb-0 opacity-95">View and manage all receipts efficiently</p>
+        </div>
+
+        <!-- Receipts Table Card -->
+        <div class="row">
+            <div class="col-12">
+                <div class="receipt-card">
+                    <div class="card-body p-4">
+
+                        <!-- Enhanced Search & Filter Form -->
+                        <form method="GET" action="{% url 'receipt_list' %}" class="mb-4">
+                            <div class="row g-3">
+                                <!-- General Search -->
+                                <div class="col-md-6">
+                                    <label for="search-input" class="form-label">Quick Search</label>
+                                    <input type="text"
+                                           name="search"
+                                           id="search-input"
+                                           class="form-control"
+                                           placeholder="🔍 Receipt #, customer name, or phone..."
+                                           value="{{ search_query|default:'' }}"
+                                           autocomplete="off">
+                                </div>
+
+                                <!-- Customer Filter -->
+                                <div class="col-md-6">
+                                    <label for="customer-filter" class="form-label">Customer</label>
+                                    <select name="customer" id="customer-filter" class="form-select">
+                                        <option value="">All Customers</option>
+                                        {% for customer in customers %}
+                                            <option value="{{ customer.name }}" {% if customer_filter == customer.name %}selected{% endif %}>
+                                                {{ customer.name }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <!-- Date Range -->
+                                <div class="col-md-3">
+                                    <label for="date-from" class="form-label">From Date</label>
+                                    <input type="date"
+                                           name="date_from"
+                                           id="date-from"
+                                           class="form-control"
+                                           value="{{ date_from }}">
+                                </div>
+
+                                <div class="col-md-3">
+                                    <label for="date-to" class="form-label">To Date</label>
+                                    <input type="date"
+                                           name="date_to"
+                                           id="date-to"
+                                           class="form-control"
+                                           value="{{ date_to }}">
+                                </div>
+
+                                <!-- Amount Range -->
+                                <div class="col-md-3">
+                                    <label for="amount-min" class="form-label">Min Amount ({{ currency_symbol }})</label>
+                                    <input type="number"
+                                           name="amount_min"
+                                           id="amount-min"
+                                           class="form-control"
+                                           placeholder="0"
+                                           value="{{ amount_min }}"
+                                           step="0.01">
+                                </div>
+
+                                <div class="col-md-3">
+                                    <label for="amount-max" class="form-label">Max Amount ({{ currency_symbol }})</label>
+                                    <input type="number"
+                                           name="amount_max"
+                                           id="amount-max"
+                                           class="form-control"
+                                           placeholder="999999"
+                                           value="{{ amount_max }}"
+                                           step="0.01">
+                                </div>
+
+                                <!-- Sort Options -->
+                                <div class="col-md-6">
+                                    <label for="sort-by" class="form-label">Sort By</label>
+                                    <select name="sort_by" id="sort-by" class="form-select">
+                                        <option value="-date" {% if sort_by == '-date' %}selected{% endif %}>Date (Newest First)</option>
+                                        <option value="date" {% if sort_by == 'date' %}selected{% endif %}>Date (Oldest First)</option>
+                                        <option value="-receipt_number" {% if sort_by == '-receipt_number' %}selected{% endif %}>Receipt # (Desc)</option>
+                                        <option value="receipt_number" {% if sort_by == 'receipt_number' %}selected{% endif %}>Receipt # (Asc)</option>
+                                        <option value="customer" {% if sort_by == 'customer' %}selected{% endif %}>Customer (A-Z)</option>
+                                        <option value="-customer" {% if sort_by == '-customer' %}selected{% endif %}>Customer (Z-A)</option>
+                                        <option value="-amount" {% if sort_by == '-amount' %}selected{% endif %}>Amount (High to Low)</option>
+                                        <option value="amount" {% if sort_by == 'amount' %}selected{% endif %}>Amount (Low to High)</option>
+                                    </select>
+                                </div>
+
+                                <!-- Action Buttons -->
+                                <div class="col-md-6 d-flex align-items-end gap-2">
+                                    <button type="submit"
+                                            class="btn btn-primary flex-grow-1 d-flex align-items-center justify-content-center gap-2">
+                                        <i class="bi bi-funnel"></i> Apply Filters
+                                    </button>
+                                    <a href="{% url 'receipt_list' %}"
+                                       class="btn btn-secondary d-flex align-items-center justify-content-center">
+                                        <i class="bi bi-x-circle"></i>
+                                    </a>
+                                </div>
+                            </div>
+
+                            <!-- Quick Filter Buttons -->
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <small class="text-muted align-self-center me-2">Quick filters:</small>
+                                        <a href="?date_from={{ today }}&sort_by=-date" class="quick-filter-btn">Today</a>
+                                        <a href="?date_from={{ week_ago }}&sort_by=-date" class="quick-filter-btn">This Week</a>
+                                        <a href="?date_from={{ month_ago }}&sort_by=-date" class="quick-filter-btn">This Month</a>
+                                        <a href="?amount_min=50000&sort_by=-amount" class="quick-filter-btn">High Value ({{ currency_symbol }}50k+)</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+
+                        <!-- Summary Statistics -->
+                        {% if receipt_data %}
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <div class="d-flex justify-content-between align-items-center p-3 rounded"
+                                         style="background: var(--bg-tertiary); border: 1px solid var(--border-color);">
+                                        <div style="color: var(--text-primary);">
+                                            <strong>{{ total_receipts }}</strong> receipt{{ total_receipts|pluralize }} found
+                                        </div>
+                                        <div style="color: var(--accent-success); font-weight: 600;">
+                                            Total Revenue: <strong>{{ currency_symbol }}{{ total_revenue|floatformat:2 }}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
+
+                        <!-- Receipt Table -->
+                        {% if receipt_data %}
+                            <div class="table-responsive rounded overflow-hidden" style="border: 1px solid var(--border-color); border-radius: 12px;">
+                                <table class="table table-hover receipt-table mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>
+                                                <a href="?{% for key, value in request.GET.items %}{% if key != 'sort_by' %}{{ key }}={{ value }}&{% endif %}{% endfor %}sort_by={% if sort_by == 'receipt_number' %}-receipt_number{% else %}receipt_number{% endif %}"
+                                                   class="text-decoration-none" style="color: var(--text-primary);">
+                                                    Receipt #
+                                                    {% if sort_by == 'receipt_number' %}↑{% elif sort_by == '-receipt_number' %}↓{% endif %}
+                                                </a>
+                                            </th>
+                                            <th>
+                                                <a href="?{% for key, value in request.GET.items %}{% if key != 'sort_by' %}{{ key }}={{ value }}&{% endif %}{% endfor %}sort_by={% if sort_by == 'customer' %}-customer{% else %}customer{% endif %}"
+                                                   class="text-decoration-none" style="color: var(--text-primary);">
+                                                    Customer
+                                                    {% if sort_by == 'customer' %}↑{% elif sort_by == '-customer' %}↓{% endif %}
+                                                </a>
+                                            </th>
+                                            <th>
+                                                <a href="?{% for key, value in request.GET.items %}{% if key != 'sort_by' %}{{ key }}={{ value }}&{% endif %}{% endfor %}sort_by={% if sort_by == 'date' %}-date{% else %}date{% endif %}"
+                                                   class="text-decoration-none" style="color: var(--text-primary);">
+                                                    Date
+                                                    {% if sort_by == 'date' %}↑{% elif sort_by == '-date' %}↓{% endif %}
+                                                </a>
+                                            </th>
+                                            <th>
+                                                <a href="?{% for key, value in request.GET.items %}{% if key != 'sort_by' %}{{ key }}={{ value }}&{% endif %}{% endfor %}sort_by={% if sort_by == 'amount' %}-amount{% else %}amount{% endif %}"
+                                                   class="text-decoration-none" style="color: var(--text-primary);">
+                                                    Total
+                                                    {% if sort_by == 'amount' %}↑{% elif sort_by == '-amount' %}↓{% endif %}
+                                                </a>
+                                            </th>
+                                            <th class="text-center">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for item in receipt_data %}
+                                        <tr class="align-middle" style="transition: background-color 0.2s ease;">
+                                            <td>
+                                                <a href="{% url 'receipt_detail' item.receipt.id %}"
+                                                   class="text-decoration-none"
+                                                   style="color: var(--accent-primary); font-weight: 600;">
+                                                    #{{ item.receipt.receipt_number }}
+                                                </a>
+                                            </td>
+                                            <td style="color: var(--text-primary);">
+                                                {{ item.customer_name|default:"–" }}
+                                                {% if item.receipt.customer.phone_number %}
+                                                    <br><small style="color: var(--text-secondary);">{{ item.receipt.customer.phone_number }}</small>
+                                                {% endif %}
+                                            </td>
+                                            <td style="color: var(--text-primary);">
+                                                {{ item.receipt.date|date:"M d, Y" }}
+                                                <br><small style="color: var(--text-secondary);">{{ item.receipt.date|date:"g:i A" }}</small>
+                                            </td>
+                                            <td style="color: var(--accent-success); font-weight: 600;">{{ currency_symbol }}{{ item.total_amount|floatformat:2 }}</td>
+                                            <td class="text-center">
+                                                <div class="btn-group-vertical btn-group-sm" role="group">
+                                                    <!-- View -->
+                                                    <a href="{% url 'receipt_detail' item.receipt.id %}"
+                                                       class="btn btn-sm btn-secondary d-flex align-items-center justify-content-center gap-2">
+                                                        <i class="bi bi-eye"></i> View
+                                                    </a>
+                                                    <!-- PDF -->
+                                                    <a href="{% url 'download_receipt_pdf' item.receipt.id %}"
+                                                       class="btn btn-sm btn-secondary d-flex align-items-center justify-content-center gap-2">
+                                                        <i class="bi bi-file-earmark-pdf"></i> PDF
+                                                    </a>
+                                                    <!-- Email -->
+                                                    <a href="{% url 'send_receipt_email' item.receipt.id %}"
+                                                       class="btn btn-sm btn-secondary d-flex align-items-center justify-content-center gap-2">
+                                                        <i class="bi bi-envelope"></i> Email
+                                                    </a>
+                                                    <!-- Return -->
+                                                    <a href="{% url 'return_select_receipt' item.receipt.id %}"
+                                                       class="btn btn-sm btn-danger d-flex align-items-center justify-content-center gap-2">
+                                                        <i class="bi bi-arrow-return-left"></i> Return
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Item Count with Active Filters Display -->
+                            <div class="mt-3 d-flex justify-content-between align-items-center" style="color: var(--text-primary); font-size: 0.9rem;">
+                                <div>
+                                    <em>Showing {{ receipt_data|length }} receipt{{ receipt_data|length|pluralize }}.</em>
+                                    {% if search_query or customer_filter or date_from or date_to or amount_min or amount_max %}
+                                        <div class="mt-1">
+                                            <small style="color: var(--text-secondary);">Active filters:
+                                                {% if search_query %}<span class="badge bg-secondary">Search: "{{ search_query }}"</span> {% endif %}
+                                                {% if customer_filter %}<span class="badge bg-secondary">Customer: "{{ customer_filter }}"</span> {% endif %}
+                                                {% if date_from %}<span class="badge bg-secondary">From: {{ date_from }}</span> {% endif %}
+                                                {% if date_to %}<span class="badge bg-secondary">To: {{ date_to }}</span> {% endif %}
+                                                {% if amount_min %}<span class="badge bg-secondary">Min: {{ currency_symbol }}{{ amount_min }}</span> {% endif %}
+                                                {% if amount_max %}<span class="badge bg-secondary">Max: {{ currency_symbol }}{{ amount_max }}</span> {% endif %}
+                                            </small>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div style="color: var(--accent-success);">
+                                    <strong>Total Revenue: {{ currency_symbol }}{{ total_revenue|floatformat:2 }}</strong>
+                                </div>
+                            </div>
+                        {% else %}
+                            <!-- Empty State -->
+                            <div class="text-center py-5" style="background: var(--bg-tertiary); border-radius: 12px; color: var(--text-secondary);">
+                                <i class="bi bi-receipt-cutoff display-6 mb-2" style="color: var(--text-secondary);"></i>
+                                <p class="mb-0 fs-5 opacity-80">
+                                    {% if search_query or customer_filter or date_from or date_to or amount_min or amount_max %}
+                                        No receipts found matching your filters.
+                                    {% else %}
+                                        No receipts found.
+                                    {% endif %}
+                                </p>
+                                {% if search_query or customer_filter or date_from or date_to or amount_min or amount_max %}
+                                    <a href="{% url 'receipt_list' %}"
+                                       class="btn btn-sm btn-secondary mt-3 px-4">
+                                        <i class="bi bi-x-circle me-1"></i> Clear Filters
+                                    </a>
+                                {% else %}
+                                    <a href="{% url 'homepage' %}"
+                                       class="btn btn-sm btn-secondary mt-3 px-4">
+                                        <i class="bi bi-house"></i> Go to Dashboard
+                                    </a>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Back Button -->
+        <div class="row mt-5 mb-4">
+            <div class="col-12 d-flex justify-content-start">
+                <a href="{% url 'homepage' %}"
+                   class="btn btn-secondary d-flex align-items-center gap-2 px-4 py-2">
+                    <i class="bi bi-arrow-left"></i>
+                    <span>Back to Dashboard</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Consistent Table & UI Styling -->
+<style>
+    /* Match invoice theme exactly */
+    .table {
+        --bs-table-bg: transparent;
+        --bs-table-striped-bg: transparent;
+        --bs-table-hover-bg: rgba(79, 70, 229, 0.1);
+    }
+
+    .table th, .table td {
+        color: #e2e8f0;
+        border-top: 1px solid #334155 !important;
+        padding: 0.75rem 1rem;
+    }
+
+    .table th a {
+        color: #bfdbfe !important;
+        text-decoration: none;
+    }
+
+    .table th a:hover {
+        color: #ddd6fe !important;
+    }
+
+    .table thead th {
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+
+    .table tbody tr:hover {
+        background-color: rgba(79, 70, 229, 0.1) !important;
+        transition: all 0.2s ease;
+    }
+
+    /* Filter form enhancements */
+    .form-control:focus, .form-select:focus {
+        border-color: #4f46e5 !important;
+        box-shadow: 0 0 0 0.2rem rgba(79, 70, 229, 0.25) !important;
+        background-color: #1e293b !important;
+        color: #e2e8f0 !important;
+    }
+
+    .btn-outline-info {
+        color: #7dd3fc;
+        border-color: #7dd3fc;
+        background: transparent;
+    }
+
+    .btn-outline-info:hover {
+        background-color: rgba(125, 211, 252, 0.1);
+        border-color: #7dd3fc;
+        color: #7dd3fc;
+    }
+
+    .btn-outline-success {
+        color: #86efac;
+        border-color: #86efac;
+        background: transparent;
+    }
+
+    .btn-outline-success:hover {
+        background-color: rgba(134, 239, 172, 0.1);
+        border-color: #86efac;
+        color: #86efac;
+    }
+
+    .badge {
+        background-color: #475569 !important;
+    }
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        .btn span {
+            font-size: 0.9rem;
+        }
+        .fs-4 {
+            font-size: 1.3rem;
+        }
+        .d-flex {
+            flex-direction: column;
+            align-items: center;
+        }
+        .btn {
+            width: 100%;
+            max-width: 300px;
+        }
+        .btn-group-vertical {
+            flex-direction: row;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .quick-filters .btn {
+            width: auto;
+            max-width: none;
+        }
+    }
+</style>
+
+{% endblock %}

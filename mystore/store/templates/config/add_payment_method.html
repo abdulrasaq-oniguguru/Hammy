@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Add Payment Method - {{ store_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="mb-4">
+        <h2 class="mb-0">
+            <i class="bi bi-plus-circle text-primary me-2"></i>
+            Add Payment Method
+        </h2>
+        <p class="text-muted mb-0">Configure a new payment option</p>
+    </div>
+
+    <div class="row">
+        <div class="col-12 col-lg-8">
+            <!-- Form Card -->
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-credit-card me-2"></i>Payment Method Details
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" class="needs-validation" novalidate>
+                        {% csrf_token %}
+
+                        {% if form.errors %}
+                        <div class="alert alert-danger">
+                            <strong>Please correct the following errors:</strong>
+                            <ul class="mb-0 mt-2">
+                                {% for field in form %}
+                                    {% for error in field.errors %}
+                                        <li>{{ field.label }}: {{ error }}</li>
+                                    {% endfor %}
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+
+                        <!-- Basic Information -->
+                        <div class="mb-4">
+                            <h6 class="text-primary fw-bold mb-3">
+                                <i class="bi bi-info-circle me-2"></i>Basic Information
+                            </h6>
+
+                            <div class="mb-3">
+                                <label for="{{ form.name.id_for_label }}" class="form-label fw-bold">
+                                    Name <span class="text-danger">*</span>
+                                </label>
+                                {{ form.name }}
+                                <small class="form-text text-muted">Internal name for this payment method</small>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="{{ form.code.id_for_label }}" class="form-label fw-bold">
+                                    Code <span class="text-danger">*</span>
+                                </label>
+                                {{ form.code }}
+                                <small class="form-text text-muted">Unique code (lowercase, use underscores, e.g., pos_moniepoint)</small>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="{{ form.display_name.id_for_label }}" class="form-label fw-bold">
+                                    Display Name <span class="text-danger">*</span>
+                                </label>
+                                {{ form.display_name }}
+                                <small class="form-text text-muted">Name shown to users during sales</small>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <!-- Appearance -->
+                        <div class="mb-4">
+                            <h6 class="text-primary fw-bold mb-3">
+                                <i class="bi bi-palette me-2"></i>Appearance
+                            </h6>
+
+                            <div class="mb-3">
+                                <label for="{{ form.icon_class.id_for_label }}" class="form-label fw-bold">
+                                    Icon Class
+                                </label>
+                                {{ form.icon_class }}
+                                <small class="form-text text-muted">Bootstrap icon class (e.g., bi-cash, bi-credit-card)</small>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="{{ form.sort_order.id_for_label }}" class="form-label fw-bold">
+                                    Sort Order
+                                </label>
+                                {{ form.sort_order }}
+                                <small class="form-text text-muted">Display order (lower numbers appear first)</small>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <!-- Settings -->
+                        <div class="mb-4">
+                            <h6 class="text-primary fw-bold mb-3">
+                                <i class="bi bi-gear me-2"></i>Settings
+                            </h6>
+
+                            <div class="mb-3">
+                                <label for="{{ form.description.id_for_label }}" class="form-label fw-bold">
+                                    Description
+                                </label>
+                                {{ form.description }}
+                                <small class="form-text text-muted">Optional notes or description</small>
+                            </div>
+
+                            <div class="form-check mb-3">
+                                {{ form.requires_reference }}
+                                <label class="form-check-label" for="{{ form.requires_reference.id_for_label }}">
+                                    <strong>Requires Reference Number</strong>
+                                    <br><small class="text-muted">Check if this payment method requires a transaction reference</small>
+                                </label>
+                            </div>
+
+                            <div class="form-check mb-3">
+                                {{ form.is_active }}
+                                <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                    <strong>Active</strong>
+                                    <br><small class="text-muted">Enable this payment method immediately</small>
+                                </label>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <!-- Action Buttons -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'payment_method_configuration' %}" class="btn btn-secondary">
+                                <i class="bi bi-x-circle me-2"></i>Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle me-2"></i>Save Payment Method
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Help Sidebar -->
+        <div class="col-12 col-lg-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">
+                        <i class="bi bi-lightbulb me-2"></i>Quick Tips
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <h6 class="fw-bold">Examples:</h6>
+
+                    <div class="mb-3">
+                        <strong>Cash Payment</strong>
+                        <ul class="small">
+                            <li>Name: Cash Payment</li>
+                            <li>Code: cash</li>
+                            <li>Display: Cash</li>
+                            <li>Icon: bi-cash</li>
+                        </ul>
+                    </div>
+
+                    <div class="mb-3">
+                        <strong>POS Terminal</strong>
+                        <ul class="small">
+                            <li>Name: POS Moniepoint</li>
+                            <li>Code: pos_moniepoint</li>
+                            <li>Display: POS Moniepoint</li>
+                            <li>Icon: bi-credit-card</li>
+                            <li>Requires Reference: ✓</li>
+                        </ul>
+                    </div>
+
+                    <div class="mb-3">
+                        <strong>Bank Transfer</strong>
+                        <ul class="small">
+                            <li>Name: Transfer Sterling</li>
+                            <li>Code: transfer_sterling</li>
+                            <li>Display: Transfer Sterling</li>
+                            <li>Icon: bi-bank</li>
+                            <li>Requires Reference: ✓</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,253 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Invoice {{ invoice.invoice_number }}{% endblock %}
+
+{% block content %}
+<!-- Deep dark background with overlay -->
+<div class="invoice-detail-page py-6"
+     style="background: linear-gradient(rgba(15, 15, 25, 0.95), rgba(20, 20, 35, 0.98)), url('{% static 'img/homepage.jpg' %}') no-repeat center center fixed;
+             background-size: cover;
+             min-height: 100vh;
+             color: #e2e8f0;">
+    <div class="container">
+        <!-- Title Section -->
+        <div class="text-center mb-5">
+            <h1 class="display-5 fw-bold text-gray-100 mb-3">
+                <i class="bi bi-receipt me-2" style="color: #94a3b8;"></i>
+                Invoice #{{ invoice.invoice_number }}
+            </h1>
+            <p class="text-gray-300 mb-1 opacity-90"><strong>Date:</strong> {{ invoice.date|date:"F j, Y" }}</p>
+            <p class="text-gray-400 mb-0 opacity-80"><strong>Created by:</strong> {{ invoice.user.username }}</p>
+        </div>
+
+        <!-- Products Table -->
+        <div class="row justify-content-center">
+            <div class="col-lg-10 col-md-12">
+                <div class="card shadow-lg border-0 rounded-12 overflow-hidden"
+                     style="background: rgba(22, 31, 53, 0.7); backdrop-filter: blur(10px); border: 1px solid #334155;">
+                    <div class="card-body p-4">
+                        <h4 class="mb-4" style="color: #e0e7ff; font-weight: 600;">Products in this Invoice:</h4>
+
+                        {% if invoice_products %}
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead>
+                                        <tr style="background: #1e293b; color: #bfdbfe; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            <th>Product</th>
+                                            <th>Unit Price</th>
+                                            <th>Quantity</th>
+                                            <th>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for item in invoice_products %}
+                                        <tr class="align-middle" style="transition: background-color 0.2s ease;">
+                                            <td>
+                                                <strong style="color: #f0f4f8;">{{ item.product_name }}</strong>
+                                            </td>
+                                            <td style="color: #cbd5e1;">₦{{ item.product_price|floatformat:2 }}</td>
+                                            <td style="color: #cbd5e1;">{{ item.quantity }}</td>
+                                            <td style="color: #a7f3d0; font-weight: 600;">₦{{ item.total_price|floatformat:2 }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-4" style="background: rgba(30, 41, 59, 0.4); border-radius: 8px; color: #94a3b8;">
+                                <i class="bi bi-box-seam display-6 mb-2" style="color: #475569;"></i>
+                                <p class="mb-0 fs-5 opacity-80">No products in this invoice.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Cost -->
+        <div class="row justify-content-center mt-5">
+            <div class="col-lg-10 col-md-12 d-flex justify-content-end align-items-center gap-3">
+                <div class="fs-5" style="color: #d1d5e1;">Total Cost:</div>
+                <div class="fs-4 fw-bold px-3 py-2 rounded"
+                     style="background: #c8003e22; color: #fda4af; border: 1px solid #c8003e44;">
+                    ₦<span>{{ total_cost|floatformat:2 }}</span>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Add this after the Total Cost section -->
+        <div class="row justify-content-center mt-3">
+            <div class="col-lg-10 col-md-12 d-flex justify-content-end align-items-center gap-3">
+                <div class="fs-5" style="color: #d1d5e1;">Total Quantity:</div>
+                <div class="fs-4 fw-bold px-3 py-2 rounded"
+                     style="background: #4f46e522; color: #a5b4fc; border: 1px solid #4f46e544;">
+                    <span>{{ total_quantity }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Update the Action Buttons section -->
+        <div class="row justify-content-center mt-5 mb-4">
+            <div class="col-lg-10 col-md-12 d-flex flex-wrap justify-content-between gap-3">
+                <a href="{% url 'invoice_list' %}" class="btn btn-outline-gray d-flex align-items-center gap-2 px-4 py-2"
+                   style="background: transparent; border: 1px solid #475569; color: #cbd5e1; border-radius: 8px; font-weight: 500;">
+                    <i class="bi bi-arrow-left" style="color: #94a3b8;"></i>
+                    <span>Back to Invoices</span>
+                </a>
+                <div class="d-flex gap-3">
+                    <a href="{% url 'export_invoice_pdf' invoice.id %}"
+                       class="btn export-btn export-btn-pdf d-flex align-items-center gap-2 px-4 py-3 shadow-sm"
+                       style="background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+                              border: none;
+                              color: #ffffff;
+                              border-radius: 10px;
+                              font-weight: 600;
+                              transition: all 0.3s ease;
+                              position: relative;
+                              overflow: hidden;">
+                        <i class="bi bi-file-earmark-pdf-fill fs-5"></i>
+                        <span class="d-flex flex-column align-items-start">
+                            <span style="font-size: 0.85rem; line-height: 1.2;">Download</span>
+                            <span style="font-size: 1rem; font-weight: 700;">PDF</span>
+                        </span>
+                    </a>
+                    <a href="{% url 'export_invoice_excel' invoice.id %}"
+                       class="btn export-btn export-btn-excel d-flex align-items-center gap-2 px-4 py-3 shadow-sm"
+                       style="background: linear-gradient(135deg, #059669 0%, #047857 100%);
+                              border: none;
+                              color: #ffffff;
+                              border-radius: 10px;
+                              font-weight: 600;
+                              transition: all 0.3s ease;
+                              position: relative;
+                              overflow: hidden;">
+                        <i class="bi bi-file-earmark-excel-fill fs-5"></i>
+                        <span class="d-flex flex-column align-items-start">
+                            <span style="font-size: 0.85rem; line-height: 1.2;">Download</span>
+                            <span style="font-size: 1rem; font-weight: 700;">Excel</span>
+                        </span>
+                    </a>
+                    <button class="btn export-btn export-btn-print d-flex align-items-center gap-2 px-4 py-3 shadow-sm"
+                            id="print-button"
+                            style="background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+                                   border: none;
+                                   color: #ffffff;
+                                   border-radius: 10px;
+                                   font-weight: 600;
+                                   transition: all 0.3s ease;
+                                   position: relative;
+                                   overflow: hidden;">
+                        <i class="bi bi-printer-fill fs-5"></i>
+                        <span class="d-flex flex-column align-items-start">
+                            <span style="font-size: 0.85rem; line-height: 1.2;">Print</span>
+                            <span style="font-size: 1rem; font-weight: 700;">Invoice</span>
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+<!-- Custom Dark Styles - SCOPED TO INVOICE DETAIL PAGE ONLY -->
+<style>
+    /* Prevent any white bleed - SCOPED */
+    .invoice-detail-page .table {
+        --bs-table-bg: transparent;
+        --bs-table-striped-bg: transparent;
+        --bs-table-hover-bg: rgba(99, 102, 241, 0.08);
+    }
+
+    .invoice-detail-page .table th,
+    .invoice-detail-page .table td {
+        color: #e2e8f0;
+        border-top: 1px solid #334155 !important;
+        padding: 0.75rem 1rem;
+    }
+
+    .invoice-detail-page .table thead th {
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+
+    .invoice-detail-page .table tbody tr:hover {
+        background-color: rgba(79, 70, 229, 0.1) !important;
+        transition: all 0.2s ease;
+    }
+
+    /* Export Buttons Styling */
+    .export-btn {
+        min-width: 160px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .export-btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.1);
+        transition: left 0.3s ease;
+    }
+
+    .export-btn:hover::before {
+        left: 100%;
+    }
+
+    .export-btn-pdf:hover {
+        background: linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4);
+    }
+
+    .export-btn-excel:hover {
+        background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(5, 150, 105, 0.4);
+    }
+
+    .export-btn-print:hover {
+        background: linear-gradient(135deg, #4338ca 0%, #3730a3 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
+    }
+
+    .export-btn:active {
+        transform: translateY(0);
+    }
+
+    /* Responsive - SCOPED */
+    @media (max-width: 768px) {
+        .invoice-detail-page .btn span {
+            font-size: 0.9rem;
+        }
+        .invoice-detail-page .fs-4 {
+            font-size: 1.3rem;
+        }
+        .invoice-detail-page .d-flex {
+            flex-direction: column;
+            align-items: center !important;
+        }
+        .invoice-detail-page .btn {
+            width: 100%;
+            max-width: 300px;
+            text-align: center;
+        }
+        .export-btn {
+            min-width: unset;
+            width: 100%;
+        }
+    }
+</style>
+
+<!-- Print Script -->
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        document.getElementById('print-button').addEventListener('click', function () {
+            window.print();
+        });
+    });
+</script>
+
+{% endblock %}

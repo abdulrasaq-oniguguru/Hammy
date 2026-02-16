@@ -1,0 +1,326 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Gift Items Report{% endblock %}
+
+{% block content %}
+<style>
+    /* Theme-aware variables */
+    :root[data-theme="light"] .gift-report-page {
+        --page-bg: var(--bg-primary);
+        --card-bg: var(--bg-secondary);
+        --input-bg: var(--bg-secondary);
+        --text-color: var(--text-primary);
+        --text-muted: var(--text-secondary);
+        --border: var(--border-color);
+        --accent: #e74c3c;
+        --shadow: var(--shadow-md);
+        --filter-bg: var(--bg-tertiary);
+        --table-header-bg: #e74c3c;
+        --table-row-hover: rgba(231, 76, 60, 0.1);
+    }
+
+    :root[data-theme="dark"] .gift-report-page {
+        --page-bg: var(--bg-primary);
+        --card-bg: var(--bg-secondary);
+        --input-bg: var(--bg-tertiary);
+        --text-color: var(--text-primary);
+        --text-muted: var(--text-secondary);
+        --border: var(--border-color);
+        --accent: #e74c3c;
+        --shadow: var(--shadow-md);
+        --filter-bg: var(--bg-tertiary);
+        --table-header-bg: #e74c3c;
+        --table-row-hover: rgba(231, 76, 60, 0.15);
+    }
+
+    .gift-report-page {
+        background: var(--page-bg);
+        min-height: 100vh;
+        padding: 2rem 0;
+    }
+
+    .page-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .page-header h1 {
+        color: var(--text-color);
+        font-weight: 700;
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+    }
+
+    .page-header i {
+        color: var(--accent);
+        font-size: 2.5rem;
+    }
+
+    .main-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 15px;
+        padding: 2rem;
+        box-shadow: var(--shadow);
+    }
+
+    .filter-section {
+        background: var(--filter-bg);
+        border-radius: 12px;
+        padding: 1.5rem;
+        border: 1px solid var(--border);
+        margin-bottom: 2rem;
+    }
+
+    .filter-title {
+        color: var(--text-color);
+        font-size: 1.3rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .form-control, .form-select {
+        background: var(--input-bg);
+        border: 1px solid var(--border);
+        color: var(--text-color);
+        border-radius: 8px;
+        padding: 0.6rem;
+    }
+
+    .form-label {
+        color: var(--text-muted);
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .summary-card {
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .summary-card h3 {
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        opacity: 0.9;
+    }
+
+    .summary-card .value {
+        font-size: 2rem;
+        font-weight: 700;
+    }
+
+    .table-responsive {
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+    }
+
+    .gift-table {
+        width: 100%;
+        background: var(--card-bg);
+        margin: 0;
+    }
+
+    .gift-table thead {
+        background: var(--table-header-bg);
+        color: white;
+    }
+
+    .gift-table th {
+        padding: 1rem;
+        font-weight: 600;
+        text-align: left;
+        border: none;
+    }
+
+    .gift-table td {
+        padding: 1rem;
+        border-bottom: 1px solid var(--border);
+        color: var(--text-color);
+    }
+
+    .gift-table tbody tr:hover {
+        background: var(--table-row-hover);
+    }
+
+    .btn-primary {
+        background: var(--accent);
+        border: none;
+        padding: 0.6rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+
+    .btn-primary:hover {
+        background: #c0392b;
+        transform: translateY(-2px);
+    }
+
+    .btn-success {
+        background: #27ae60;
+        border: none;
+        padding: 0.6rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+
+    .btn-success:hover {
+        background: #229954;
+    }
+
+    .badge {
+        padding: 0.4rem 0.8rem;
+        border-radius: 6px;
+        font-weight: 600;
+    }
+
+    .badge-gift {
+        background: #e74c3c;
+        color: white;
+    }
+
+    .no-data {
+        text-align: center;
+        padding: 3rem;
+        color: var(--text-muted);
+    }
+
+    .no-data i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+</style>
+
+<div class="gift-report-page">
+    <div class="container">
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1>
+                <i class="fas fa-gift"></i>
+                Gift Items Report
+            </h1>
+            <p style="color: var(--text-muted); font-size: 1.1rem;">Track items sold as gifts (0 Naira income)</p>
+        </div>
+
+        <div class="main-card">
+            <!-- Filters -->
+            <div class="filter-section">
+                <h2 class="filter-title">
+                    <i class="fas fa-filter"></i>
+                    Filters
+                </h2>
+                <form method="get" class="row g-3">
+                    <div class="col-md-4">
+                        <label for="start_date" class="form-label">Start Date</label>
+                        <input type="date" class="form-control" id="start_date" name="start_date" value="{{ start_date }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="end_date" class="form-label">End Date</label>
+                        <input type="date" class="form-control" id="end_date" name="end_date" value="{{ end_date }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="shop_type" class="form-label">Shop Type</label>
+                        <select class="form-select" id="shop_type" name="shop_type">
+                            <option value="">All Shops</option>
+                            {% for value, label in shop_types %}
+                                <option value="{{ value }}" {% if selected_shop_type == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search"></i> Apply Filters
+                        </button>
+                        <a href="?export=excel&start_date={{ start_date }}&end_date={{ end_date }}&shop_type={{ selected_shop_type }}"
+                           class="btn btn-success">
+                            <i class="fas fa-file-excel"></i> Export to Excel
+                        </a>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="summary-cards">
+                <div class="summary-card">
+                    <h3>Total Gift Transactions</h3>
+                    <div class="value">{{ total_gifts }}</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Total Items Gifted</h3>
+                    <div class="value">{{ total_quantity }}</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Retail Value (Lost Revenue)</h3>
+                    <div class="value">{{ currency_symbol }}{{ total_retail_value|floatformat:2 }}</div>
+                </div>
+            </div>
+
+            <!-- Gift Items Table -->
+            <div class="table-responsive">
+                {% if gift_sales %}
+                    <table class="gift-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Receipt #</th>
+                                <th>Product</th>
+                                <th>Size/Color</th>
+                                <th>Qty</th>
+                                <th>Retail Value</th>
+                                <th>Customer</th>
+                                <th>Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sale in gift_sales %}
+                                <tr>
+                                    <td>{{ sale.sale_date|date:"Y-m-d H:i" }}</td>
+                                    <td>
+                                        <span class="badge badge-gift">
+                                            {{ sale.receipt.receipt_number }}
+                                        </span>
+                                    </td>
+                                    <td><strong>{{ sale.product.brand }}</strong></td>
+                                    <td>{{ sale.product.size }} / {{ sale.product.color }}</td>
+                                    <td><strong>{{ sale.quantity }}</strong></td>
+                                    <td>{{ currency_symbol }}{{ sale.original_value|floatformat:2 }}</td>
+                                    <td>{{ sale.customer.name|default:"Walk-in" }}</td>
+                                    <td>{{ sale.gift_reason|default:"N/A" }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <div class="no-data">
+                        <i class="fas fa-gift"></i>
+                        <h3>No gift items found</h3>
+                        <p>No items were marked as gifts for the selected period.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

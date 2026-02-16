@@ -1,0 +1,468 @@
+{% extends 'oem_reporting/base_oem.html' %}
+{% load static %}
+{% block title %}Financial Report - OEM{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .filter-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+    }
+
+    .filter-card-header {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border-bottom: 1px solid var(--border-color);
+        padding: 1rem;
+        border-radius: 12px 12px 0 0;
+    }
+
+    .filter-card-body {
+        color: var(--text-primary);
+        padding: 1rem;
+    }
+
+    .form-label {
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+    }
+
+    .summary-card {
+        background: var(--card-bg);
+        color: var(--text-primary);
+        border-radius: 8px;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .summary-card .card-title {
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    .summary-card .card-text {
+        color: var(--text-primary);
+    }
+
+    .summary-card small {
+        color: var(--text-muted);
+    }
+
+    .payment-breakdown-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+    }
+
+    .payment-breakdown-header {
+        background: var(--bg-tertiary);
+        border-bottom: 1px solid var(--border-color);
+        padding: 1rem;
+        border-radius: 12px 12px 0 0;
+    }
+
+    .payment-method-card {
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+    }
+
+    .payment-method-card .card-title {
+        color: var(--text-primary);
+    }
+
+    .payment-method-card h4 {
+        color: var(--accent-success);
+    }
+
+    .discount-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+    }
+
+    .discount-card-header {
+        background: var(--bg-tertiary);
+        border-bottom: 1px solid var(--border-color);
+        padding: 1rem;
+        border-radius: 12px 12px 0 0;
+    }
+
+    .discount-card h6 {
+        color: var(--text-primary);
+    }
+
+    .page-title {
+        color: var(--text-primary);
+    }
+
+    .table th {
+        background: var(--table-header-bg);
+        color: var(--text-primary);
+        border-color: var(--border-color);
+        padding: 0.5rem;
+        font-size: 0.85rem;
+    }
+
+    .table td {
+        color: var(--text-primary);
+        border-color: var(--border-color);
+        padding: 0.5rem;
+        font-size: 0.85rem;
+    }
+
+    .table tbody tr:hover {
+        background-color: var(--table-row-hover);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <!-- Left Sidebar: Filters -->
+        <div class="col-lg-2 col-md-3 col-sm-4 mb-4">
+            <div class="filter-card">
+                <div class="filter-card-header">
+                    <h6 class="mb-0">Filters</h6>
+                </div>
+                <div class="filter-card-body">
+                    <form method="get" class="small">
+                        <!-- Start Date -->
+                        <div class="form-group mb-3">
+                            <label for="start_date" class="form-label">Start Date</label>
+                            <input type="date" name="start_date" class="form-control form-control-sm"
+                                   value="{{ start_date|date:'Y-m-d' }}">
+                        </div>
+                        <!-- End Date -->
+                        <div class="form-group mb-3">
+                            <label for="end_date" class="form-label">End Date</label>
+                            <input type="date" name="end_date" class="form-control form-control-sm"
+                                   value="{{ end_date|date:'Y-m-d' }}">
+                        </div>
+                        <!-- Report Type -->
+                        <div class="form-group mb-3">
+                            <label for="report_type" class="form-label">Focus</label>
+                            <select name="report_type" class="form-select form-select-sm">
+                                <option value="revenue" {% if report_type == 'revenue' %}selected{% endif %}>Revenue Analysis</option>
+                                <option value="payments" {% if report_type == 'payments' %}selected{% endif %}>Payment Methods</option>
+                                <option value="discounts" {% if report_type == 'discounts' %}selected{% endif %}>Discounts & Fees</option>
+                            </select>
+                        </div>
+                        <!-- Actions -->
+                        <button type="submit" class="btn btn-oem-primary btn-sm w-100 mb-2">Apply</button>
+                        <a href="{% url 'oem_reporting:financial_report' %}" class="btn btn-oem-secondary btn-sm w-100">Clear</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <!-- Main Content Area -->
+        <div class="col-lg-10 col-md-9 col-sm-8">
+            <!-- Page Title -->
+            <h1 class="h3 mb-4 page-title">
+                <i class="fas fa-chart-line"></i> Financial Report
+                <span class="badge bg-primary ms-2">{{ total_transactions }} Transactions</span>
+            </h1>
+            <!-- Revenue Overview Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3 mb-3">
+                    <div class="card summary-card" style="border-left: 4px solid #4e73df;">
+                        <div class="card-body">
+                            <h6 class="card-title text-primary">Gross Revenue</h6>
+                            <p class="card-text fs-5 mb-1">{{ currency_symbol }}{{ gross_revenue|floatformat:2 }}</p>
+                            <small>Before discounts</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card summary-card" style="border-left: 4px solid #1cc88a;">
+                        <div class="card-body">
+                            <h6 class="card-title text-success">Net Revenue</h6>
+                            <p class="card-text fs-5 mb-1">{{ currency_symbol }}{{ net_revenue|floatformat:2 }}</p>
+                            <small>After discounts, ex. delivery</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card summary-card" style="border-left: 4px solid #f6c23e;">
+                        <div class="card-body">
+                            <h6 class="card-title text-warning">Total Profit</h6>
+                            <p class="card-text fs-5 mb-1">{{ currency_symbol }}{{ total_profit|floatformat:2 }}</p>
+                            <small>{{ profit_margin|floatformat:1 }}% margin</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card summary-card" style="border-left: 4px solid #36b9cc;">
+                        <div class="card-body">
+                            <h6 class="card-title text-info">Avg Transaction</h6>
+                            <p class="card-text fs-5 mb-1">{{ currency_symbol }}{{ avg_transaction_value|floatformat:2 }}</p>
+                            <small>Per transaction</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Payment Method Breakdown - Main Focus -->
+            <div class="payment-breakdown-card mb-4">
+                <div class="payment-breakdown-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0" style="color: var(--text-primary);">
+                        <i class="fas fa-credit-card"></i> Payment Method Breakdown
+                    </h6>
+                    <span class="badge bg-success">Most Important</span>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for method, data in payment_method_breakdown.items %}
+                        <div class="col-lg-4 col-md-6 mb-3">
+                            <div class="card payment-method-card">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title">{{ method }}</h6>
+                                    <h4 class="text-success mb-2">{{ currency_symbol }}{{ data.total_amount|floatformat:2 }}</h4>
+                                    <div class="row text-center">
+                                        <div class="col-6">
+                                            <small style="color: var(--text-muted);">Transactions</small>
+                                            <div class="fw-bold" style="color: var(--text-primary);">{{ data.transaction_count }}</div>
+                                        </div>
+                                        <div class="col-6">
+                                            <small style="color: var(--text-muted);">Average</small>
+                                            <div class="fw-bold" style="color: var(--text-primary);">{{ currency_symbol }}{{ data.avg_transaction|floatformat:2 }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12">
+                            <p class="text-center" style="color: var(--text-muted);">No payment data available</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <!-- Discount & Fees Analysis -->
+            <div class="row mb-4">
+                <!-- Discount Breakdown -->
+                <div class="col-md-8">
+                    <div class="discount-card">
+                        <div class="discount-card-header">
+                            <h6 class="mb-0">
+                                <i class="fas fa-percentage"></i> Discount Analysis
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4 text-center">
+                                    <div class="mb-3">
+                                        <h6 class="text-warning">Item-Level Discounts</h6>
+                                        <h4 style="color: var(--text-primary);">{{ currency_symbol }}{{ discount_breakdown.item_level_discounts|floatformat:2 }}</h4>
+                                        <small style="color: var(--text-muted);">Applied to individual items</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 text-center">
+                                    <div class="mb-3">
+                                        <h6 class="text-info">Payment-Level Discounts</h6>
+                                        <h4 style="color: var(--text-primary);">{{ currency_symbol }}{{ discount_breakdown.payment_level_discounts|floatformat:2 }}</h4>
+                                        <small style="color: var(--text-muted);">Applied to total payment</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 text-center">
+                                    <div class="mb-3">
+                                        <h6 class="text-danger">Total Discounts</h6>
+                                        <h4 style="color: var(--text-primary);">{{ currency_symbol }}{{ discount_breakdown.total_discounts|floatformat:2 }}</h4>
+                                        <small style="color: var(--text-muted);">{{ discount_breakdown.discount_rate|floatformat:1 }}% of gross revenue</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Delivery Fees -->
+                <div class="col-md-4">
+                    <div class="discount-card">
+                        <div class="discount-card-header">
+                            <h6 class="mb-0">
+                                <i class="fas fa-truck"></i> Delivery Fees
+                            </h6>
+                        </div>
+                        <div class="card-body text-center">
+                            <h4 class="text-success mb-2">{{ currency_symbol }}{{ total_delivery_fees|floatformat:2 }}</h4>
+                            <p style="color: var(--text-muted);" class="mb-1">Total delivery fees collected</p>
+                            <small style="color: var(--text-secondary);">Additional revenue stream</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Payment Status Overview -->
+            <div class="discount-card mb-4">
+                <div class="discount-card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-chart-pie"></i> Payment Status Overview
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 text-center">
+                            <div class="mb-3">
+                                <h6 class="text-success">Completed</h6>
+                                <h4 style="color: var(--text-primary);">{{ payment_status_breakdown.completed }}</h4>
+                                <p class="text-success mb-0">{{ currency_symbol }}{{ completed_amount|floatformat:2 }}</p>
+                                <small style="color: var(--text-muted);">Full payments received</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <div class="mb-3">
+                                <h6 class="text-warning">Partial</h6>
+                                <h4 style="color: var(--text-primary);">{{ payment_status_breakdown.partial }}</h4>
+                                <p class="text-warning mb-0">{{ currency_symbol }}{{ partial_amount|floatformat:2 }}</p>
+                                <small style="color: var(--text-muted);">Partially paid orders</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <div class="mb-3">
+                                <h6 class="text-secondary">Pending</h6>
+                                <h4 style="color: var(--text-primary);">{{ payment_status_breakdown.pending }}</h4>
+                                <p class="text-secondary mb-0">{{ currency_symbol }}{{ pending_amount|floatformat:2 }}</p>
+                                <small style="color: var(--text-muted);">Awaiting payment</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <div class="mb-3">
+                                <h6 class="text-danger">Failed</h6>
+                                <h4 style="color: var(--text-primary);">{{ payment_status_breakdown.failed }}</h4>
+                                <p class="text-danger mb-0">{{ currency_symbol }}0.00</p>
+                                <small style="color: var(--text-muted);">Failed transactions</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Monthly Trend Chart -->
+            <div class="discount-card">
+                <div class="discount-card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-chart-area"></i> Monthly Financial Trends
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <!-- Chart Container -->
+                    <div style="height: 300px; position: relative; margin-bottom: 1.5rem;">
+                        <canvas id="financialTrendChart"></canvas>
+                    </div>
+
+                    <!-- Monthly Details Table -->
+                    <div class="table-responsive mt-4">
+                        <table class="table table-bordered table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Month</th>
+                                    <th>Revenue</th>
+                                    <th>Discounts</th>
+                                    <th>Delivery Fees</th>
+                                    <th>Net Revenue</th>
+                                    <th>Transactions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for month in monthly_data %}
+                                <tr>
+                                    <td>{{ month.month|date:"M Y" }}</td>
+                                    <td>{{ currency_symbol }}{{ month.revenue|floatformat:2 }}</td>
+                                    <td class="text-warning">{{ currency_symbol }}{{ month.discount_amount|floatformat:2 }}</td>
+                                    <td class="text-success">{{ currency_symbol }}{{ month.delivery_fees|floatformat:2 }}</td>
+                                    <td class="text-info">{{ currency_symbol }}{{ month.net_revenue|floatformat:2 }}</td>
+                                    <td>{{ month.transaction_count }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center" style="color: var(--text-muted);">No monthly data available</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Chart Script -->
+<script>
+    // Get current theme
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const isDark = currentTheme === 'dark';
+
+    const ctx = document.getElementById('financialTrendChart').getContext('2d');
+    const financialChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [{% for month in monthly_data %}'{{ month.month|date:"M Y" }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
+            datasets: [
+                {
+                    label: 'Revenue ({{ currency_symbol }})',
+                    data: [{% for month in monthly_data %}{{ month.revenue }}{% if not forloop.last %}, {% endif %}{% endfor %}],
+                    borderColor: '#4e73df',
+                    backgroundColor: 'rgba(78, 115, 223, 0.1)',
+                    tension: 0.3,
+                    fill: true
+                },
+                {
+                    label: 'Discounts ({{ currency_symbol }})',
+                    data: [{% for month in monthly_data %}{{ month.discount_amount }}{% if not forloop.last %}, {% endif %}{% endfor %}],
+                    borderColor: '#f6c23e',
+                    backgroundColor: 'rgba(246, 194, 62, 0.1)',
+                    tension: 0.3,
+                    fill: false
+                },
+                {
+                    label: 'Delivery Fees ({{ currency_symbol }})',
+                    data: [{% for month in monthly_data %}{{ month.delivery_fees }}{% if not forloop.last %}, {% endif %}{% endfor %}],
+                    borderColor: '#1cc88a',
+                    backgroundColor: 'rgba(28, 200, 138, 0.1)',
+                    tension: 0.3,
+                    fill: false
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: isDark ? '#e0e0e0' : '#1a202c'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: isDark ? '#343a40' : '#ffffff',
+                    titleColor: isDark ? '#ffffff' : '#1a202c',
+                    bodyColor: isDark ? '#ffffff' : '#1a202c',
+                    borderColor: isDark ? '#475569' : '#e2e8f0',
+                    borderWidth: 1,
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': {{ currency_symbol }}' + context.parsed.y.toLocaleString();
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: isDark ? '#e0e0e0' : '#1a202c' },
+                    grid: { color: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }
+                },
+                y: {
+                    ticks: {
+                        color: isDark ? '#e0e0e0' : '#1a202c',
+                        callback: function(value) {
+                            return '{{ currency_symbol }}' + value.toLocaleString();
+                        }
+                    },
+                    grid: { color: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' },
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

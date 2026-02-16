@@ -1,0 +1,167 @@
+<!-- templates/transfers/transfer_detail.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold">📋 Transfer: {{ transfer.transfer_reference }}</h2>
+        <div>
+            <a href="{% url 'download_transfer_document' transfer.id 'pdf' %}" class="btn btn-danger me-2">
+                <i class="fas fa-file-pdf"></i> PDF
+            </a>
+            <a href="{% url 'download_transfer_document' transfer.id 'excel' %}" class="btn btn-success me-2">
+                <i class="fas fa-file-excel"></i> Excel
+            </a>
+            <a href="{% url 'transfer_list' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-list"></i> All Transfers
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Transfer Info -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> Transfer Info</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between">
+                            <strong>Reference</strong>
+                            <span>{{ transfer.transfer_reference }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <strong>Transfer Type</strong>
+                            <span class="badge bg-info">{{ transfer.get_transfer_type_display }}</span>
+                        </li>
+                        {% if transfer.transfer_type == 'location' %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <strong>From Location</strong>
+                            <span>{{ transfer.get_from_location_display }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <strong>To Location</strong>
+                            <span>{{ transfer.get_to_location_display }}</span>
+                        </li>
+                        {% else %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <strong>Location</strong>
+                            <span>{{ transfer.get_internal_location_display }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <strong>From</strong>
+                            <span>{{ transfer.get_from_shop_display }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <strong>To</strong>
+                            <span>{{ transfer.get_to_shop_display }}</span>
+                        </li>
+                        {% endif %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <strong>Date</strong>
+                            <span>{{ transfer.transfer_date|date:"M d, Y H:i" }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <strong>Status</strong>
+                            <span class="badge
+                                {% if transfer.status == 'PENDING' %}bg-warning
+                                {% elif transfer.status == 'IN_TRANSIT' %}bg-info
+                                {% elif transfer.status == 'RECEIVED' %}bg-success
+                                {% elif transfer.status == 'CANCELLED' %}bg-danger
+                                {% endif %}">
+                                {{ transfer.get_status_display }}
+                            </span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <strong>Created By</strong>
+                            <span>{{ transfer.created_by.username }}</span>
+                        </li>
+                        {% if transfer.notes %}
+                        <li class="list-group-item">
+                            <strong>Notes</strong>
+                            <p class="mb-0 mt-1 text-muted">{{ transfer.notes }}</p>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Status Update -->
+            {% if transfer.status != 'RECEIVED' and transfer.status != 'CANCELLED' %}
+            <div class="card shadow-sm border-0 mt-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-sync-alt"></i> Update Status</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'update_transfer_status' transfer.id %}">
+                        {% csrf_token %}
+                        <select name="status" class="form-select mb-3" required>
+                            <option value="">-- Select New Status --</option>
+                            {% for value, label in transfer.TRANSFER_STATUS_CHOICES %}
+                                {% if value != transfer.status %}
+                                <option value="{{ value }}">{{ label }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-primary w-100">
+                            Update Status
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Items -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-box"></i> Items Transferred</h5>
+                    <span class="badge bg-light text-dark">{{ transfer_items|length }} items</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Brand</th>
+                                    <th>Size</th>
+                                    <th>Color</th>
+                                    <th>Qty</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in transfer_items %}
+                                <tr>
+                                    <td>{{ item.product.brand }}</td>
+                                    <td>{{ item.product.size }}</td>
+                                    <td>{{ item.product.get_display_color|default:"–" }}</td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>₦{{ item.total_price|floatformat:2 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr class="fw-bold">
+                                    <td colspan="3" class="text-end">Total:</td>
+                                    <td>{{ total_items }}</td>
+                                    <td>₦{{ total_value|floatformat:2 }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .list-group-item { padding: 0.75rem 1rem; }
+    .table td, .table th { white-space: nowrap; }
+</style>
+
+{% endblock %}

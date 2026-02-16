@@ -1,0 +1,936 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Product List{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-wrapper {
+        min-height: 100vh;
+        padding: 3rem 0;
+    }
+
+    .page-header {
+        background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        color: white;
+        box-shadow: var(--shadow-lg);
+        text-align: center;
+    }
+
+    .filter-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .filter-card h6 {
+        color: var(--text-primary);
+        font-weight: 600;
+    }
+
+    .filter-card .form-label {
+        color: var(--text-primary);
+        font-size: 0.875rem;
+    }
+
+    .filter-card .form-control,
+    .filter-card .form-select {
+        background-color: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+    }
+
+    .product-table-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        box-shadow: var(--shadow-md);
+    }
+
+    .product-table {
+        color: var(--text-primary);
+    }
+
+    .product-table th {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border-color: var(--border-color);
+    }
+
+    .product-table td {
+        border-color: var(--border-color);
+        color: var(--text-primary);
+    }
+
+    .product-table tbody tr:hover {
+        background: var(--card-hover-bg);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+    <div class="container-fluid px-4" style="max-width: 1800px; margin: 0 auto;">
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1 class="display-6 fw-bold mb-0">
+                <i class="bi bi-box-seam me-2"></i>Product Inventory
+            </h1>
+        </div>
+
+        <!-- Success Alert for Quantity Updates -->
+        <div id="success-alert" class="alert alert-success alert-dismissible fade" role="alert" style="display: none;">
+            <i class="bi bi-check-circle-fill"></i>
+            <span id="success-message"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+
+        <div class="row">
+            <!-- Compact Sidebar Filters -->
+            <div class="col-lg-2 col-md-3 mb-3">
+                <div class="filter-card">
+                    <div class="card-body p-3">
+                        <h6 class="mb-2"><i class="bi bi-funnel"></i> Filters</h6>
+
+                        <form method="GET" action="{% url 'product_list' %}">
+                            <!-- Search -->
+                            <div class="mb-2">
+                                <label class="form-label small mb-1">Search</label>
+                                <input type="text"
+                                       name="search"
+                                       class="form-control form-control-sm"
+                                       placeholder="Search products..."
+                                       value="{{ request.GET.search|default:'' }}">
+                            </div>
+
+                            <!-- Barcode Search -->
+                            <div class="mb-2">
+                                <label class="form-label small mb-1">Barcode</label>
+                                <input type="text"
+                                       name="barcode"
+                                       class="form-control form-control-sm"
+                                       placeholder="Scan or enter barcode..."
+                                       value="{{ request.GET.barcode|default:'' }}">
+                            </div>
+
+                            <!-- Category -->
+                            <div class="mb-2">
+                                <label class="form-label small mb-1">Category</label>
+                                <select name="category" class="form-select form-select-sm ">
+                                    <option value="">All Categories</option>
+                                    {% for category in category_choices %}
+                                        {% if category|length == 2 %}
+                                            <option value="{{ category.0 }}" {% if current_filters.category == category.0 %}selected{% endif %}>
+                                                {{ category.1 }}
+                                            </option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Shop -->
+                            <div class="mb-2">
+                                <label class="form-label small mb-1">Shop</label>
+                                <select name="shop" class="form-select form-select-sm ">
+                                    <option value="">All Shops</option>
+                                    {% for shop in shop_choices %}
+                                        {% if shop|length == 2 %}
+                                            <option value="{{ shop.0 }}" {% if current_filters.shop == shop.0 %}selected{% endif %}>
+                                                {{ shop.1 }}
+                                            </option>
+                                        {% else %}
+                                            <option value="{{ shop }}" {% if current_filters.shop == shop %}selected{% endif %}>
+                                                {{ shop }}
+                                            </option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Size -->
+                            <div class="mb-2">
+                                <label class="form-label small mb-1">Size</label>
+                                <input type="text"
+                                       name="size"
+                                       class="form-control form-control-sm "
+                                       placeholder="Enter size"
+                                       value="{{ current_filters.size|default:'' }}">
+                            </div>
+
+                            <!-- Color -->
+                            <div class="mb-2">
+                                <label class="form-label small mb-1">Color</label>
+                                <select name="color" class="form-select form-select-sm ">
+                                    <option value="">All Colors</option>
+                                    {% for color in COLOR_CHOICES %}
+                                        {% if color|length == 2 %}
+                                            <option value="{{ color.0 }}" {% if current_filters.color == color.0 %}selected{% endif %}>
+                                                {{ color.1 }}
+                                            </option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Design -->
+                            <div class="mb-2">
+                                <label class="form-label small mb-1">Design</label>
+                                <select name="design" class="form-select form-select-sm ">
+                                    <option value="">All Designs</option>
+                                    {% for design in DESIGN_CHOICES %}
+                                        {% if design|length == 2 %}
+                                            <option value="{{ design.0 }}" {% if current_filters.design == design.0 %}selected{% endif %}>
+                                                {{ design.1 }}
+                                            </option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Price Range -->
+                            <div class="mb-2">
+                                <label class="form-label small mb-1">Price Range</label>
+                                <div class="row g-1">
+                                    <div class="col-6">
+                                        <input type="number"
+                                               name="min_price"
+                                               class="form-control form-control-sm "
+                                               placeholder="Min"
+                                               value="{{ current_filters.min_price|default:'' }}">
+                                    </div>
+                                    <div class="col-6">
+                                        <input type="number"
+                                               name="max_price"
+                                               class="form-control form-control-sm "
+                                               placeholder="Max"
+                                               value="{{ current_filters.max_price|default:'' }}">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Quantity Range -->
+                            <div class="mb-2">
+                                <label class="form-label small mb-1">Quantity Range</label>
+                                <div class="row g-1">
+                                    <div class="col-6">
+                                        <input type="number"
+                                               name="min_quantity"
+                                               class="form-control form-control-sm "
+                                               placeholder="Min"
+                                               value="{{ current_filters.min_quantity|default:'' }}">
+                                    </div>
+                                    <div class="col-6">
+                                        <input type="number"
+                                               name="max_quantity"
+                                               class="form-control form-control-sm "
+                                               placeholder="Max"
+                                               value="{{ current_filters.max_quantity|default:'' }}">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Sorting -->
+                            <div class="mb-2">
+                                <label class="form-label small mb-1">Sort By</label>
+                                <select name="sort_by_name" class="form-select form-select-sm  mb-1">
+                                    <option value="">Name: Default</option>
+                                    <option value="brand" {% if current_filters.sort_by_name == 'brand' %}selected{% endif %}>Name: A-Z</option>
+                                    <option value="-brand" {% if current_filters.sort_by_name == '-brand' %}selected{% endif %}>Name: Z-A</option>
+                                </select>
+
+                                <select name="sort_by_price" class="form-select form-select-sm  mb-1">
+                                    <option value="">Price: Default</option>
+                                    <option value="price" {% if current_filters.sort_by_price == 'price' %}selected{% endif %}>Price: Low to High</option>
+                                    <option value="-price" {% if current_filters.sort_by_price == '-price' %}selected{% endif %}>Price: High to Low</option>
+                                </select>
+
+                                <select name="sort_by_quantity" class="form-select form-select-sm ">
+                                    <option value="">Quantity: Default</option>
+                                    <option value="quantity" {% if current_filters.sort_by_quantity == 'quantity' %}selected{% endif %}>Quantity: Low to High</option>
+                                    <option value="-quantity" {% if current_filters.sort_by_quantity == '-quantity' %}selected{% endif %}>Quantity: High to Low</option>
+                                </select>
+                            </div>
+
+                            <!-- Filter Buttons -->
+                            <div class="d-grid gap-1 mb-2">
+                                <button type="submit" class="btn btn-danger btn-sm">
+                                    <i class="bi bi-funnel"></i> Apply Filters
+                                </button>
+                                <a href="{% url 'product_list' %}" class="btn btn-outline-light btn-sm">
+                                    <i class="bi bi-arrow-counterclockwise"></i> Reset Filters
+                                </a>
+                            </div>
+                        </form>
+
+                        <!-- Active Filters -->
+                        {% if has_filters %}
+                        <div class="mt-2 pt-2 border-top border-secondary">
+                            <h6 class=" mb-1 small">Active Filters:</h6>
+                            <div class="d-flex flex-wrap gap-1">
+                                {% if query %}
+                                <span class="badge bg-secondary small">Search: {{ query }}</span>
+                                {% endif %}
+                                {% if current_filters.category %}
+                                <span class="badge bg-secondary small">Category: {{ current_filters.category }}</span>
+                                {% endif %}
+                                {% if current_filters.shop %}
+                                <span class="badge bg-secondary small">Shop: {{ current_filters.shop }}</span>
+                                {% endif %}
+                                {% if current_filters.size %}
+                                <span class="badge bg-secondary small">Size: {{ current_filters.size }}</span>
+                                {% endif %}
+                                {% if current_filters.color %}
+                                <span class="badge bg-secondary small">Color: {{ current_filters.color }}</span>
+                                {% endif %}
+                                {% if current_filters.design %}
+                                <span class="badge bg-secondary small">Design: {{ current_filters.design }}</span>
+                                {% endif %}
+                                {% if current_filters.min_price %}
+                                <span class="badge bg-secondary small">Min Price: {{ current_filters.min_price }}</span>
+                                {% endif %}
+                                {% if current_filters.max_price %}
+                                <span class="badge bg-secondary small">Max Price: {{ current_filters.max_price }}</span>
+                                {% endif %}
+                                {% if current_filters.min_quantity %}
+                                <span class="badge bg-secondary small">Min Qty: {{ current_filters.min_quantity }}</span>
+                                {% endif %}
+                                {% if current_filters.max_quantity %}
+                                <span class="badge bg-secondary small">Max Qty: {{ current_filters.max_quantity }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content Area - Now Wider -->
+            <div class="col-lg-10 col-md-9">
+                <!-- Search & Add Section -->
+                <div class="card border-0 shadow mb-3" style="background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px);">
+                    <div class="card-body p-3">
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                            <div class="d-flex gap-2">
+                                <a href="{% url 'add_product' %}" class="btn btn-danger btn-sm d-flex align-items-center gap-1" title="Add new product">
+                                    <i class="bi bi-plus-circle"></i> Add Product
+                                </a>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <!-- Print Button -->
+                                <button id="print-button" class="btn btn-success btn-sm d-flex align-items-center gap-1" title="Print current product list">
+                                    <i class="bi bi-printer"></i> Print List
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Import/Export Section -->
+                <div class="card border-0 shadow mb-3" style="background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px);">
+                    <div class="card-body p-3">
+                        <h6 class=" mb-2">
+                            <i class="bi bi-cloud-upload"></i> Import & Export Options
+                        </h6>
+                        <div class="row g-2">
+                            <!-- Import Section -->
+                            <div class="col-md-6">
+                                <div class="d-flex gap-2 mb-1">
+                                    <a href="{% url 'upload_products_excel' %}" class="btn btn-success btn-sm">
+                                        <i class="bi bi-upload"></i> Import Products
+                                    </a>
+                                    <a href="{% url 'download_excel_template' %}" class="btn btn-info btn-sm">
+                                        <i class="bi bi-download"></i> Get Template
+                                    </a>
+                                </div>
+                                <small class="text-muted">Import products from Excel file</small>
+                            </div>
+                            <!-- Export Section -->
+                            <div class="col-md-6">
+                                <div class="d-flex gap-2 mb-1">
+                                    <a href="{% url 'export_products_excel' %}?{{ request.GET.urlencode }}" class="btn btn-outline-success btn-sm">
+                                        <i class="bi bi-file-earmark-excel"></i> Export Excel
+                                    </a>
+                                    <a href="{% url 'export_products_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-outline-danger btn-sm">
+                                        <i class="bi bi-file-earmark-pdf"></i> Export PDF
+                                    </a>
+                                </div>
+                                <small class="text-muted">
+                                    Export current view
+                                    {% if has_filters %}
+                                        <span class="badge bg-warning text-dark">Filtered</span>
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Statistics Overview -->
+                <div class="row mb-3">
+                    <div class="col-md-4 col-6">
+                        <div class="bg-dark bg-opacity-25 border border-secondary rounded-3 p-2 text-center">
+                            <i class="bi bi-box-seam text-primary fs-4"></i>
+                            <div class=" mt-1">
+                                <strong class="fs-6">{{ total_items|default:"0" }}</strong>
+                                <small class="d-block text-muted">Total Items</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 col-6">
+                        <div class="bg-dark bg-opacity-25 border border-secondary rounded-3 p-2 text-center">
+                            <i class="bi bi-stack text-warning fs-4"></i>
+                            <div class=" mt-1">
+                                <strong class="fs-6">{{ total_quantity|default:"0" }}</strong>
+                                <small class="d-block text-muted">Total Quantity</small>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Total Inventory Value -->
+                    <div class="col-md-4 col-6">
+                        <div class="bg-dark bg-opacity-25 border border-secondary rounded-3 p-2 text-center">
+                            <i class="bi bi-currency-dollar text-success fs-4"></i>
+                            <div class=" mt-1">
+                                <strong class="fs-6">{{ currency_symbol }}{{ total_inventory_value|floatformat:2 }}</strong>
+                                <small class="d-block text-muted">Total Inventory Value</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Product Table -->
+                <div class="card border-0 shadow" style="background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px);">
+                    <div class="card-body p-3">
+                        <div class="table-responsive" id="product-table">
+                            <table class="table table-hover table-sm align-middle mb-0">
+                                <thead class="bg-secondary text-white">
+                                    <tr>
+                                        <th>Brand</th>
+                                        <th>Price</th>
+                                        <th>Selling Price</th>
+                                        <th>Color</th>
+                                        <th>Design</th>
+                                        <th>Category</th>
+                                        <th>Size</th>
+                                        <th>Qty</th>
+                                        <th>Shop</th>
+                                        <th class="text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if products %}
+                                        {% for product in products %}
+                                        <tr class="align-middle" data-product-id="{{ product.id }}">
+                                            <td><strong>{{ product.brand }}</strong></td>
+                                            <td>{{ currency_symbol }}<span class="fw-semibold">{{ product.price|floatformat:2 }}</span></td>
+                                            <td>{{ currency_symbol }}<span class="fw-semibold text-success">{{ product.selling_price|floatformat:2 }}</span></td>
+                                            <td>{{ product.get_display_color|default:"-" }}</td>
+                                            <td>{{ product.get_display_design|default:"-" }}</td>
+                                            <td>{{ product.get_display_category }}</td>
+                                            <td>{{ product.size|default:"-" }}</td>
+                                            <td>
+                                                {% if is_superuser %}
+                                                    <div class="d-flex align-items-center gap-1">
+                                                        <!-- Decrease Button with Minus Sign -->
+                                                        <button class="btn btn-sm btn-outline-danger quantity-btn d-flex align-items-center justify-content-center"
+                                                                data-action="decrease"
+                                                                data-product-id="{{ product.id }}"
+                                                                data-product-brand="{{ product.brand }}"
+                                                                title="Decrease quantity"
+                                                                aria-label="Decrease quantity">
+                                                            <strong style="font-size: 1.2rem; line-height: 1;">–</strong>
+                                                        </button>
+
+                                                        <!-- Quantity Display - Simplified with just bold styling -->
+                                                        <span class="quantity-display fw-bold text-white bg-dark px-2 py-1 rounded"
+                                                              style="min-width: 45px; font-size: 1rem; text-align: center; display: inline-block;">
+                                                            {{ product.quantity }}
+                                                        </span>
+
+                                                        <!-- Increase Button with Plus Sign -->
+                                                        <button class="btn btn-sm btn-outline-success quantity-btn d-flex align-items-center justify-content-center"
+                                                                data-action="increase"
+                                                                data-product-id="{{ product.id }}"
+                                                                data-product-brand="{{ product.brand }}"
+                                                                title="Increase quantity"
+                                                                aria-label="Increase quantity">
+                                                            <strong style="font-size: 1.2rem; line-height: 1;">+</strong>
+                                                        </button>
+                                                    </div>
+                                                {% else %}
+                                                    <span class="fw-bold text-white bg-dark px-2 py-1 rounded">
+                                                        {{ product.quantity }}
+                                                    </span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ product.shop }}</td>
+                                            <td class="text-center">
+                                                <div class="d-flex flex-column flex-md-row justify-content-center gap-1">
+                                                    <a href="{% url 'edit_product' product.id %}" class="btn btn-sm btn-outline-light d-flex align-items-center justify-content-center gap-1" title="Edit product">
+                                                        <i class="bi bi-pencil-square"></i>
+                                                        <span class="d-none d-md-inline">Edit</span>
+                                                    </a>
+                                                    <form method="POST" action="{% url 'delete_product' product.id %}" class="d-inline-block" onsubmit="return confirm('Are you sure you want to delete this product?');">
+                                                        {% csrf_token %}
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger d-flex align-items-center justify-content-center gap-1 w-100" title="Delete product">
+                                                            <i class="bi bi-trash"></i>
+                                                            <span class="d-none d-md-inline">Delete</span>
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr>
+                                            <td colspan="10" class="text-center py-4 text-muted">
+                                                {% if has_filters %}
+                                                    No products found matching your filters.
+                                                    <div class="mt-2">
+                                                        <a href="{% url 'product_list' %}" class="btn btn-sm btn-outline-light">Clear Filters</a>
+                                                    </div>
+                                                {% else %}
+                                                    No products found.
+                                                    <div class="mt-2">
+                                                        <a href="{% url 'upload_products_excel' %}" class="btn btn-sm btn-success">Import Products</a>
+                                                        or
+                                                        <a href="{% url 'add_product' %}" class="btn btn-sm btn-danger">Add Product</a>
+                                                    </div>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination -->
+                        {% if products.has_other_pages %}
+                        <nav class="mt-3">
+                            <ul class="pagination pagination-sm justify-content-center">
+                                {% if products.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link " href="?page={{ products.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Previous</a>
+                                </li>
+                                {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link ">Previous</span>
+                                </li>
+                                {% endif %}
+
+                                {% for i in products.paginator.page_range %}
+                                    {% if products.number == i %}
+                                    <li class="page-item active">
+                                        <span class="page-link bg-danger border-danger">{{ i }}</span>
+                                    </li>
+                                    {% else %}
+                                    <li class="page-item">
+                                        <a class="page-link " href="?page={{ i }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ i }}</a>
+                                    </li>
+                                    {% endif %}
+                                {% endfor %}
+
+                                {% if products.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link " href="?page={{ products.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Next</a>
+                                </li>
+                                {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link ">Next</span>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Print Template (Hidden) -->
+<div id="print-template" style="display: none;">
+    <div id="print-content">
+        <h2 class="text-center">Product List Report</h2>
+        <p class="text-center">Generated on: <span id="print-date"></span></p>
+
+        <!-- Active Filters for Print -->
+        <div id="print-filters" class="mb-3"></div>
+
+        <table class="table table-bordered" id="print-table">
+            <thead>
+                <tr>
+                    <th>Brand</th>
+                    <th>Price</th>
+                    <th>Selling Price</th>
+                    <th>Color</th>
+                    <th>Design</th>
+                    <th>Category</th>
+                    <th>Size</th>
+                    <th>Qty</th>
+                    <th>Shop</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Will be populated by JavaScript -->
+            </tbody>
+        </table>
+
+        <div class="text-end mt-3">
+            <strong>Total Inventory Value: {{ currency_symbol }}<span id="print-total-inventory">{{ total_inventory_value|floatformat:2 }}</span></strong><br>
+            <strong>Total Selling Value: {{ currency_symbol }}<span id="print-total-selling">{{ total_selling_value|floatformat:2 }}</span></strong><br>
+            <strong>Total Items: <span id="print-total-items">{{ total_products }}</span></strong>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Button Styles */
+    .btn-danger {
+        background-color: #c8003e;
+        border: none;
+        transition: background-color 0.3s ease;
+    }
+
+    .btn-danger:hover {
+        background-color: #a50034;
+    }
+
+    .btn-outline-light:hover {
+        background-color: #ffffff22;
+        color: white !important;
+    }
+
+    /* Quantity button styles */
+    .quantity-btn {
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: all 0.2s ease;
+    }
+
+    .quantity-btn:hover {
+        transform: scale(1.1);
+    }
+
+    .quantity-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    /* Updated quantity display styles - removed color classes */
+    .quantity-display {
+        min-width: 45px;
+        text-align: center;
+        font-weight: bold;
+        font-size: 1rem;
+        background-color: #343a40 !important;
+        color: white !important;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.375rem;
+        display: inline-block;
+    }
+
+    .quantity-btn {
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        font-weight: bold;
+    }
+
+    /* Loading state for quantity buttons */
+    .quantity-btn.loading {
+        pointer-events: none;
+        opacity: 0.7;
+    }
+
+    .quantity-btn.loading i {
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    /* Sidebar styling */
+    .card {
+        border-radius: 8px;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 992px) {
+        .col-lg-2 {
+            order: 2;
+            margin-top: 20px;
+        }
+        .col-lg-10 {
+            order: 1;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .d-flex.flex-wrap .btn {
+            width: 100%;
+            margin-bottom: 5px;
+        }
+
+        .action-buttons {
+            flex-direction: column;
+        }
+
+        .action-buttons .btn {
+            width: 100%;
+            margin-bottom: 5px;
+        }
+    }
+
+    /* Table Styling */
+    .table {
+        --bs-table-bg: transparent;
+        --bs-table-accent-bg: transparent;
+        --bs-table-hover-bg: rgba(255, 255, 255, 0.05);
+        color: #f5f5f5;
+    }
+
+    .table th,
+    .table td {
+        vertical-align: middle;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 0.5rem;
+    }
+
+    .table thead th {
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 0.875rem;
+    }
+
+    .table tbody tr:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    /* Action buttons styling */
+    .action-buttons .btn {
+        min-width: 90px;
+        padding: 0.25rem 0.5rem;
+    }
+
+    /* Print Styles */
+    @media print {
+        body * {
+            visibility: hidden;
+        }
+        #print-content, #print-content * {
+            visibility: visible;
+        }
+        #print-content {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            padding: 20px;
+        }
+        #print-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        #print-table th, #print-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        #print-table th {
+            background-color: #f2f2f2;
+        }
+    }
+
+    /* Sidebar scroll for smaller screens */
+    @media (max-height: 800px) {
+        .sidebar-filters {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+    }
+
+    /* Success alert styling */
+    .alert {
+        border-radius: 8px;
+        border: none;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get CSRF token
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
+
+        // Function to show success message
+        function showSuccessMessage(message) {
+            const alert = document.getElementById('success-alert');
+            const messageSpan = document.getElementById('success-message');
+            messageSpan.textContent = message;
+            alert.style.display = 'block';
+            alert.classList.add('show');
+
+            // Auto-hide after 3 seconds
+            setTimeout(() => {
+                alert.classList.remove('show');
+                setTimeout(() => {
+                    alert.style.display = 'none';
+                }, 150);
+            }, 3000);
+        }
+
+        // Quantity update functionality
+        document.querySelectorAll('.quantity-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const productId = this.dataset.productId;
+                const action = this.dataset.action;
+                const productBrand = this.dataset.productBrand;
+                const row = this.closest('tr');
+                const quantityDisplay = row.querySelector('.quantity-display');
+                const decreaseBtn = row.querySelector('[data-action="decrease"]');
+                const increaseBtn = row.querySelector('[data-action="increase"]');
+
+                // Add loading state
+                this.classList.add('loading');
+                this.disabled = true;
+
+                // Make AJAX request
+                fetch('{% url "update_product_quantity" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrftoken
+                    },
+                    body: JSON.stringify({
+                        product_id: productId,
+                        action: action
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update the quantity display
+                        quantityDisplay.textContent = data.new_quantity;
+
+                        // Disable decrease button if quantity is 0
+                        if (data.new_quantity === 0) {
+                            decreaseBtn.disabled = true;
+                        } else {
+                            decreaseBtn.disabled = false;
+                        }
+
+                        // Show success message
+                        const actionText = action === 'increase' ? 'increased' : 'decreased';
+                        showSuccessMessage(`Quantity ₦{actionText} for "₦{data.product_brand}". New quantity: ₦{data.new_quantity}`);
+                    } else {
+                        // Show error message
+                        alert('Error: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while updating quantity.');
+                })
+                .finally(() => {
+                    // Remove loading state
+                    this.classList.remove('loading');
+                    this.disabled = false;
+                });
+            });
+        });
+
+        // Print functionality
+        document.getElementById('print-button').addEventListener('click', function() {
+            // Get current date
+            const now = new Date();
+            document.getElementById('print-date').textContent = now.toLocaleString();
+
+            // Copy active filters to print template
+            const activeFilters = document.querySelectorAll('.badge.bg-secondary');
+            let filtersHTML = '';
+            if (activeFilters.length > 0) {
+                filtersHTML = '<p><strong>Active Filters:</strong> ';
+                activeFilters.forEach((badge, index) => {
+                    if (index > 0) filtersHTML += ', ';
+                    filtersHTML += badge.textContent;
+                });
+                filtersHTML += '</p>';
+            }
+            document.getElementById('print-filters').innerHTML = filtersHTML;
+
+            // Copy table data to print table
+            const mainTable = document.querySelector('#product-table table');
+            const printTable = document.getElementById('print-table');
+            const printTbody = printTable.querySelector('tbody');
+            printTbody.innerHTML = '';
+
+            // Copy rows (excluding the actions column)
+            const rows = mainTable.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length > 0) {
+                    const newRow = document.createElement('tr');
+
+                    // Add all cells except the last one (actions column)
+                    for (let i = 0; i < cells.length - 1; i++) {
+                        const newCell = document.createElement('td');
+                        newCell.textContent = cells[i].textContent;
+                        newRow.appendChild(newCell);
+                    }
+
+                    printTbody.appendChild(newRow);
+                }
+            });
+
+            // Print the document
+            const printContent = document.getElementById('print-content');
+            const originalContents = document.body.innerHTML;
+
+            document.body.innerHTML = printContent.innerHTML;
+            window.print();
+            document.body.innerHTML = originalContents;
+            location.reload();
+        });
+
+        // Initialize disabled state for decrease buttons on page load
+        document.querySelectorAll('[data-action="decrease"]').forEach(button => {
+            const row = button.closest('tr');
+            const quantityDisplay = row.querySelector('.quantity-display');
+            const quantity = parseInt(quantityDisplay.textContent);
+            if (quantity === 0) {
+                button.disabled = true;
+            }
+        });
+    });
+</script>
+{% endblock %}

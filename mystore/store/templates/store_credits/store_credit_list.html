@@ -1,0 +1,242 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Store Credits{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-wrapper {
+        min-height: 100vh;
+        padding: 3rem 0;
+    }
+
+    .page-header {
+        background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+        border-radius: 16px;
+        padding: 2.5rem;
+        margin-bottom: 2rem;
+        color: white;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .filter-card, .credits-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        box-shadow: var(--shadow-md);
+        margin-bottom: 2rem;
+    }
+
+    .filter-card .form-control,
+    .filter-card .form-select {
+        background-color: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+    }
+
+    .credits-table {
+        background: var(--card-bg);
+        color: var(--text-primary);
+    }
+
+    .credits-table th {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border-color: var(--border-color);
+    }
+
+    .credits-table td {
+        border-color: var(--border-color);
+        color: var(--text-primary);
+    }
+
+    .credits-table tbody tr:hover {
+        background: var(--card-hover-bg);
+    }
+
+    .stats-card {
+        background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+        border-radius: 12px;
+        padding: 1.5rem;
+        color: white;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+    <div class="container-fluid px-4" style="max-width: 1600px; margin: 0 auto;">
+        <!-- Page Header -->
+        <div class="page-header text-center">
+            <h1 class="display-5 fw-bold mb-2">
+                <i class="bi bi-wallet2 me-2"></i>Store Credits
+            </h1>
+            <p class="mb-0 opacity-95">Manage customer store credits and balances</p>
+        </div>
+
+        <!-- Statistics -->
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <div class="stats-card text-center">
+                    <h5 class="opacity-90 mb-2">Total Credits</h5>
+                    <h2 class="mb-0">{{ total_credits }}</h2>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="stats-card text-center">
+                    <h5 class="opacity-90 mb-2">Total Balance</h5>
+                    <h2 class="mb-0">₦{{ total_balance|floatformat:2 }}</h2>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filter-card">
+            <div class="card-body p-4">
+                <h5 class="mb-3">
+                    <i class="bi bi-funnel me-2"></i>Filters
+                </h5>
+                <form method="get" action="{% url 'store_credit_list' %}">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="customer_search" class="form-label">Customer / Credit Number</label>
+                            <input type="text" class="form-control" id="customer_search" name="customer_search"
+                                   placeholder="Search by name, phone, or credit number" value="{{ customer_search }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="status" class="form-label">Status</label>
+                            <select class="form-select" id="status" name="status">
+                                <option value="">All</option>
+                                <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+                                <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive/Used</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-search me-2"></i>Search
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Credits Table -->
+        <div class="credits-card">
+            <div class="card-body p-4">
+                <h5 class="mb-4">
+                    <i class="bi bi-table me-2"></i>Store Credits List
+                </h5>
+
+                {% if credits %}
+                <div class="table-responsive">
+                    <table class="table credits-table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Credit #</th>
+                                <th>Issued Date</th>
+                                <th>Customer</th>
+                                <th>Return #</th>
+                                <th>Original Amount</th>
+                                <th>Remaining Balance</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for credit in credits %}
+                            <tr>
+                                <td>
+                                    <strong>{{ credit.credit_number }}</strong>
+                                </td>
+                                <td>{{ credit.issued_date|date:"Y-m-d H:i" }}</td>
+                                <td>
+                                    {{ credit.customer.name }}<br>
+                                    <small class="text-muted">{{ credit.customer.phone_number }}</small>
+                                </td>
+                                <td>
+                                    {% if credit.return_transaction %}
+                                        <a href="{% url 'return_detail' credit.return_transaction.id %}">
+                                            {{ credit.return_transaction.return_number }}
+                                        </a>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>₦{{ credit.original_amount|floatformat:2 }}</td>
+                                <td>
+                                    <strong class="{% if credit.remaining_balance > 0 %}text-success{% else %}text-muted{% endif %}">
+                                        ₦{{ credit.remaining_balance|floatformat:2 }}
+                                    </strong>
+                                </td>
+                                <td>
+                                    {% if credit.is_active and credit.remaining_balance > 0 %}
+                                        <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Inactive</span>
+                                    {% endif %}
+
+                                    {% if credit.expiry_date %}
+                                        <br>
+                                        <small class="text-muted">
+                                            Expires: {{ credit.expiry_date|date:"Y-m-d" }}
+                                        </small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'store_credit_detail' credit.id %}" class="btn btn-sm btn-primary">
+                                        <i class="bi bi-eye"></i> View
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if credits.has_other_pages %}
+                <nav aria-label="Page navigation" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        {% if credits.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ credits.previous_page_number }}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">
+                                Previous
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in credits.paginator.page_range %}
+                            {% if credits.number == num %}
+                                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                            {% elif num > credits.number|add:'-3' and num < credits.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">
+                                        {{ num }}
+                                    </a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if credits.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ credits.next_page_number }}{% if customer_search %}&customer_search={{ customer_search }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">
+                                Next
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>No store credits found.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

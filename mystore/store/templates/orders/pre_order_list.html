@@ -1,0 +1,558 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Pre-orders List{% endblock %}
+
+{% block content %}
+<style>
+    /* Use the same theme variables from base.html */
+    :root[data-theme="light"] .preorder-page {
+        --page-bg: var(--bg-primary);
+        --card-bg: var(--bg-secondary);
+        --input-bg: var(--bg-secondary);
+        --text-color: var(--text-primary);
+        --text-muted: var(--text-secondary);
+        --border: var(--border-color);
+        --accent: var(--accent-primary);
+        --shadow: var(--shadow-md);
+    }
+
+    :root[data-theme="dark"] .preorder-page {
+        --page-bg: var(--bg-primary);
+        --card-bg: var(--bg-secondary);
+        --input-bg: var(--bg-tertiary);
+        --text-color: var(--text-primary);
+        --text-muted: var(--text-secondary);
+        --border: var(--border-color);
+        --accent: var(--accent-primary);
+        --shadow: var(--shadow-md);
+    }
+
+    .preorder-page {
+        background: var(--page-bg);
+        min-height: 100vh;
+        padding: 3rem 0;
+    }
+
+    .page-header {
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+
+    .page-header h1 {
+        color: var(--text-color);
+        font-weight: 700;
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+    }
+
+    .page-header i {
+        color: var(--accent);
+        font-size: 2.5rem;
+    }
+
+    .filter-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow);
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+        color: var(--text-muted);
+        font-size: 1rem;
+        margin-bottom: 0.75rem;
+        font-weight: 600;
+        display: block;
+    }
+
+    .form-control,
+    .form-select {
+        background: var(--input-bg) !important;
+        color: var(--text-color) !important;
+        border: 2px solid var(--border) !important;
+        border-radius: 12px;
+        height: 58px;
+        padding: 1rem 1.25rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: var(--accent) !important;
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1) !important;
+        outline: none;
+    }
+
+    .btn-filter {
+        background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 1rem 2rem;
+        font-weight: 700;
+        font-size: 1rem;
+        height: 58px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .btn-filter:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-clear {
+        background: var(--card-bg);
+        color: var(--text-color);
+        border: 2px solid var(--border);
+        border-radius: 12px;
+        padding: 1rem 2rem;
+        font-weight: 700;
+        font-size: 1rem;
+        height: 58px;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+        width: 100%;
+    }
+
+    .btn-clear:hover {
+        background: var(--border);
+        color: var(--text-color);
+        transform: translateY(-2px);
+    }
+
+    .table-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 2rem;
+        box-shadow: var(--shadow);
+        overflow-x: auto;
+    }
+
+    .table {
+        margin-bottom: 0;
+    }
+
+    .table thead {
+        border-bottom: 2px solid var(--border);
+    }
+
+    .table thead th {
+        background: transparent;
+        color: var(--text-muted);
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 700;
+        border: none;
+        padding: 1.25rem 1rem;
+    }
+
+    .table tbody tr {
+        border-bottom: 1px solid var(--border);
+        transition: all 0.2s;
+    }
+
+    .table tbody tr:last-child {
+        border-bottom: none;
+    }
+
+    .table tbody tr:hover {
+        background: var(--card-hover-bg);
+    }
+
+    .table tbody td {
+        color: var(--text-color);
+        padding: 1.25rem 1rem;
+        vertical-align: middle;
+        font-size: 0.95rem;
+    }
+
+    .badge {
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        font-weight: 700;
+    }
+
+    .badge-success {
+        background: rgba(16, 185, 129, 0.15);
+        color: #10b981;
+    }
+
+    .badge-danger {
+        background: rgba(239, 68, 68, 0.15);
+        color: #ef4444;
+    }
+
+    .badge-warning {
+        background: rgba(245, 158, 11, 0.15);
+        color: #f59e0b;
+    }
+
+    .badge-info {
+        background: rgba(59, 130, 246, 0.15);
+        color: #3b82f6;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .btn-sm {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.2s;
+        border: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .btn-edit {
+        background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+        color: white;
+    }
+
+    .btn-edit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        color: white;
+    }
+
+    .btn-convert {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+    }
+
+    .btn-convert:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        color: white;
+    }
+
+    .btn-delete {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        color: white;
+    }
+
+    .btn-delete:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+        color: white;
+    }
+
+    .btn-add {
+        background: linear-gradient(135deg, #d9003f, #c8003e);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 1rem 2rem;
+        font-weight: 700;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .btn-add:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(217, 0, 63, 0.4);
+        color: white;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: var(--bg-tertiary);
+        border-radius: 16px;
+    }
+
+    .empty-state i {
+        color: var(--text-muted);
+        opacity: 0.4;
+        margin-bottom: 1.5rem;
+        font-size: 4rem;
+    }
+
+    .empty-state p {
+        font-size: 1.5rem;
+        margin-bottom: 0.75rem;
+        color: var(--text-color);
+        font-weight: 600;
+    }
+
+    .empty-state small {
+        color: var(--text-muted);
+        font-size: 1rem;
+    }
+
+    .converted-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+    }
+
+    @media (max-width: 768px) {
+        .preorder-page {
+            padding: 1.5rem 0;
+        }
+
+        .page-header h1 {
+            font-size: 1.75rem;
+        }
+
+        .filter-card,
+        .table-card {
+            padding: 1.25rem;
+        }
+
+        .form-control,
+        .form-select,
+        .btn-filter,
+        .btn-clear {
+            height: 52px;
+            font-size: 0.95rem;
+        }
+
+        .action-buttons {
+            flex-direction: column;
+        }
+
+        .btn-sm {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+
+<div class="preorder-page">
+    <div class="container">
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1>
+                <i class="bi bi-box-seam"></i>
+                Pre-orders List
+            </h1>
+        </div>
+
+        <!-- Filter Section -->
+        <div class="row justify-content-center">
+            <div class="col-lg-11 col-xl-10">
+                <div class="filter-card">
+                    <form method="GET" action="{% url 'pre_order_list' %}">
+                        <div class="row g-4">
+                            <!-- Search -->
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="search-input" class="form-label">
+                                        <i class="bi bi-search me-2"></i>Search Pre-orders
+                                    </label>
+                                    <input type="text"
+                                           name="search"
+                                           id="search-input"
+                                           class="form-control"
+                                           placeholder="Search by product or customer..."
+                                           value="{{ search_query|default:'' }}">
+                                </div>
+                            </div>
+
+                            <!-- Status Filter -->
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="status-filter" class="form-label">
+                                        <i class="bi bi-funnel me-2"></i>Filter by Status
+                                    </label>
+                                    <select name="status" id="status-filter" class="form-select" onchange="this.form.submit()">
+                                        <option value="" {% if not status_filter %}selected{% endif %}>All</option>
+                                        <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                                        <option value="converted" {% if status_filter == 'converted' %}selected{% endif %}>Converted</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="col-md-6">
+                                <label class="form-label" style="opacity: 0;">Actions</label>
+                                <button type="submit" class="btn-filter">
+                                    <i class="bi bi-funnel-fill"></i>
+                                    Apply Filters
+                                </button>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label" style="opacity: 0;">Actions</label>
+                                <a href="{% url 'pre_order_list' %}" class="btn-clear">
+                                    <i class="bi bi-x-circle"></i>
+                                    Clear Filters
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pre-orders Table -->
+        <div class="row justify-content-center">
+            <div class="col-lg-11 col-xl-10">
+                <div class="table-card">
+                    {% if pre_orders %}
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Customer</th>
+                                        <th>Qty</th>
+                                        <th>Prices (₦)</th>
+                                        <th>Order Date</th>
+                                        <th>Delivery Date</th>
+                                        <th>Status</th>
+                                        <th class="text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for pre_order in pre_orders %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ pre_order.brand }}</strong>
+                                            {% if pre_order.size or pre_order.color %}
+                                                <br>
+                                                <small class="text-muted">
+                                                    {% if pre_order.size %}{{ pre_order.size }}{% endif %}
+                                                    {% if pre_order.color %} • {{ pre_order.color|title }}{% endif %}
+                                                </small>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ pre_order.customer.name }}</td>
+                                        <td><strong>{{ pre_order.quantity }}</strong></td>
+                                        <td>
+                                            {% if pre_order.selling_price %}
+                                                <small class="text-muted">Sell:</small> <strong>₦{{ pre_order.selling_price }}</strong><br>
+                                            {% endif %}
+                                            {% if pre_order.price %}
+                                                <small class="text-muted">Cost:</small> ₦{{ pre_order.price }}
+                                            {% endif %}
+                                            {% if not pre_order.selling_price and not pre_order.price %}
+                                                <small class="text-muted">Not set</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ pre_order.order_date|date:"M d, Y" }}</td>
+                                        <td>
+                                            {% if pre_order.delivery_date %}
+                                                {{ pre_order.delivery_date|date:"M d, Y" }}
+                                            {% else %}
+                                                <small class="text-muted">Not set</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if pre_order.converted_to_product %}
+                                                <span class="badge badge-info">
+                                                    <i class="bi bi-check-circle"></i> Converted
+                                                </span>
+                                                <div class="converted-badge">
+                                                    <i class="bi bi-clock-history"></i>
+                                                    {{ pre_order.conversion_date|date:"M d, Y" }}
+                                                </div>
+                                            {% elif pre_order.delivered %}
+                                                <span class="badge badge-success">
+                                                    <i class="bi bi-box-seam-fill"></i> Delivered
+                                                </span>
+                                                {% if pre_order.price %}
+                                                    <div class="converted-badge" style="color: #10b981;">
+                                                        <i class="bi bi-check2-circle"></i> Ready to Convert
+                                                    </div>
+                                                {% else %}
+                                                    <div class="converted-badge" style="color: #f59e0b;">
+                                                        <i class="bi bi-exclamation-circle"></i> Add Purchase Details
+                                                    </div>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="badge badge-danger">
+                                                    <i class="bi bi-hourglass-split"></i> Pending
+                                                </span>
+                                                {% if pre_order.price %}
+                                                    <div class="converted-badge" style="color: #10b981;">
+                                                        <i class="bi bi-check2-circle"></i> Ready to Convert
+                                                    </div>
+                                                {% else %}
+                                                    <div class="converted-badge" style="color: #f59e0b;">
+                                                        <i class="bi bi-exclamation-circle"></i> Need Purchase Info
+                                                    </div>
+                                                {% endif %}
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="action-buttons">
+                                                {% if not pre_order.converted_to_product %}
+                                                    <a href="{% url 'edit_pre_order' pre_order.id %}" class="btn btn-sm btn-edit" title="Edit">
+                                                        <i class="bi bi-pencil-fill"></i> Edit
+                                                    </a>
+                                                    <a href="{% url 'convert_preorder_to_product' pre_order.id %}" class="btn btn-sm btn-convert" title="Convert to Product">
+                                                        <i class="bi bi-arrow-right-circle-fill"></i> Convert
+                                                    </a>
+                                                    <a href="{% url 'delete_pre_order' pre_order.id %}" class="btn btn-sm btn-delete" title="Delete">
+                                                        <i class="bi bi-trash-fill"></i> Delete
+                                                    </a>
+                                                {% else %}
+                                                    <small class="text-muted">
+                                                        <i class="bi bi-lock-fill"></i> Converted (Read-only)
+                                                    </small>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="empty-state">
+                            <i class="bi bi-inbox"></i>
+                            <p>No pre-orders found</p>
+                            <small>Try adjusting your filters or create a new pre-order</small>
+                        </div>
+                    {% endif %}
+
+                    <!-- Action buttons -->
+                    <div class="mt-4 text-center">
+                        <a href="{% url 'pre_order' %}" class="btn-add">
+                            <i class="bi bi-plus-circle-fill"></i> Add New Pre-order
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

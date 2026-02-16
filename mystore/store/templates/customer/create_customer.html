@@ -1,0 +1,408 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Create New Customer - {{ store_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Page Header -->
+    <div class="text-center mb-4">
+        <div class="d-inline-flex align-items-center justify-content-center bg-primary bg-opacity-10 rounded-circle p-3 mb-3">
+            <i class="bi bi-person-plus-fill fs-1 text-primary"></i>
+        </div>
+        <h2 class="fw-bold mb-2">Create New Customer</h2>
+        <p class="text-muted">Add a new customer to your database</p>
+    </div>
+
+    <!-- Form Card -->
+    <div class="card shadow-sm mx-auto" style="max-width: 900px; background: var(--card-bg); border: 1px solid var(--border-color);">
+        <!-- Card Header with Gradient -->
+        <div class="card-header border-0 text-white p-4" style="background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);">
+            <h5 class="mb-0">
+                <i class="bi bi-person-badge me-2"></i>Customer Information
+            </h5>
+        </div>
+
+        <div class="card-body p-4">
+            <form method="POST" novalidate id="customerForm">
+                {% csrf_token %}
+
+                <!-- Personal Information Section -->
+                <div class="mb-4">
+                    <h6 class="text-primary fw-bold mb-3 pb-2 border-bottom">
+                        <i class="bi bi-person-circle me-2"></i>Personal Details
+                    </h6>
+
+                    <div class="row g-3">
+                        <!-- Name -->
+                        <div class="col-md-6">
+                            <label for="{{ form.name.id_for_label }}" class="form-label fw-semibold">
+                                <i class="bi bi-person-fill text-primary me-1"></i>
+                                Full Name <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text border-end-0">
+                                    <i class="bi bi-person"></i>
+                                </span>
+                                <input
+                                    type="text"
+                                    name="name"
+                                    class="form-control border-start-0 ps-0 {% if form.name.errors %}is-invalid{% endif %}"
+                                    id="{{ form.name.id_for_label }}"
+                                    placeholder="Enter customer's full name"
+                                    value="{{ form.name.value|default:'' }}"
+                                    required
+                                >
+                                {% if form.name.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.name.errors.0 }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Sex -->
+                        <div class="col-md-6">
+                            <label for="{{ form.sex.id_for_label }}" class="form-label fw-semibold">
+                                <i class="bi bi-gender-ambiguous text-primary me-1"></i>
+                                Gender
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text border-end-0">
+                                    <i class="bi bi-gender-male"></i>
+                                </span>
+                                <select name="sex" class="form-select border-start-0 ps-0 {% if form.sex.errors %}is-invalid{% endif %}" id="{{ form.sex.id_for_label }}">
+                                    <option value="">Select Gender</option>
+                                    <option value="male" {% if form.sex.value == 'male' %}selected{% endif %}>Male</option>
+                                    <option value="female" {% if form.sex.value == 'female' %}selected{% endif %}>Female</option>
+                                </select>
+                                {% if form.sex.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.sex.errors.0 }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contact Information Section -->
+                <div class="mb-4">
+                    <h6 class="text-primary fw-bold mb-3 pb-2 border-bottom">
+                        <i class="bi bi-telephone-fill me-2"></i>Contact Information
+                    </h6>
+
+                    <div class="row g-3">
+                        <!-- Phone Number -->
+                        <div class="col-md-6">
+                            <label for="{{ form.phone_number.id_for_label }}" class="form-label fw-semibold">
+                                <i class="bi bi-phone-fill text-primary me-1"></i>
+                                Phone Number
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text border-end-0">
+                                    <i class="bi bi-telephone"></i>
+                                </span>
+                                <input
+                                    type="tel"
+                                    name="phone_number"
+                                    class="form-control border-start-0 ps-0 {% if form.phone_number.errors %}is-invalid{% endif %}"
+                                    id="{{ form.phone_number.id_for_label }}"
+                                    placeholder="+234 800 000 0000"
+                                    value="{{ form.phone_number.value|default:'' }}"
+                                >
+                                {% if form.phone_number.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.phone_number.errors.0 }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <small class="text-muted">Format: +234XXXXXXXXXX</small>
+                        </div>
+
+                        <!-- Email -->
+                        <div class="col-md-6">
+                            <label for="{{ form.email.id_for_label }}" class="form-label fw-semibold">
+                                <i class="bi bi-envelope-fill text-primary me-1"></i>
+                                Email Address
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text border-end-0">
+                                    <i class="bi bi-envelope"></i>
+                                </span>
+                                <input
+                                    type="email"
+                                    name="email"
+                                    class="form-control border-start-0 ps-0 {% if form.email.errors %}is-invalid{% endif %}"
+                                    id="{{ form.email.id_for_label }}"
+                                    placeholder="customer@example.com"
+                                    value="{{ form.email.value|default:'' }}"
+                                >
+                                {% if form.email.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.email.errors.0 }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Address Section -->
+                <div class="mb-4">
+                    <h6 class="text-primary fw-bold mb-3 pb-2 border-bottom">
+                        <i class="bi bi-geo-alt-fill me-2"></i>Address Details
+                    </h6>
+
+                    <div class="row g-3">
+                        <!-- Address -->
+                        <div class="col-12">
+                            <label for="{{ form.address.id_for_label }}" class="form-label fw-semibold">
+                                <i class="bi bi-house-fill text-primary me-1"></i>
+                                Full Address
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text border-end-0 align-items-start pt-2">
+                                    <i class="bi bi-map"></i>
+                                </span>
+                                <textarea
+                                    name="address"
+                                    class="form-control border-start-0 ps-0 {% if form.address.errors %}is-invalid{% endif %}"
+                                    rows="3"
+                                    id="{{ form.address.id_for_label }}"
+                                    placeholder="Enter complete address with street, city, and state"
+                                >{{ form.address.value|default:'' }}</textarea>
+                                {% if form.address.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.address.errors.0 }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Customer Status Section -->
+                <div class="mb-4">
+                    <h6 class="text-primary fw-bold mb-3 pb-2 border-bottom">
+                        <i class="bi bi-star-fill me-2"></i>Customer Status
+                    </h6>
+
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div class="card border-0" style="background-color: var(--bg-tertiary);">
+                                <div class="card-body">
+                                    <div class="form-check form-switch d-flex align-items-center">
+                                        <input
+                                            class="form-check-input me-3"
+                                            type="checkbox"
+                                            role="switch"
+                                            name="frequent_customer"
+                                            id="{{ form.frequent_customer.id_for_label }}"
+                                            {% if form.frequent_customer.value %}checked{% endif %}
+                                            style="width: 3rem; height: 1.5rem; cursor: pointer;"
+                                        >
+                                        <div class="flex-grow-1">
+                                            <label class="form-check-label fw-bold mb-0" for="{{ form.frequent_customer.id_for_label }}" style="cursor: pointer;">
+                                                <i class="bi bi-star-fill text-warning me-2"></i>
+                                                Mark as Frequent Customer
+                                            </label>
+                                            <p class="text-muted small mb-0 mt-1">
+                                                Frequent customers may receive special offers and priority service
+                                            </p>
+                                        </div>
+                                    </div>
+                                    {% if form.frequent_customer.errors %}
+                                    <div class="text-danger small mt-2">
+                                        {{ form.frequent_customer.errors.0 }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="d-flex flex-column flex-md-row justify-content-between gap-3 pt-3">
+                    <a href="{% url 'customer_list' %}" class="btn btn-outline-secondary btn-lg order-2 order-md-1">
+                        <i class="bi bi-arrow-left me-2"></i>Back to Customer List
+                    </a>
+                    <div class="d-flex gap-2 order-1 order-md-2">
+                        <button type="reset" class="btn btn-outline-danger btn-lg">
+                            <i class="bi bi-x-circle me-2"></i>Clear Form
+                        </button>
+                        <button type="submit" class="btn btn-primary btn-lg px-5">
+                            <i class="bi bi-check-circle me-2"></i>Create Customer
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Help Card -->
+    <div class="card shadow-sm border-0 mt-4 mx-auto" style="max-width: 900px;">
+        <div class="card-body" style="background-color: var(--bg-tertiary);">
+
+            <h6 class="fw-bold mb-2">
+                <i class="bi bi-info-circle-fill text-primary me-2"></i>Quick Tips
+            </h6>
+            <ul class="small mb-0 ps-3">
+                <li><strong>Required Field:</strong> Customer name is mandatory</li>
+                <li><strong>Phone Format:</strong> Use international format (+234XXXXXXXXXX)</li>
+                <li><strong>Frequent Customer:</strong> Enable for regular customers to track loyalty</li>
+                <li><strong>Email:</strong> Optional but recommended for receipts and communications</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Modern Input Styling with Dark Mode Support */
+    .input-group-text {
+        background-color: var(--bg-tertiary) !important;
+        border-color: var(--border-color) !important;
+        border-right: 0;
+        color: var(--text-primary) !important;
+    }
+
+    .input-group-text i {
+        color: var(--text-secondary) !important;
+        font-size: 1.1rem;
+    }
+
+    /* Ensure icons are visible in both modes */
+    :root[data-theme="light"] .input-group-text i {
+        color: #6c757d !important;
+    }
+
+    :root[data-theme="dark"] .input-group-text i {
+        color: #94a3b8 !important;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+
+    .form-control.border-start-0:focus,
+    .form-select.border-start-0:focus {
+        border-left: 0;
+    }
+
+    /* Enhanced Form Check Switch */
+    .form-check-input:checked {
+        background-color: #10b981;
+        border-color: #10b981;
+    }
+
+    .form-check-input:focus {
+        border-color: #10b981;
+        box-shadow: 0 0 0 0.25rem rgba(16, 185, 129, 0.25);
+    }
+
+    /* Button Hover Effects */
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-outline-secondary:hover {
+        background-color: #6c757d;
+        border-color: #6c757d;
+        color: #fff;
+    }
+
+    .btn-outline-danger:hover {
+        background-color: #dc3545;
+        border-color: #dc3545;
+        color: #fff;
+    }
+
+    /* Card Animations */
+    .card {
+        transition: all 0.3s ease;
+    }
+
+    /* Responsive Improvements */
+    @media (max-width: 768px) {
+        .btn {
+            width: 100%;
+        }
+
+        .d-flex.gap-2 {
+            flex-direction: column;
+        }
+
+        .d-flex.gap-2 .btn {
+            width: 100%;
+        }
+    }
+
+    /* Invalid Feedback Styling */
+    .invalid-feedback {
+        display: block;
+    }
+
+    /* Section Border */
+    .border-bottom {
+        border-color: var(--border-color) !important;
+    }
+
+    /* Fix help card text in dark mode */
+    :root[data-theme="dark"] .card-body ul li {
+        color: var(--text-primary) !important;
+    }
+</style>
+
+<script>
+    // Phone number auto-formatting
+    document.getElementById('id_phone_number').addEventListener('input', function(e) {
+        let value = e.target.value.replace(/[^0-9+]/g, '');
+
+        // Auto-add +234 prefix for Nigerian numbers
+        if (value && !value.startsWith('+')) {
+            if (value.startsWith('0')) {
+                value = '+234' + value.slice(1);
+            } else if (value.startsWith('234')) {
+                value = '+' + value;
+            } else if (value.length > 0 && !value.startsWith('234')) {
+                value = '+234' + value;
+            }
+        }
+
+        e.target.value = value;
+    });
+
+    // Form validation enhancement
+    (function() {
+        'use strict';
+        const form = document.getElementById('customerForm');
+
+        form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+        }, false);
+    })();
+
+    // Clear form button
+    document.querySelector('button[type="reset"]').addEventListener('click', function() {
+        document.getElementById('customerForm').classList.remove('was-validated');
+    });
+
+    // Auto-focus on first field
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('{{ form.name.id_for_label }}').focus();
+    });
+</script>
+{% endblock %}

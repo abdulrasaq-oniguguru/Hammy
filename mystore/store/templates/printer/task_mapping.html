@@ -1,0 +1,207 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Task to Printer Mapping{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">🎯 Task to Printer Mapping</h1>
+            <p class="text-muted">Assign specific printers to different tasks</p>
+        </div>
+        <div>
+            <a href="{% url 'printer_management' %}" class="btn btn-outline-secondary me-2">
+                <i class="bi bi-arrow-left"></i> Back to Printers
+            </a>
+            {% if available_tasks %}
+                <a href="{% url 'add_task_mapping' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Add Task Mapping
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Info Card -->
+    <div class="alert alert-info mb-4">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>How it works:</strong> Map each task type to a specific printer. When a task is triggered (e.g., printing a receipt),
+        the system will automatically use the assigned printer.
+    </div>
+
+    <!-- Quick Reference Guide -->
+    <div class="card mb-4 border-primary">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="bi bi-book me-2"></i>Task Types Reference</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6 class="fw-bold">Thermal Printer Tasks:</h6>
+                    <ul class="small">
+                        <li><strong>POS Receipt</strong> - 80mm thermal receipts from sales</li>
+                        <li><strong>Barcode Label</strong> - Individual product barcode labels</li>
+                        <li><strong>Customer Receipt</strong> - Customer copies of receipts</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h6 class="fw-bold">A4 Printer Tasks:</h6>
+                    <ul class="small">
+                        <li><strong>Receipt (A4)</strong> - Full-size receipts for records</li>
+                        <li><strong>Invoice</strong> - Formal invoices</li>
+                        <li><strong>Transfer Document</strong> - Stock transfer forms</li>
+                        <li><strong>Sales/Financial Reports</strong> - Detailed reports</li>
+                        <li><strong>Barcode Sheet</strong> - Multiple barcodes on A4</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Mappings Table -->
+    <div class="card">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0"><i class="bi bi-list-task me-2"></i>Current Task Mappings</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th width="25%">Task Type</th>
+                            <th width="25%">Assigned Printer</th>
+                            <th width="10%">Copies</th>
+                            <th width="10%">Auto Print</th>
+                            <th width="10%">Status</th>
+                            <th width="20%">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for mapping in mappings %}
+                            <tr>
+                                <td>
+                                    <strong>{{ mapping.get_task_name_display }}</strong>
+                                    {% if mapping.notes %}
+                                        <br><small class="text-muted">{{ mapping.notes|truncatewords:10 }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if mapping.printer %}
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-printer me-2 text-primary"></i>
+                                            <div>
+                                                <strong>{{ mapping.printer.name }}</strong>
+                                                <br><small class="text-muted">{{ mapping.printer.get_printer_type_display }}</small>
+                                            </div>
+                                        </div>
+                                    {% else %}
+                                        <span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Not Assigned</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ mapping.copies }}</span>
+                                </td>
+                                <td>
+                                    {% if mapping.auto_print %}
+                                        <span class="badge bg-success"><i class="bi bi-check-circle"></i> Yes</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary"><i class="bi bi-x-circle"></i> No</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if mapping.is_active %}
+                                        <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{% url 'edit_task_mapping' mapping.pk %}" class="btn btn-outline-primary" title="Edit">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <a href="{% url 'toggle_task_mapping_status' mapping.pk %}" class="btn btn-outline-{% if mapping.is_active %}danger{% else %}success{% endif %}" title="{% if mapping.is_active %}Deactivate{% else %}Activate{% endif %}">
+                                            <i class="bi bi-power"></i>
+                                        </a>
+                                        <a href="{% url 'delete_task_mapping' mapping.pk %}" class="btn btn-outline-danger" title="Delete">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-5 text-muted">
+                                    <i class="bi bi-inbox fs-1 d-block mb-3"></i>
+                                    No task mappings configured yet. Click "Add Task Mapping" to get started.
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Available Tasks Info -->
+    {% if available_tasks %}
+        <div class="card mt-4 border-warning">
+            <div class="card-header bg-warning">
+                <h6 class="mb-0"><i class="bi bi-exclamation-circle me-2"></i>Tasks Not Yet Configured ({{ available_tasks|length }})</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for task_code, task_name in available_tasks %}
+                        <div class="col-md-4 mb-2">
+                            <span class="badge bg-light text-dark">{{ task_name }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+                <hr>
+                <p class="mb-0 small text-muted">
+                    <i class="bi bi-lightbulb me-1"></i>
+                    <strong>Tip:</strong> Configure these tasks to enable automatic printer selection for each document type.
+                </p>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Active Printers Reference -->
+    <div class="card mt-4">
+        <div class="card-header bg-light">
+            <h6 class="mb-0"><i class="bi bi-printer-fill me-2"></i>Available Printers</h6>
+        </div>
+        <div class="card-body">
+            {% if printers %}
+                <div class="row">
+                    {% for printer in printers %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card h-100 {% if printer.is_default %}border-primary{% endif %}">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        {{ printer.name }}
+                                        {% if printer.is_default %}
+                                            <span class="badge bg-primary badge-sm">Default</span>
+                                        {% endif %}
+                                    </h6>
+                                    <p class="card-text small mb-1">
+                                        <strong>Type:</strong> {{ printer.get_printer_type_display }}<br>
+                                        <strong>Paper:</strong> {{ printer.get_paper_size_display }}<br>
+                                        <strong>DPI:</strong> {{ printer.dpi }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-muted mb-0">
+                    <i class="bi bi-exclamation-circle me-1"></i>
+                    No active printers configured. <a href="{% url 'add_printer' %}">Add a printer first</a>.
+                </p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

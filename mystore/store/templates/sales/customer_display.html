@@ -1,0 +1,1321 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Display - {{ store_name|upper }}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root[data-theme="dark"] {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #111118;
+            --bg-tertiary: #1a1a24;
+            --bg-card: #1e1e2e;
+            --bg-elevated: #252538;
+
+            --accent-primary: #8b5cf6;
+            --accent-secondary: #f59e0b;
+            --accent-success: #10b981;
+            --accent-danger: #ef4444;
+            --accent-warning: #f59e0b;
+            --accent-info: #06b6d4;
+            --accent-loyalty: #f472b6;
+
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #64748b;
+            --text-inverse: #0f172a;
+
+            --gradient-primary: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 50%, #f472b6 100%);
+            --gradient-accent: linear-gradient(135deg, #f59e0b 0%, #fb923c 100%);
+            --gradient-success: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            --gradient-loyalty: linear-gradient(135deg, #f472b6 0%, #ec4899 100%);
+
+            --border-primary: rgba(139, 92, 246, 0.25);
+            --border-secondary: rgba(248, 250, 252, 0.1);
+            --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+            --shadow-glow: 0 0 25px rgba(139, 92, 246, 0.35);
+
+            --glass-bg: rgba(30, 30, 46, 0.8);
+            --glass-border: rgba(248, 250, 252, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg-primary);
+            background-image:
+                radial-gradient(circle at 25% 25%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(244, 114, 182, 0.1) 0%, transparent 50%);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .display-container {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem;
+            position: relative;
+            z-index: 2;
+            gap: 1.2rem;
+        }
+
+        /* Welcome Screen */
+        .welcome-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 50%, var(--bg-tertiary) 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+
+        .welcome-screen::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(139, 92, 246, 0.3) 0%, transparent 40%),
+                radial-gradient(circle at 80% 80%, rgba(244, 114, 182, 0.2) 0%, transparent 40%);
+            animation: welcomeGlow 8s ease-in-out infinite;
+        }
+
+        .welcome-screen.hidden {
+            opacity: 0;
+            transform: translateY(-100%);
+            pointer-events: none;
+        }
+
+        .welcome-content {
+            text-align: center;
+            animation: welcomeFadeIn 1.5s ease;
+            position: relative;
+            z-index: 2;
+        }
+
+        .welcome-logo {
+            font-size: 5rem;
+            font-weight: 900;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1.5rem;
+            filter: drop-shadow(0 4px 20px rgba(139, 92, 246, 0.5));
+            animation: logoFloat 6s ease-in-out infinite;
+            letter-spacing: -2px;
+        }
+
+        .welcome-tagline {
+            font-size: 1.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 4rem;
+            font-weight: 300;
+            letter-spacing: 1px;
+        }
+
+        .welcome-subtitle {
+            font-size: 1.3rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            animation: pulse 3s infinite;
+        }
+
+        .welcome-subtitle i {
+            color: var(--accent-primary);
+            filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.5));
+        }
+
+        /* Success Screen */
+        .success-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, var(--accent-success) 0%, #059669 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1001;
+            opacity: 0;
+            transform: scale(0.9);
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+        }
+
+        .success-screen.show {
+            opacity: 1;
+            transform: scale(1);
+            pointer-events: all;
+        }
+
+        .success-content {
+            text-align: center;
+            color: white;
+        }
+
+        .success-icon {
+            font-size: 8rem;
+            margin-bottom: 2rem;
+            animation: successBounce 1s ease;
+            filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.3));
+        }
+
+        .success-title {
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            animation: slideUp 1s ease 0.3s both;
+        }
+
+        .success-message {
+            font-size: 1.6rem;
+            margin-bottom: 2rem;
+            opacity: 0.95;
+            animation: slideUp 1s ease 0.5s both;
+            font-weight: 300;
+        }
+
+        .success-details {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 2.5rem;
+            margin-top: 2rem;
+            animation: slideUp 1s ease 0.7s both;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* Header */
+        .header {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 2rem;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-secondary);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--gradient-primary);
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .store-name {
+            font-size: 2.8rem;
+            font-weight: 900;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -1px;
+        }
+
+        .customer-info {
+            background: rgba(244, 114, 182, 0.15);
+            border: 1px solid rgba(244, 114, 182, 0.35);
+            padding: 0.8rem 1.5rem;
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            color: var(--accent-loyalty);
+            font-weight: 600;
+            font-size: 1.1rem;
+            box-shadow: 0 0 15px rgba(244, 114, 182, 0.2);
+        }
+
+        .customer-info i {
+            font-size: 1.3rem;
+        }
+
+        .customer-info.hidden {
+            display: none;
+        }
+
+        .loyalty-badge {
+            background: var(--gradient-loyalty);
+            color: white;
+            padding: 0.4rem 1rem;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 0 15px rgba(244, 114, 182, 0.5);
+        }
+
+        .welcome-text {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            margin-bottom: 0.8rem;
+        }
+
+        .connection-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.8rem;
+            font-size: 0.95rem;
+            padding: 0.6rem 1.2rem;
+            border-radius: 50px;
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--accent-success);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            backdrop-filter: blur(10px);
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-success);
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+            animation: statusPulse 2s infinite;
+        }
+
+        /* Items Section */
+        .items-section {
+            flex: 1;
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 1.8rem;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-secondary);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-secondary);
+        }
+
+        .section-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+
+        .section-title i {
+            color: var(--accent-primary);
+        }
+
+        .item-counter {
+            background: var(--gradient-primary);
+            color: white;
+            padding: 0.5rem 1.2rem;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 1rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .items-container {
+            flex: 1;
+            overflow-y: auto;
+            min-height: 150px;
+            padding-right: 0.5rem;
+        }
+
+        .items-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .items-container::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+            border-radius: 10px;
+        }
+
+        .items-container::-webkit-scrollbar-thumb {
+            background: var(--accent-primary);
+            border-radius: 10px;
+        }
+
+        .no-items {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem 2rem;
+            color: var(--text-muted);
+            text-align: center;
+            height: 100%;
+        }
+
+        .no-items-icon {
+            font-size: 4rem;
+            margin-bottom: 1.5rem;
+            opacity: 0.6;
+            color: var(--accent-primary);
+        }
+
+        .no-items-text {
+            font-size: 1.4rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .no-items-subtext {
+            font-size: 1rem;
+            opacity: 0.7;
+        }
+
+        .item-row {
+            display: grid;
+            grid-template-columns: 2fr 100px 120px 140px;
+            gap: 1.2rem;
+            padding: 1.5rem;
+            border-radius: 16px;
+            margin-bottom: 0.8rem;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-secondary);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            animation: itemSlideIn 0.5s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .item-row::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: var(--gradient-primary);
+        }
+
+        .item-row:hover {
+            transform: translateY(-2px);
+            background: var(--bg-tertiary);
+            box-shadow: var(--shadow-md);
+            border-color: var(--border-primary);
+        }
+
+        .item-info {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .item-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.4rem;
+            line-height: 1.3;
+        }
+
+        .item-details {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .item-quantity, .item-price, .item-total {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .item-quantity {
+            background: var(--gradient-accent);
+            color: var(--text-inverse);
+            border-radius: 12px;
+            font-size: 1.6rem;
+            font-weight: 700;
+            min-height: 60px;
+        }
+
+        .item-price {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .item-total {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--accent-success);
+        }
+
+        /* Summary Section */
+        .summary-section {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 2rem;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-secondary);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .summary-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--gradient-success);
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--border-secondary);
+            font-size: 1.05rem;
+        }
+
+        .summary-item:last-child {
+            border-bottom: none;
+        }
+
+        .summary-label {
+            font-weight: 500;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .summary-label i {
+            opacity: 0.7;
+        }
+
+        .summary-value {
+            font-weight: 700;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.1rem;
+        }
+
+        .loyalty-value {
+            color: var(--accent-loyalty);
+        }
+
+        .discount-value {
+            color: var(--accent-warning);
+        }
+
+        .delivery-value {
+            color: var(--accent-info);
+        }
+
+        .total-section {
+            border-top: 2px solid var(--border-primary);
+            padding-top: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .total-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 2rem;
+            font-weight: 800;
+        }
+
+        .total-label {
+            color: var(--text-secondary);
+        }
+
+        .total-amount {
+            color: var(--accent-success);
+            font-family: 'JetBrains Mono', monospace;
+            text-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+        }
+
+        /* Animations */
+        @keyframes welcomeGlow {
+            0%, 100% { opacity: 0.8; }
+            50% { opacity: 1; }
+        }
+
+        @keyframes welcomeFadeIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        @keyframes successBounce {
+            0% { transform: scale(0) rotate(-180deg); opacity: 0; }
+            50% { transform: scale(1.1) rotate(-90deg); opacity: 1; }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes itemSlideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes statusPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.2); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .pulse-animation {
+            animation: pulse 0.4s ease-in-out;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .summary-grid { grid-template-columns: 1fr; gap: 1rem; }
+        }
+
+        @media (max-width: 768px) {
+            .display-container { padding: 1rem; gap: 0.8rem; }
+            .store-name { font-size: 2rem; }
+            .section-title { font-size: 1.4rem; }
+            .item-row {
+                grid-template-columns: 1fr;
+                gap: 0.8rem;
+                text-align: center;
+            }
+            .welcome-logo { font-size: 3rem; }
+            .success-title { font-size: 2.5rem; }
+            .total-item { font-size: 1.6rem; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Welcome Screen -->
+    <div class="welcome-screen" id="welcome-screen">
+        <div class="welcome-content">
+            <div class="welcome-logo">{{ store_name|upper }}</div>
+            <div class="welcome-tagline">Your Premium Shopping Experience</div>
+            <div class="welcome-subtitle">
+                <i class="fas fa-shopping-bag"></i>
+                Ready to discover amazing products?
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Screen -->
+    <div class="success-screen" id="success-screen">
+        <div class="success-content">
+            <div class="success-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="success-title">Payment Successful!</div>
+            <div class="success-message">Thank you for shopping with us!</div>
+            <div class="success-details">
+                <div style="font-size: 1.4rem; margin-bottom: 0.8rem;">
+                    Total Paid: <strong>{{ currency_symbol }}<span id="success-amount">0.00</span></strong>
+                </div>
+                <div style="font-size: 1.1rem; opacity: 0.9;" id="success-loyalty-info">
+                    <!-- Loyalty info will be shown here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Display -->
+    <div class="display-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-top">
+                <h1 class="store-name">{{ store_name|upper }}</h1>
+                <div class="customer-info hidden" id="customer-info">
+                    <i class="fas fa-user-circle"></i>
+                    <span id="customer-name">Customer</span>
+                    <span class="loyalty-badge" id="loyalty-badge">
+                        <i class="fas fa-star"></i>
+                        <span id="loyalty-points">0</span> Points
+                    </span>
+                </div>
+            </div>
+            <p class="welcome-text">Live Transaction Display</p>
+            <div class="connection-status" id="sync-status">
+                <span class="status-indicator" id="connection-status"></span>
+                <span id="status-text">Connected - Instant Updates</span>
+            </div>
+        </div>
+
+        <!-- Items Section -->
+        <div class="items-section">
+            <div class="section-header">
+                <h2 class="section-title">
+                    <i class="fas fa-shopping-cart"></i>
+                    Shopping Cart
+                </h2>
+                <div class="item-counter" id="live-count">0 items</div>
+            </div>
+
+            <div class="items-container" id="items-container">
+                <div class="no-items" id="no-items">
+                    <div class="no-items-icon">
+                        <i class="fas fa-barcode"></i>
+                    </div>
+                    <div class="no-items-text">
+                        Scanning items...
+                    </div>
+                    <div class="no-items-subtext">
+                        Your selected products will appear here
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Section -->
+        <div class="summary-section">
+            <div class="summary-grid">
+                <div>
+                    <div class="summary-item">
+                        <span class="summary-label"><i class="fas fa-hashtag"></i> Items Count:</span>
+                        <span class="summary-value" id="item-count">0</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label"><i class="fas fa-calculator"></i> Subtotal:</span>
+                        <span class="summary-value">{{ currency_symbol }}<span id="display-subtotal">0.00</span></span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label"><i class="fas fa-percentage"></i> Discount:</span>
+                        <span class="summary-value discount-value">-{{ currency_symbol }}<span id="display-discount">0.00</span></span>
+                    </div>
+                </div>
+                <div>
+                    <div class="summary-item">
+                        <span class="summary-label"><i class="fas fa-truck"></i> Delivery Fee:</span>
+                        <span class="summary-value delivery-value">{{ currency_symbol }}<span id="display-delivery">0.00</span></span>
+                    </div>
+                    <div class="summary-item" id="loyalty-discount-item" style="display: none;">
+                        <span class="summary-label"><i class="fas fa-gift"></i> Loyalty Discount:</span>
+                        <span class="summary-value loyalty-value">-{{ currency_symbol }}<span id="display-loyalty-discount">0.00</span></span>
+                    </div>
+                    <div class="summary-item" id="loyalty-earned-item" style="display: none;">
+                        <span class="summary-label"><i class="fas fa-star"></i> Points Earned:</span>
+                        <span class="summary-value loyalty-value">+<span id="points-earned">0</span> pts</span>
+                    </div>
+                </div>
+            </div>
+            <div class="total-section">
+                <div class="total-item">
+                    <span class="total-label">Total Amount:</span>
+                    <span class="total-amount">{{ currency_symbol }}<span id="display-total">0.00</span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentSale = {
+            items: [],
+            subtotal: 0,
+            discount: 0,
+            delivery: 0,
+            total: 0,
+            loyaltyDiscount: 0,
+            pointsEarned: 0,
+            customer: null
+        };
+
+        let lastUpdate = 0;
+        let isUpdating = false;
+        let connectionStatus = 'connected';
+        let welcomeTimeout = null;
+        let successTimeout = null;
+
+        // Screen management
+        function showWelcomeScreen() {
+            const welcomeScreen = document.getElementById('welcome-screen');
+            welcomeScreen.classList.remove('hidden');
+            if (welcomeTimeout) clearTimeout(welcomeTimeout);
+        }
+
+        function hideWelcomeScreen() {
+            const welcomeScreen = document.getElementById('welcome-screen');
+            welcomeScreen.classList.add('hidden');
+            if (welcomeTimeout) clearTimeout(welcomeTimeout);
+        }
+
+        function showSuccessScreen(data = {}) {
+            const successScreen = document.getElementById('success-screen');
+            const amountSpan = document.getElementById('success-amount');
+            const loyaltyInfo = document.getElementById('success-loyalty-info');
+
+            const amount = data.total !== undefined ? data.total : currentSale.total;
+            amountSpan.textContent = amount.toFixed(2);
+
+            // Show loyalty info if available
+            if (data.pointsEarned || currentSale.pointsEarned) {
+                const points = data.pointsEarned || currentSale.pointsEarned;
+                loyaltyInfo.innerHTML = `<i class="fas fa-star"></i> You earned ₦{points} loyalty points!`;
+            } else {
+                loyaltyInfo.innerHTML = 'We appreciate your business!';
+            }
+
+            successScreen.classList.add('show');
+
+            if (successTimeout) clearTimeout(successTimeout);
+            successTimeout = setTimeout(() => {
+                hideSuccessScreen();
+                showWelcomeScreen();
+                currentSale = {
+                    items: [],
+                    subtotal: 0,
+                    discount: 0,
+                    delivery: 0,
+                    total: 0,
+                    loyaltyDiscount: 0,
+                    pointsEarned: 0,
+                    customer: null
+                };
+                rebuildDisplay();
+            }, 5000);
+        }
+
+        function hideSuccessScreen() {
+            const successScreen = document.getElementById('success-screen');
+            successScreen.classList.remove('show');
+            if (successTimeout) clearTimeout(successTimeout);
+        }
+
+        function setupRealTimeSync() {
+            // Multiple sync methods for instant updates
+
+            // 1. LocalStorage event listener (cross-tab)
+            window.addEventListener('storage', function(e) {
+                if (e.key === 'customerDisplay' && e.newValue) {
+                    processUpdate(JSON.parse(e.newValue));
+                }
+            });
+
+            // 2. Ultra-fast polling (50ms when active, 200ms when idle)
+            let fastPollInterval = 50;  // 50ms = instant feel
+            let normalPollInterval = 200;
+            let currentMode = 'fast';
+            let noChangeCount = 0;
+
+            function pollForUpdates() {
+                try {
+                    const storedData = localStorage.getItem('customerDisplay');
+                    if (storedData) {
+                        const data = JSON.parse(storedData);
+                        if (data.timestamp && data.timestamp > lastUpdate) {
+                            processUpdate(data);
+                            noChangeCount = 0;
+                            currentMode = 'fast';
+                            updateConnectionStatus('active');
+                        } else {
+                            noChangeCount++;
+                            if (noChangeCount > 40) currentMode = 'normal'; // After 2 seconds of no changes
+                        }
+                    }
+                } catch (error) {
+                    console.error('Polling error:', error);
+                    updateConnectionStatus('error');
+                }
+
+                const nextInterval = currentMode === 'fast' ? fastPollInterval : normalPollInterval;
+                setTimeout(pollForUpdates, nextInterval);
+            }
+
+            // 3. Window focus - immediate refresh
+            window.addEventListener('focus', function() {
+                currentMode = 'fast';
+                noChangeCount = 0;
+                setTimeout(() => {
+                    const storedData = localStorage.getItem('customerDisplay');
+                    if (storedData) processUpdate(JSON.parse(storedData));
+                }, 10);
+            });
+
+            // 4. PostMessage API (for same-window communication)
+            window.addEventListener('message', function(event) {
+                if (event.data && event.data.type === 'customerDisplayUpdate') {
+                    processUpdate(event.data.payload);
+                }
+            });
+
+            // 5. Custom event (for in-page communication)
+            window.addEventListener('customerDisplayUpdate', function(event) {
+                if (event.detail) processUpdate(event.detail);
+            });
+
+            // Start polling
+            pollForUpdates();
+
+            // Initial burst sync
+            for (let i = 0; i < 5; i++) {
+                setTimeout(() => {
+                    const storedData = localStorage.getItem('customerDisplay');
+                    if (storedData) {
+                        const data = JSON.parse(storedData);
+                        if (data.timestamp > lastUpdate) processUpdate(data);
+                    }
+                }, 50 * (i + 1));
+            }
+        }
+
+        function processUpdate(data) {
+            if (!data || !data.timestamp) return;
+            if (data.timestamp <= lastUpdate) return;
+
+            lastUpdate = data.timestamp;
+            isUpdating = true;
+
+            try {
+                switch (data.action) {
+                    case 'syncAll': handleFullSync(data); break;
+                    case 'addItem': handleAddItem(data); break;
+                    case 'removeItem': handleRemoveItem(data); break;
+                    case 'updateItem': handleUpdateItem(data); break;
+                    case 'updateTotals': handleTotalsUpdate(data); break;
+                    case 'updateCustomer': handleCustomerUpdate(data); break;
+                    case 'saleCompleted': handleSaleCompleted(data); break;
+                    case 'clearSale': handleClearSale(); break;
+                    default: console.log('Unknown action:', data.action);
+                }
+            } catch (error) {
+                console.error('Error processing update:', error);
+            } finally {
+                isUpdating = false;
+            }
+        }
+
+        function handleFullSync(data) {
+            if (data.items && data.items.length > 0) {
+                hideWelcomeScreen();
+                hideSuccessScreen();
+            }
+
+            currentSale.items = [];
+            if (data.items && Array.isArray(data.items)) {
+                data.items.forEach(item => {
+                    currentSale.items.push({
+                        id: item.id,
+                        name: item.name || 'Unknown Product',
+                        details: item.details || 'Size: N/A - Color: N/A',
+                        quantity: item.quantity || 1,
+                        unitPrice: item.unitPrice || 0,
+                        discount: item.discount || 0,
+                        total: item.total || 0
+                    });
+                });
+            }
+
+            currentSale.subtotal = data.subtotal || 0;
+            currentSale.discount = data.discountAmount || 0;
+            currentSale.delivery = data.deliveryCost || 0;
+            currentSale.total = data.total || 0;
+            currentSale.loyaltyDiscount = data.loyaltyDiscount || 0;
+            currentSale.pointsEarned = data.pointsEarned || 0;
+
+            if (data.customer) {
+                currentSale.customer = data.customer;
+                updateCustomerDisplay();
+            }
+
+            rebuildDisplay();
+            showUpdateNotification('Cart synchronized');
+        }
+
+        function handleAddItem(data) {
+            hideWelcomeScreen();
+            hideSuccessScreen();
+
+            let item;
+            if (data.product) {
+                item = {
+                    id: data.product.id || Date.now(),
+                    name: data.product.brand || data.product.name || 'Unknown Product',
+                    details: `Size: ₦{data.product.size || 'N/A'} - Color: ₦{data.product.color || 'N/A'}`,
+                    quantity: data.quantity || 1,
+                    unitPrice: data.unitPrice || 0,
+                    discount: data.discount || 0,
+                    total: data.total || ((data.unitPrice || 0) * (data.quantity || 1)) - (data.discount || 0)
+                };
+            } else {
+                item = data;
+            }
+
+            const existingIndex = currentSale.items.findIndex(i => i.id == item.id);
+            if (existingIndex >= 0) {
+                currentSale.items[existingIndex] = item;
+                showUpdateNotification('Item updated');
+            } else {
+                currentSale.items.push(item);
+                showUpdateNotification('Item added');
+            }
+
+            rebuildDisplay();
+        }
+
+        function handleRemoveItem(data) {
+            const itemId = data.productId || data.id;
+            currentSale.items = currentSale.items.filter(item => item.id != itemId);
+            rebuildDisplay();
+            showUpdateNotification('Item removed');
+
+            if (currentSale.items.length === 0) {
+                setTimeout(() => {
+                    if (currentSale.items.length === 0) {
+                        showWelcomeScreen();
+                    }
+                }, 2000);
+            }
+        }
+
+        function handleUpdateItem(data) {
+            const itemId = data.productId || data.id;
+            const itemIndex = currentSale.items.findIndex(item => item.id == itemId);
+            if (itemIndex >= 0) {
+                Object.assign(currentSale.items[itemIndex], data);
+                rebuildDisplay();
+                showUpdateNotification('Item updated');
+            }
+        }
+
+        function handleTotalsUpdate(data) {
+            currentSale.subtotal = data.subtotal !== undefined ? data.subtotal : currentSale.subtotal;
+            currentSale.discount = data.discountAmount !== undefined ? data.discountAmount : currentSale.discount;
+            currentSale.delivery = data.deliveryCost !== undefined ? data.deliveryCost : currentSale.delivery;
+            currentSale.total = data.total !== undefined ? data.total : currentSale.total;
+            currentSale.loyaltyDiscount = data.loyaltyDiscount !== undefined ? data.loyaltyDiscount : currentSale.loyaltyDiscount;
+            currentSale.pointsEarned = data.pointsEarned !== undefined ? data.pointsEarned : currentSale.pointsEarned;
+
+            updateSummaryDisplay();
+            showUpdateNotification('Totals updated');
+        }
+
+        function handleCustomerUpdate(data) {
+            if (data.customer) {
+                currentSale.customer = data.customer;
+                updateCustomerDisplay();
+                showUpdateNotification('Customer updated');
+            }
+        }
+
+        function updateCustomerDisplay() {
+            const customerInfo = document.getElementById('customer-info');
+            const customerName = document.getElementById('customer-name');
+            const loyaltyPoints = document.getElementById('loyalty-points');
+
+            if (currentSale.customer) {
+                customerName.textContent = currentSale.customer.name || 'Customer';
+                loyaltyPoints.textContent = currentSale.customer.loyalty_points || 0;
+                customerInfo.classList.remove('hidden');
+            } else {
+                customerInfo.classList.add('hidden');
+            }
+        }
+
+        function handleSaleCompleted(data) {
+            hideWelcomeScreen();
+            showSuccessScreen(data);
+        }
+
+        function handleClearSale() {
+            currentSale = {
+                items: [],
+                subtotal: 0,
+                discount: 0,
+                delivery: 0,
+                total: 0,
+                loyaltyDiscount: 0,
+                pointsEarned: 0,
+                customer: null
+            };
+            rebuildDisplay();
+            showUpdateNotification('New transaction started');
+
+            setTimeout(() => {
+                showWelcomeScreen();
+            }, 1000);
+        }
+
+        function updateConnectionStatus(status) {
+            const statusIndicator = document.getElementById('connection-status');
+            const syncStatus = document.getElementById('sync-status');
+            const statusText = document.getElementById('status-text');
+            connectionStatus = status;
+
+            switch (status) {
+                case 'active':
+                    statusIndicator.style.background = 'var(--accent-success)';
+                    statusText.textContent = 'Connected - Instant Updates';
+                    syncStatus.style.background = 'rgba(16, 185, 129, 0.15)';
+                    syncStatus.style.color = 'var(--accent-success)';
+                    syncStatus.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                    break;
+                case 'waiting':
+                    statusIndicator.style.background = 'var(--text-muted)';
+                    statusText.textContent = 'Waiting for updates...';
+                    syncStatus.style.background = 'rgba(100, 116, 139, 0.15)';
+                    syncStatus.style.color = 'var(--text-muted)';
+                    syncStatus.style.borderColor = 'rgba(100, 116, 139, 0.3)';
+                    break;
+                case 'error':
+                    statusIndicator.style.background = 'var(--accent-danger)';
+                    statusText.textContent = 'Connection issue';
+                    syncStatus.style.background = 'rgba(239, 68, 68, 0.15)';
+                    syncStatus.style.color = 'var(--accent-danger)';
+                    syncStatus.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                    break;
+            }
+        }
+
+        function showUpdateNotification(message) {
+            const statusText = document.getElementById('status-text');
+            const originalText = statusText.textContent;
+
+            statusText.innerHTML = `<i class="fas fa-sync fa-spin"></i> ₦{message}`;
+
+            setTimeout(() => {
+                statusText.textContent = originalText;
+            }, 1500);
+        }
+
+        function rebuildDisplay() {
+            const container = document.getElementById('items-container');
+            const liveCount = document.getElementById('live-count');
+            const itemCount = currentSale.items.length;
+
+            liveCount.textContent = itemCount === 0 ? '0 items' : itemCount === 1 ? '1 item' : `₦{itemCount} items`;
+            liveCount.classList.add('pulse-animation');
+            setTimeout(() => liveCount.classList.remove('pulse-animation'), 400);
+
+            container.innerHTML = '';
+            if (currentSale.items.length === 0) {
+                container.innerHTML = `
+                    <div class="no-items" id="no-items">
+                        <div class="no-items-icon"><i class="fas fa-barcode"></i></div>
+                        <div class="no-items-text">Scanning items...</div>
+                        <div class="no-items-subtext">Your selected products will appear here</div>
+                    </div>`;
+            } else {
+                currentSale.items.forEach((item, index) => {
+                    const itemRow = document.createElement('div');
+                    itemRow.className = 'item-row';
+                    itemRow.style.animationDelay = `₦{index * 0.05}s`;
+                    itemRow.setAttribute('data-item-id', item.id);
+                    itemRow.innerHTML = `
+                        <div class="item-info">
+                            <div class="item-name">₦{item.name || 'Unknown Product'}</div>
+                            <div class="item-details">₦{item.details || 'No details available'}</div>
+                        </div>
+                        <div class="item-quantity">₦{item.quantity || 1}</div>
+                        <div class="item-price">{{ currency_symbol }}₦{(item.unitPrice || 0).toFixed(2)}</div>
+                        <div class="item-total">{{ currency_symbol }}₦{(item.total || 0).toFixed(2)}</div>
+                    `;
+                    container.appendChild(itemRow);
+                });
+            }
+            updateSummaryDisplay();
+        }
+
+        function updateSummaryDisplay() {
+            const elements = {
+                itemCount: document.getElementById('item-count'),
+                subtotal: document.getElementById('display-subtotal'),
+                discount: document.getElementById('display-discount'),
+                delivery: document.getElementById('display-delivery'),
+                loyaltyDiscount: document.getElementById('display-loyalty-discount'),
+                pointsEarned: document.getElementById('points-earned'),
+                total: document.getElementById('display-total')
+            };
+
+            const loyaltyDiscountItem = document.getElementById('loyalty-discount-item');
+            const loyaltyEarnedItem = document.getElementById('loyalty-earned-item');
+
+            const newValues = {
+                itemCount: currentSale.items.length,
+                subtotal: currentSale.subtotal.toFixed(2),
+                discount: currentSale.discount.toFixed(2),
+                delivery: currentSale.delivery.toFixed(2),
+                loyaltyDiscount: currentSale.loyaltyDiscount.toFixed(2),
+                pointsEarned: Math.floor(currentSale.pointsEarned || 0),
+                total: currentSale.total.toFixed(2)
+            };
+
+            // Show/hide loyalty items
+            if (currentSale.loyaltyDiscount > 0) {
+                loyaltyDiscountItem.style.display = 'flex';
+            } else {
+                loyaltyDiscountItem.style.display = 'none';
+            }
+
+            if (currentSale.pointsEarned > 0) {
+                loyaltyEarnedItem.style.display = 'flex';
+            } else {
+                loyaltyEarnedItem.style.display = 'none';
+            }
+
+            Object.keys(newValues).forEach(key => {
+                const element = elements[key];
+                if (element && element.textContent !== newValues[key].toString()) {
+                    element.textContent = newValues[key];
+                    element.classList.add('pulse-animation');
+                    setTimeout(() => element.classList.remove('pulse-animation'), 400);
+                }
+            });
+        }
+
+        // Global API for external integration
+        window.customerDisplay = {
+            addItem: (product, quantity, unitPrice, discount) => handleAddItem({ product, quantity, unitPrice, discount }),
+            removeItem: (productId) => handleRemoveItem({ productId }),
+            updateItem: (productId, updates) => handleUpdateItem({ productId, ...updates }),
+            updateCustomer: (customer) => handleCustomerUpdate({ customer }),
+            updateTotals: (totals) => handleTotalsUpdate(totals),
+            clearSale: handleClearSale,
+            completeSale: (data) => handleSaleCompleted(data),
+            getCurrentSale: () => currentSale,
+            showWelcome: showWelcomeScreen,
+            hideWelcome: hideWelcomeScreen,
+            showSuccess: showSuccessScreen,
+            hideSuccess: hideSuccessScreen,
+            forceRefresh: () => {
+                const storedData = localStorage.getItem('customerDisplay');
+                if (storedData) processUpdate(JSON.parse(storedData));
+            }
+        };
+
+        // Initialize the display
+        document.addEventListener('DOMContentLoaded', function() {
+            setupRealTimeSync();
+            updateConnectionStatus('waiting');
+
+            try {
+                const storedData = localStorage.getItem('customerDisplay');
+                if (storedData) {
+                    processUpdate(JSON.parse(storedData));
+                } else {
+                    showWelcomeScreen();
+                }
+            } catch (error) {
+                console.error('Error loading initial data:', error);
+                showWelcomeScreen();
+            }
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'F5' || (e.ctrlKey && e.key === 'r')) {
+                    e.preventDefault();
+                    window.customerDisplay.forceRefresh();
+                    showUpdateNotification('Manual refresh');
+                }
+            });
+
+            console.log('🚀 Enhanced Customer Display initialized');
+            console.log('📡 Ultra-fast polling: 50ms');
+            console.log('✨ Features: Loyalty, Delivery, Discounts, Instant sync');
+        });
+
+        // Handle visibility and connection changes
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                setTimeout(() => {
+                    window.customerDisplay.forceRefresh();
+                }, 10);
+            }
+        });
+
+        window.addEventListener('online', function() {
+            updateConnectionStatus('active');
+            showUpdateNotification('Connection restored');
+        });
+
+        window.addEventListener('offline', function() {
+            updateConnectionStatus('error');
+            showUpdateNotification('Connection lost');
+        });
+
+    </script>
+</body>
+</html>

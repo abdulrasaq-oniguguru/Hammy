@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Receipt History for {{ customer.name }}{% endblock %}
+{% block content %}
+<div class="py-5" style="background: linear-gradient(rgba(26, 26, 26, 0.8), rgba(26, 26, 26, 0.8)), url({% static 'img/homepage.jpg' %}) no-repeat center center fixed; background-size: cover;">
+    <div class="container">
+        <!-- Title -->
+        <h1 class="text-center mb-4 display-5 fw-bold text-white">Receipt History for {{ customer.name }}</h1>
+
+        <!-- Date Filter Form -->
+        <div class="row justify-content-center mb-4">
+            <div class="col-lg-10 col-xl-8">
+                <form method="GET" action="" class="p-4 rounded-3" style="background-color: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px);">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label for="start_date" class="form-label text-white">Start Date</label>
+                            <input type="date" name="start_date" id="start_date" class="form-control bg-dark text-white border-secondary" value="{{ request.GET.start_date }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="end_date" class="form-label text-white">End Date</label>
+                            <input type="date" name="end_date" id="end_date" class="form-control bg-dark text-white border-secondary" value="{{ request.GET.end_date }}">
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <button type="submit" class="btn btn-danger me-2 px-3 py-2">
+                                <i class="bi bi-funnel me-1"></i>Filter
+                            </button>
+                            <a href="{% url 'customer_receipt_history' customer.id %}" class="btn btn-outline-light px-3 py-2">
+                                Clear
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Receipt Table -->
+        <div class="table-responsive rounded-3 overflow-hidden">
+            <table class="table table-dark table-hover align-middle mb-0">
+                <thead class="bg-secondary">
+                    <tr>
+                        <th>Receipt #</th>
+                        <th>Date</th>
+                        <th>Total</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if receipt_data %}
+                        {% for receipt in receipt_data %}
+                        <tr class="align-middle">
+                            <td>
+                                <a href="{% url 'receipt_detail' receipt.receipt.id %}" class="text-decoration-none text-danger fw-semibold">
+                                    #{{ receipt.receipt.receipt_number }}
+                                </a>
+                            </td>
+                            <td>{{ receipt.receipt.date|date:"M d, Y" }}</td>
+                            <td>₦<span class="fw-semibold">{{ receipt.total_amount|floatformat:2 }}</span></td>
+                            <td class="text-center">
+                                <a href="{% url 'receipt_detail' receipt.receipt.id %}" class="btn btn-sm btn-outline-light">
+                                    <i class="bi bi-eye me-1"></i>View
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-4">No receipts found for this period.</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .table td, .table th {
+            font-size: 0.9rem;
+        }
+    }
+
+    /* Hover effect for rows */
+    tbody tr:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    /* Button hover states */
+    .btn-outline-light:hover {
+        background-color: #c8003e !important;
+        color: white !important;
+        border-color: #c8003e !important;
+    }
+</style>
+{% endblock %}

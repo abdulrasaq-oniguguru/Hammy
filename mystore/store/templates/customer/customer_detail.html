@@ -1,0 +1,266 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{{ customer.name }} - Customer Details{% endblock %}
+
+{% block content %}
+<div class="py-6"
+     style="background: linear-gradient(135deg, #0f172a, #1e293b); min-height: 100vh; color: #e2e8f0;">
+    <div class="container">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="display-6 fw-bold text-gray-100 mb-2">
+                    <i class="fas fa-user-circle me-2" style="color: #64748b;"></i>
+                    {{ customer.name }}
+                </h1>
+                <p class="text-gray-400 mb-0">Customer Details</p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{% url 'customer_list' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Back to List
+                </a>
+                <a href="{% url 'edit_customer' customer.pk %}" class="btn btn-primary">
+                    <i class="fas fa-edit me-2"></i>Edit Customer
+                </a>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Customer Information -->
+            <div class="col-md-6 mb-4">
+                <div class="card border-0 shadow-lg" style="background: #111827; border: 1px solid #334155; border-radius: 12px;">
+                    <div class="card-header" style="background: #1e293b; border-bottom: 1px solid #334155;">
+                        <h5 class="mb-0 text-white"><i class="fas fa-info-circle me-2"></i>Customer Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="text-gray-400 small text-uppercase">Name</label>
+                            <p class="text-white mb-0">{{ customer.name }}</p>
+                        </div>
+                        <div class="mb-3">
+                            <label class="text-gray-400 small text-uppercase">Phone</label>
+                            <p class="text-white mb-0">{{ customer.phone_number }}</p>
+                        </div>
+                        <div class="mb-3">
+                            <label class="text-gray-400 small text-uppercase">Email</label>
+                            <p class="text-white mb-0">{{ customer.email|default:"Not provided" }}</p>
+                        </div>
+                        <div class="mb-3">
+                            <label class="text-gray-400 small text-uppercase">Address</label>
+                            <p class="text-white mb-0">{{ customer.address|default:"Not provided" }}</p>
+                        </div>
+                        <div class="mb-0">
+                            <label class="text-gray-400 small text-uppercase">Frequent Customer</label>
+                            <p class="mb-0">
+                                {% if customer.frequent_customer %}
+                                    <span class="badge bg-success"><i class="fas fa-star me-1"></i>Yes</span>
+                                {% else %}
+                                    <span class="badge bg-secondary"><i class="far fa-star me-1"></i>No</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loyalty Information -->
+            <div class="col-md-6 mb-4">
+                <div class="card border-0 shadow-lg" style="background: #111827; border: 2px solid {% if loyalty_info.has_account %}#059669{% else %}#334155{% endif %}; border-radius: 12px;">
+                    <div class="card-header" style="background: {% if loyalty_info.has_account %}linear-gradient(135deg, #059669, #047857){% else %}#1e293b{% endif %}; border-bottom: 1px solid #334155;">
+                        <h5 class="mb-0 text-white"><i class="fas fa-star me-2"></i>Loyalty Program</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if loyalty_info.has_account %}
+                            <div class="row text-center mb-3">
+                                <div class="col-6">
+                                    <div class="p-3" style="background: #1e293b; border-radius: 8px;">
+                                        <i class="fas fa-coins text-warning" style="font-size: 2rem;"></i>
+                                        <h3 class="mb-0 mt-2 text-primary">{{ loyalty_info.current_balance }}</h3>
+                                        <small class="text-gray-400">Current Points</small>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="p-3" style="background: #1e293b; border-radius: 8px;">
+                                        <i class="fas fa-money-bill-wave text-success" style="font-size: 2rem;"></i>
+                                        <h3 class="mb-0 mt-2 text-success">₦{{ loyalty_info.redeemable_value|floatformat:2 }}</h3>
+                                        <small class="text-gray-400">Redeemable Value</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row text-center mb-3">
+                                <div class="col-6">
+                                    <label class="text-gray-400 small">Total Earned</label>
+                                    <p class="text-info mb-0 fw-bold">{{ loyalty_info.total_earned }} pts</p>
+                                </div>
+                                <div class="col-6">
+                                    <label class="text-gray-400 small">Total Redeemed</label>
+                                    <p class="text-danger mb-0 fw-bold">{{ loyalty_info.total_redeemed }} pts</p>
+                                </div>
+                            </div>
+
+                            <div class="alert {% if loyalty_info.can_redeem %}alert-success{% else %}alert-info{% endif %} mb-0">
+                                <i class="fas {% if loyalty_info.can_redeem %}fa-check-circle{% else %}fa-info-circle{% endif %} me-2"></i>
+                                {% if loyalty_info.can_redeem %}
+                                    <strong>Can Redeem Points</strong>
+                                {% else %}
+                                    <strong>Not enough points to redeem yet</strong>
+                                {% endif %}
+                            </div>
+
+                            {% if loyalty_info.tier %}
+                            <div class="mt-3 text-center">
+                                <span class="badge bg-primary" style="font-size: 1rem; padding: 0.5rem 1rem;">
+                                    <i class="fas fa-award me-2"></i>{{ loyalty_info.tier }}
+                                </span>
+                            </div>
+                            {% endif %}
+
+                            {% if loyalty_info.enrollment_date %}
+                            <div class="mt-3 text-center text-gray-400 small">
+                                Enrolled: {{ loyalty_info.enrollment_date|date:"F d, Y" }}
+                            </div>
+                            {% endif %}
+                        {% else %}
+                            <div class="text-center py-4">
+                                <i class="fas fa-star-half-alt" style="font-size: 3rem; color: #64748b;"></i>
+                                <p class="text-gray-400 mt-3 mb-3">Customer is not enrolled in the loyalty program</p>
+                                <button type="button" class="btn btn-warning" id="enroll-btn" data-customer-id="{{ customer.pk }}" data-customer-name="{{ customer.name }}">
+                                    <i class="fas fa-star me-2"></i>Enroll in Loyalty Program
+                                </button>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loyalty Transaction History -->
+        {% if loyalty_info.has_account and loyalty_transactions %}
+        <div class="card border-0 shadow-lg mb-4" style="background: #111827; border: 1px solid #334155; border-radius: 12px;">
+            <div class="card-header" style="background: #1e293b; border-bottom: 1px solid #334155;">
+                <h5 class="mb-0 text-white"><i class="fas fa-history me-2"></i>Recent Loyalty Transactions</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-dark table-hover mb-0">
+                        <thead>
+                            <tr style="background: #1e293b;">
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Points</th>
+                                <th>Balance After</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for transaction in loyalty_transactions %}
+                            <tr>
+                                <td>{{ transaction.created_at|date:"M d, Y H:i" }}</td>
+                                <td>
+                                    {% if transaction.transaction_type == 'earned' %}
+                                        <span class="badge bg-success">Earned</span>
+                                    {% elif transaction.transaction_type == 'redeemed' %}
+                                        <span class="badge bg-danger">Redeemed</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ transaction.get_transaction_type_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="{% if transaction.transaction_type == 'earned' %}text-success{% else %}text-danger{% endif %} fw-bold">
+                                    {% if transaction.transaction_type == 'earned' %}+{% else %}-{% endif %}{{ transaction.points }}
+                                </td>
+                                <td>{{ transaction.balance_after }}</td>
+                                <td class="text-gray-400 small">{{ transaction.description }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Recent Receipts -->
+        {% if recent_receipts %}
+        <div class="card border-0 shadow-lg" style="background: #111827; border: 1px solid #334155; border-radius: 12px;">
+            <div class="card-header" style="background: #1e293b; border-bottom: 1px solid #334155;">
+                <h5 class="mb-0 text-white"><i class="fas fa-receipt me-2"></i>Recent Purchases</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-dark table-hover mb-0">
+                        <thead>
+                            <tr style="background: #1e293b;">
+                                <th>Receipt #</th>
+                                <th>Date</th>
+                                <th>Total Amount</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for receipt in recent_receipts %}
+                            <tr>
+                                <td>{{ receipt.receipt_number }}</td>
+                                <td>{{ receipt.date|date:"M d, Y H:i" }}</td>
+                                <td class="text-success fw-bold">₦{{ receipt.total_with_delivery|floatformat:2 }}</td>
+                                <td>
+                                    <a href="{% url 'receipt_detail' receipt.pk %}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-eye"></i> View
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer" style="background: #1e293b; border-top: 1px solid #334155;">
+                <a href="{% url 'customer_receipt_history' customer.id %}" class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-list me-2"></i>View Full Purchase History
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+₦(document).ready(function() {
+    ₦('#enroll-btn').on('click', function() {
+        const customerId = ₦(this).data('customer-id');
+        const customerName = ₦(this).data('customer-name');
+        const button = ₦(this);
+
+        if (confirm(`Enroll ₦{customerName} in the loyalty program?`)) {
+            button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Enrolling...');
+
+            ₦.ajax({
+                url: '/api/loyalty/enroll/',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    customer_id: customerId
+                }),
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        alert(`₦{customerName} has been enrolled in the loyalty program!`);
+                        location.reload();
+                    } else {
+                        alert('Error: ' + (response.error || 'Failed to enroll customer'));
+                        button.prop('disabled', false).html('<i class="fas fa-star me-2"></i>Enroll in Loyalty Program');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    alert('Error enrolling customer: ' + error);
+                    button.prop('disabled', false).html('<i class="fas fa-star me-2"></i>Enroll in Loyalty Program');
+                }
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

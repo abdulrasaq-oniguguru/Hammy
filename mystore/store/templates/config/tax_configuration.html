@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Tax Configuration - {{ store_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">
+                <i class="bi bi-percent text-primary me-2"></i>
+                Tax Configuration
+            </h2>
+            <p class="text-muted mb-0">Manage tax rates and calculation methods</p>
+        </div>
+        <div>
+            <a href="{% url 'add_tax' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-2"></i>Add Tax
+            </a>
+        </div>
+    </div>
+
+    <!-- Info Banner -->
+    <div class="alert alert-info d-flex align-items-center mb-4" role="alert">
+        <i class="bi bi-info-circle-fill fs-4 me-3"></i>
+        <div>
+            <strong>Tax Configuration</strong><br>
+            Configure taxes that will be automatically calculated during sales transactions.
+            <strong>Inclusive</strong> taxes are already included in product prices.
+            <strong>Exclusive</strong> taxes are added on top of product prices.
+        </div>
+    </div>
+
+    <!-- Tax List -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="bi bi-list-ul me-2"></i>Taxes ({{ taxes.count }})
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            {% if taxes %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Order</th>
+                            <th>Name</th>
+                            <th>Code</th>
+                            <th>Rate</th>
+                            <th>Type</th>
+                            <th>Calculation Method</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tax in taxes %}
+                        <tr>
+                            <td class="align-middle">
+                                <span class="badge bg-secondary">{{ tax.sort_order }}</span>
+                            </td>
+                            <td class="align-middle">
+                                <strong>{{ tax.name }}</strong>
+                                {% if tax.description %}
+                                <br><small class="text-muted">{{ tax.description|truncatewords:10 }}</small>
+                                {% endif %}
+                            </td>
+                            <td class="align-middle">
+                                <code>{{ tax.code }}</code>
+                            </td>
+                            <td class="align-middle">
+                                <strong>{{ tax.rate }}%</strong>
+                            </td>
+                            <td class="align-middle">
+                                <span class="badge bg-info">{{ tax.get_tax_type_display }}</span>
+                            </td>
+                            <td class="align-middle">
+                                {% if tax.calculation_method == 'inclusive' %}
+                                <span class="badge bg-success">
+                                    <i class="bi bi-arrow-down-circle"></i> Inclusive
+                                </span>
+                                {% else %}
+                                <span class="badge bg-warning">
+                                    <i class="bi bi-arrow-up-circle"></i> Exclusive
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="align-middle">
+                                {% if tax.is_active %}
+                                <span class="badge bg-success">Active</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td class="align-middle">
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'edit_tax' tax.pk %}"
+                                       class="btn btn-sm btn-outline-primary"
+                                       title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'toggle_tax' tax.pk %}"
+                                       class="btn btn-sm btn-outline-warning"
+                                       title="{% if tax.is_active %}Deactivate{% else %}Activate{% endif %}">
+                                        <i class="bi bi-{% if tax.is_active %}pause{% else %}play{% endif %}-circle"></i>
+                                    </a>
+                                    <a href="{% url 'delete_tax' tax.pk %}"
+                                       class="btn btn-sm btn-outline-danger"
+                                       title="Delete">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-percent text-muted" style="font-size: 4rem;"></i>
+                <h5 class="text-muted mt-3">No Taxes Configured</h5>
+                <p class="text-muted">Click "Add Tax" to create your first tax configuration.</p>
+                <a href="{% url 'add_tax' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle me-2"></i>Add First Tax
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Example Calculations -->
+    {% if example_calculations %}
+    <div class="card shadow-sm border-0 mt-4">
+        <div class="card-header bg-light">
+            <h6 class="mb-0">
+                <i class="bi bi-calculator me-2"></i>Example Calculations (Base Amount: ₦{{ example_amount }})
+            </h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Tax Name</th>
+                            <th>Rate</th>
+                            <th>Method</th>
+                            <th>Tax Amount</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for calc in example_calculations %}
+                        <tr>
+                            <td><strong>{{ calc.tax.name }}</strong></td>
+                            <td>{{ calc.tax.rate }}%</td>
+                            <td>
+                                {% if calc.tax.calculation_method == 'inclusive' %}
+                                <span class="badge bg-success">Inclusive</span>
+                                {% else %}
+                                <span class="badge bg-warning">Exclusive</span>
+                                {% endif %}
+                            </td>
+                            <td>₦{{ calc.tax_amount }}</td>
+                            <td><strong>₦{{ calc.total }}</strong></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Quick Reference -->
+    <div class="card shadow-sm border-0 mt-4">
+        <div class="card-header bg-light">
+            <h6 class="mb-0">
+                <i class="bi bi-lightbulb me-2"></i>Quick Reference
+            </h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6 class="fw-bold">Inclusive Tax:</h6>
+                    <p class="small mb-2">Tax is already included in the product price. The system calculates the tax portion from the total.</p>
+                    <p class="small text-muted mb-0">Example: Product costs ₦10,750 including 7.5% VAT.<br>
+                        Tax Amount = ₦10,750 - (₦10,750 / 1.075) = ₦750<br>
+                        Price without tax = ₦10,000
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <h6 class="fw-bold">Exclusive Tax:</h6>
+                    <p class="small mb-2">Tax is added on top of the product price.</p>
+                    <p class="small text-muted mb-0">Example: Product costs ₦10,000 + 7.5% VAT.<br>
+                        Tax Amount = ₦10,000 × 0.075 = ₦750<br>
+                        Total Price = ₦10,750
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Back Button -->
+    <div class="mt-4">
+        <a href="{% url 'configuration_menu' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left me-2"></i>Back to Configuration Menu
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+
+{% block title %}Print Job History{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">📋 Print Job History</h1>
+            <p class="text-muted">View all print jobs and their status</p>
+        </div>
+        <a href="{% url 'printer_management' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Printers
+        </a>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Status</label>
+                    <select name="status" class="form-select">
+                        <option value="">All Statuses</option>
+                        <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Completed</option>
+                        <option value="failed" {% if status_filter == 'failed' %}selected{% endif %}>Failed</option>
+                        <option value="printing" {% if status_filter == 'printing' %}selected{% endif %}>Printing</option>
+                        <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                        <option value="cancelled" {% if status_filter == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Printer Type</label>
+                    <select name="printer_type" class="form-select">
+                        <option value="">All Types</option>
+                        <option value="barcode" {% if printer_type == 'barcode' %}selected{% endif %}>Barcode</option>
+                        <option value="pos" {% if printer_type == 'pos' %}selected{% endif %}>POS Receipt</option>
+                        <option value="a4" {% if printer_type == 'a4' %}selected{% endif %}>A4</option>
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">
+                        <i class="bi bi-funnel"></i> Filter
+                    </button>
+                    <a href="{% url 'print_job_history' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-circle"></i> Clear
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Jobs Table -->
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Date/Time</th>
+                            <th>Document Type</th>
+                            <th>Document ID</th>
+                            <th>Printer</th>
+                            <th>Printer Type</th>
+                            <th>Copies</th>
+                            <th>Status</th>
+                            <th>User</th>
+                            <th>Error</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for job in jobs %}
+                            <tr>
+                                <td><small class="text-muted">#{{ job.id }}</small></td>
+                                <td>{{ job.created_at|date:"M d, Y H:i:s" }}</td>
+                                <td>
+                                    <span class="badge bg-info">{{ job.get_document_type_display }}</span>
+                                </td>
+                                <td>
+                                    {% if job.document_id %}
+                                        #{{ job.document_id }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>{{ job.printer.name|default:"N/A" }}</td>
+                                <td>
+                                    {% if job.printer %}
+                                        <small class="text-muted">{{ job.printer.get_printer_type_display }}</small>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>{{ job.copies }}</td>
+                                <td>
+                                    {% if job.status == 'completed' %}
+                                        <span class="badge bg-success">
+                                            <i class="bi bi-check-circle"></i> {{ job.get_status_display }}
+                                        </span>
+                                    {% elif job.status == 'failed' %}
+                                        <span class="badge bg-danger">
+                                            <i class="bi bi-x-circle"></i> {{ job.get_status_display }}
+                                        </span>
+                                    {% elif job.status == 'printing' %}
+                                        <span class="badge bg-warning">
+                                            <i class="bi bi-printer"></i> {{ job.get_status_display }}
+                                        </span>
+                                    {% elif job.status == 'cancelled' %}
+                                        <span class="badge bg-secondary">
+                                            <i class="bi bi-slash-circle"></i> {{ job.get_status_display }}
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-light text-dark">
+                                            <i class="bi bi-clock"></i> {{ job.get_status_display }}
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ job.created_by.username|default:"System" }}</td>
+                                <td>
+                                    {% if job.error_message %}
+                                        <small class="text-danger" title="{{ job.error_message }}">
+                                            {{ job.error_message|truncatewords:5 }}
+                                        </small>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="10" class="text-center text-muted py-4">
+                                    No print jobs found
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

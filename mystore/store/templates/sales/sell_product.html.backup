@@ -1,0 +1,1754 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sell Products - Multiple Payment Methods</title>
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/select2.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/all.min.css' %}" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #64748b;
+            --success-color: #059669;
+            --danger-color: #dc2626;
+            --warning-color: #d97706;
+            --info-color: #0891b2;
+            --light-bg: #f8fafc;
+            --border-color: #e2e8f0;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        body {
+            background-color: var(--light-bg);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #374151;
+        }
+        .main-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 15px;
+        }
+        .page-header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #1d4ed8 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-lg);
+        }
+        .page-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: var(--shadow-md);
+            background: white;
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+        .card-header {
+            background: var(--light-bg);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 1.5rem;
+            font-weight: 600;
+            font-size: 1rem;
+            color: var(--secondary-color);
+        }
+        .card-body {
+            padding: 1.5rem;
+        }
+        .form-control, .form-select {
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 0.75rem 1rem;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+            height: auto;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+        .form-label {
+            font-weight: 600;
+            color: var(--secondary-color);
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Payment Methods Section */
+        .payment-methods-container {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-md);
+            margin-bottom: 1.5rem;
+        }
+        .payment-method-row {
+            background: #f8fafc;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s ease;
+        }
+        .payment-method-row:hover {
+            border-color: var(--primary-color);
+            box-shadow: var(--shadow-md);
+        }
+        .payment-method-row.invalid {
+            border-color: var(--danger-color);
+            background-color: #fef2f2;
+        }
+        .payment-validation-summary {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border: 2px solid var(--info-color);
+            border-radius: 12px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        .payment-validation-error {
+            background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+            border: 2px solid var(--danger-color);
+        }
+        .payment-validation-success {
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            border: 2px solid var(--success-color);
+        }
+
+        /* Stock validation styling */
+        .quantity-input.invalid {
+            border-color: var(--danger-color) !important;
+            background-color: #fef2f2 !important;
+        }
+        .stock-warning {
+            color: var(--warning-color);
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-top: 0.25rem;
+            display: none;
+        }
+        .stock-info {
+            color: var(--info-color);
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-top: 0.25rem;
+        }
+
+        /* Barcode Scanner */
+        .barcode-scanner {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border: 1px solid var(--info-color);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .barcode-icon-small {
+            font-size: 1.5rem;
+            color: var(--info-color);
+        }
+        .barcode-input-compact {
+            font-size: 1rem;
+            font-weight: 500;
+            border: 2px solid white;
+            background: white;
+            box-shadow: var(--shadow-md);
+        }
+
+        /* Product Table */
+        .table thead th {
+            background: var(--light-bg);
+            border: none;
+            padding: 1rem 0.75rem;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--secondary-color);
+        }
+        .table tbody td {
+            padding: 0.75rem;
+            vertical-align: middle;
+            border-color: var(--border-color);
+        }
+        .table tbody tr:hover {
+            background-color: #f8fafc;
+        }
+
+        /* Summary Section */
+        .summary-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .discount-card, .summary-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.25rem;
+            box-shadow: var(--shadow-md);
+        }
+        .summary-card {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        }
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .summary-row:last-child {
+            border-bottom: none;
+            padding-top: 1rem;
+            margin-top: 0.5rem;
+            border-top: 2px solid var(--primary-color);
+        }
+        .summary-label {
+            font-weight: 600;
+            color: var(--secondary-color);
+        }
+        .summary-value {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        .summary-value.total {
+            font-size: 1.5rem;
+            color: var(--primary-color);
+        }
+
+        .payment-delivery-section {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .section-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.25rem;
+            box-shadow: var(--shadow-md);
+        }
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--secondary-color);
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        /* Button Styling */
+        .btn {
+            border-radius: 12px;
+            font-weight: 600;
+            padding: 0.75rem 1.5rem;
+            transition: all 0.2s ease;
+            border: none;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #1d4ed8 100%);
+            box-shadow: var(--shadow-md);
+        }
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-lg);
+        }
+        .btn-success {
+            background: linear-gradient(135deg, var(--success-color) 0%, #047857 100%);
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger-color) 0%, #b91c1c 100%);
+            padding: 0.5rem 1rem;
+            font-size: 0.8rem;
+        }
+        .btn-info {
+            background: linear-gradient(135deg, var(--info-color) 0%, #0e7490 100%);
+            color: white;
+        }
+        .add-product-btn {
+            width: 100%;
+            font-size: 1.1rem;
+            padding: 1rem;
+            margin: 1.5rem 0;
+        }
+        .add-payment-btn {
+            width: 100%;
+            font-size: 1rem;
+            padding: 0.75rem;
+            margin: 1rem 0;
+        }
+
+        /* Complete Sale Button */
+        .complete-sale-btn {
+            width: 100%;
+            font-size: 1.3rem;
+            padding: 1.25rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 2rem;
+            background: linear-gradient(135deg, var(--success-color) 0%, #047857 100%);
+            box-shadow: var(--shadow-lg);
+        }
+        .complete-sale-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Select2 Customization */
+        .select2-container--default .select2-selection--single {
+            height: auto !important;
+            border: 2px solid var(--border-color) !important;
+            border-radius: 12px !important;
+            padding: 0.5rem !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            padding: 0.25rem 0 !important;
+            color: #374151 !important;
+        }
+        .select2-dropdown {
+            border-radius: 12px !important;
+            border: 2px solid var(--border-color) !important;
+            box-shadow: var(--shadow-lg) !important;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .summary-section,
+            .payment-delivery-section {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            .page-title {
+                font-size: 1.5rem;
+            }
+            .main-container {
+                padding: 10px;
+            }
+            .card-body {
+                padding: 1rem;
+            }
+        }
+
+        /* Loading States */
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        /* Success States */
+        .success-highlight {
+            background-color: rgba(5, 150, 105, 0.1) !important;
+            border-left: 4px solid var(--success-color) !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav style="background: #2563eb; padding: 1rem; margin-bottom: 20px; text-align: center;">
+        <div style="display: inline-block; background: #2563eb; border-radius: 12px; padding: 0.5rem 1rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            <a href="{% url 'homepage' %}" style="color: white; text-decoration: none; margin: 0 1rem; font-weight: 500; font-size: 1rem;">
+                <i class="fas fa-home"></i> Home
+            </a>
+            <a href="{% url 'product_list' %}" style="color: white; text-decoration: none; margin: 0 1rem; font-weight: 500; font-size: 1rem;">
+                <i class="fas fa-box"></i> Products
+            </a>
+            <a href="{% url 'create_customer' %}" style="color: white; text-decoration: none; margin: 0 1rem; font-weight: 500; font-size: 1rem;">
+                <i class="fas fa-user-plus"></i> New Customer
+            </a>
+            {% if user.is_authenticated %}
+                <a href="{% url 'logout' %}" style="color: white; text-decoration: none; margin: 0 1rem; font-weight: 500; font-size: 1rem;">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <div class="main-container">
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1 class="page-title">
+                <i class="fas fa-cash-register"></i>
+                Sell Products - Multiple Payments
+            </h1>
+            <p class="mb-0 mt-2 opacity-90">Process customer sales with multiple payment methods</p>
+        </div>
+
+        <!-- Barcode Scanner Section -->
+        <div class="barcode-scanner">
+            <div class="row align-items-center">
+                <div class="col-auto">
+                    <i class="fas fa-barcode barcode-icon-small"></i>
+                </div>
+                <div class="col">
+                    <input type="text" id="barcode-scan" class="form-control barcode-input-compact" placeholder="Scan barcode or type product code..." autofocus>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Sales Form -->
+        <form id="sale-form" method="POST">
+            {% csrf_token %}
+            {{ formset.management_form }}
+            <!-- Hidden field for payment method total forms - initialize to 1 -->
+            <input type="hidden" name="payment_method-TOTAL_FORMS" id="id_payment_method-TOTAL_FORMS" value="1">
+            <input type="hidden" name="payment_method-INITIAL_FORMS" id="id_payment_method-INITIAL_FORMS" value="0">
+            <input type="hidden" name="payment_method-MIN_NUM_FORMS" id="id_payment_method-MIN_NUM_FORMS" value="1">
+            <input type="hidden" name="payment_method-MAX_NUM_FORMS" id="id_payment_method-MAX_NUM_FORMS" value="1000">
+
+            <!-- Hidden fields for loyalty discount -->
+            <input type="hidden" name="loyalty_points_redeemed" id="loyalty-points-redeemed" value="0">
+            <input type="hidden" name="loyalty_discount_amount" id="loyalty-discount-amount-input" value="0">
+
+            <!-- Customer Selection -->
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-user me-2"></i>Customer Information
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <label for="customer" class="form-label">Select Customer</label>
+                            <select name="customer" id="customer" class="form-select" required>
+                                <option value="">-- Select Customer --</option>
+                                {% for customer in customers %}
+                                    <option value="{{ customer.id }}">{{ customer.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <div id="loyalty-quick-info" style="display: none; margin-top: 30px;">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-star text-warning me-2" style="font-size: 1.5rem;"></i>
+                                    <div>
+                                        <strong id="loyalty-points-badge" class="text-primary">0 pts</strong>
+                                        <small class="d-block text-muted">Loyalty Points</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Loyalty Points Detail Card -->
+                    <div id="loyalty-detail-card" style="display: none; margin-top: 1rem; padding: 1rem; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius: 12px; border: 2px solid #0891b2;">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <i class="fas fa-coins text-warning" style="font-size: 2rem;"></i>
+                                    <h4 class="mb-0 mt-2 text-primary" id="loyalty-current-balance">0</h4>
+                                    <small class="text-muted">Current Points</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <i class="fas fa-money-bill-wave text-success" style="font-size: 2rem;"></i>
+                                    <h4 class="mb-0 mt-2 text-success" id="loyalty-redeemable-value">{{ currency_symbol }}0.00</h4>
+                                    <small class="text-muted">Redeemable Value</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div id="loyalty-redeem-section">
+                                    <label class="form-label fw-bold">Redeem Points for Discount</label>
+                                    <div class="input-group">
+                                        <input type="number" id="points-to-redeem" class="form-control" placeholder="Enter points" min="0" max="0" step="1">
+                                        <button type="button" id="apply-loyalty-btn" class="btn btn-success">
+                                            <i class="fas fa-gift me-2"></i>Apply Discount
+                                        </button>
+                                    </div>
+                                    <small class="text-muted">Min: <span id="min-redemption">0</span> points | Max discount: <span id="max-discount-percent">0</span>%</small>
+                                    <div id="loyalty-discount-preview" style="display: none; margin-top: 0.5rem;" class="alert alert-success py-2 mb-0">
+                                        <strong>Discount Preview:</strong> <span id="loyalty-discount-amount">{{ currency_symbol }}0.00</span>
+                                        (<span id="loyalty-points-used">0</span> points)
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Products Table -->
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-shopping-cart me-2"></i>Products
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th style="min-width: 280px;">Product</th>
+                                    <th style="width: 120px;">Quantity</th>
+                                    <th style="width: 120px;">Unit Price</th>
+                                    <th style="width: 120px;">Item Discount</th>
+                                    <th style="width: 120px;">Item Total</th>
+                                    <th style="width: 80px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="form-body">
+                                {% for form in formset %}
+                                <tr class="product-row">
+                                    <td class="product-select-container">
+                                        <select name="form-{{ forloop.counter0 }}-product" class="form-control product-select">
+                                            <option value="">-- Select Product --</option>
+                                            {% for product in products %}
+                                                <option value="{{ product.id }}"
+                                                        data-price="{{ product.selling_price }}"
+                                                        data-stock="{{ product.quantity }}"
+                                                        data-category="{{ product.get_display_category }}">
+                                                    {{ product.brand }} - Size: {{ product.size }} - Color: {{ product.color }} - Category: {{ product.get_display_category }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td class="quantity-container">
+                                        <input type="number" name="form-{{ forloop.counter0 }}-quantity" class="form-control quantity-input text-center" min="1" max="1" value="{{ form.quantity.value|default:1 }}">
+                                        <div class="stock-info">Max: <span class="max-stock">1</span></div>
+                                        <div class="stock-warning">
+                                            <i class="fas fa-exclamation-triangle"></i> Insufficient stock!
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="price-display">{{ currency_symbol }}<span class="unit-price-display">0.00</span></div>
+                                    </td>
+                                    <td class="discount-container">
+                                        <input type="number" name="form-{{ forloop.counter0 }}-discount_amount" class="form-control discount-input text-center" step="0.01" min="0" value="{{ form.discount_amount.value|default:0 }}">
+                                    </td>
+                                    <td>
+                                        <div class="total-display">{{ currency_symbol }}<span class="item-total">0.00</span></div>
+                                    </td>
+                                    <td class="action-container">
+                                        <button type="button" class="btn btn-danger btn-sm remove-product">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="p-3">
+                        <button type="button" id="add-more-products" class="btn btn-info add-product-btn">
+                            <i class="fas fa-plus me-2"></i>Add More Products
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary Section -->
+            <div class="summary-section">
+                <!-- Discount Controls -->
+                <div class="discount-card">
+                    <h4 class="section-title">
+                        <i class="fas fa-percentage me-2"></i>Bill Discount
+                    </h4>
+                    <div class="mb-3">
+                        <label for="{{ payment_form.discount_percentage.id_for_label }}" class="form-label">Whole Bill Discount (%)</label>
+                        {{ payment_form.discount_percentage }}
+                    </div>
+                </div>
+
+                <!-- Order Summary -->
+                <div class="summary-card">
+                    <h4 class="section-title">
+                        <i class="fas fa-calculator me-2"></i>Order Summary
+                    </h4>
+                    <div class="summary-row">
+                        <span class="summary-label">Subtotal:</span>
+                        <span class="summary-value currency">{{ currency_symbol }}<span id="subtotal-amount">0.00</span></span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="summary-label">Bill Discount:</span>
+                        <span class="summary-value text-danger">-{{ currency_symbol }}<span id="bill-discount-amount">0.00</span></span>
+                    </div>
+                    <div class="summary-row" id="loyalty-discount-row" style="display: none;">
+                        <span class="summary-label">
+                            <i class="fas fa-star text-warning me-1"></i>Loyalty Discount:
+                        </span>
+                        <span class="summary-value text-success">-{{ currency_symbol }}<span id="summary-loyalty-discount">0.00</span></span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="summary-label">Delivery:</span>
+                        <span class="summary-value text-info">{{ currency_symbol }}<span id="delivery-cost-display">0.00</span></span>
+                    </div>
+
+                    <!-- Tax Breakdown -->
+                    {% if active_taxes %}
+                    <div class="summary-row border-top pt-2 mt-2">
+                        <span class="summary-label fw-bold">Tax Breakdown:</span>
+                    </div>
+                    {% for tax in active_taxes %}
+                    <div class="summary-row tax-row" data-tax-code="{{ tax.code }}" data-tax-rate="{{ tax.rate }}" data-tax-method="{{ tax.calculation_method }}">
+                        <span class="summary-label small ps-3">
+                            {{ tax.name }} ({{ tax.rate }}% {{ tax.get_calculation_method_display|slice:":4" }})
+                            {% if tax.calculation_method == 'inclusive' %}
+                            <i class="bi bi-arrow-down-circle text-success" title="Inclusive - already in price"></i>
+                            {% else %}
+                            <i class="bi bi-arrow-up-circle text-warning" title="Exclusive - added to price"></i>
+                            {% endif %}
+                        </span>
+                        <span class="summary-value text-muted">{{ currency_symbol }}<span class="tax-amount" id="tax-{{ tax.code }}-amount">0.00</span></span>
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+
+                    <div class="summary-row border-top pt-2 mt-2">
+                        <span class="summary-label fw-bold">Grand Total:</span>
+                        <span class="summary-value total">{{ currency_symbol }}<span id="total-amount">0.00</span></span>
+                    </div>
+                    <input type="hidden" name="total_price" id="total-price" value="0.00">
+                </div>
+            </div>
+
+            <!-- Payment and Delivery Section -->
+            <div class="payment-delivery-section">
+                <!-- Payment Methods Section -->
+                <div class="section-card">
+                    <h4 class="section-title">
+                        <i class="fas fa-credit-card me-2"></i>Payment Methods
+                    </h4>
+
+                    <!-- Payment Methods Container - Start with ONE payment method -->
+                    <div id="payment-methods-container">
+                        <!-- Single default payment method row -->
+                        <div class="payment-method-row" data-form-index="0">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label class="form-label">Payment Method</label>
+                                    <select name="payment_method-0-payment_method" class="form-select payment-method-select" required>
+                                        <option value="">-- Select Method --</option>
+                                        {% for code, name in payment_method_choices %}
+                                        <option value="{{ code }}">{{ name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Amount</label>
+                                    <input type="number" name="payment_method-0-amount" class="form-control payment-amount" step="0.01" min="0.01" placeholder="0.00" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Reference</label>
+                                    <input type="text" name="payment_method-0-reference_number" class="form-control" placeholder="Reference (optional)">
+                                </div>
+                                <div class="col-md-2 d-flex align-items-end">
+                                    <!-- Hide remove button for first payment method -->
+                                    <button type="button" class="btn btn-danger remove-payment-method" style="display:none;">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-12">
+                                    <textarea name="payment_method-0-notes" class="form-control" rows="2" placeholder="Additional notes (optional)"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Add Payment Method Button -->
+                    <button type="button" id="add-payment-method" class="btn btn-primary add-payment-btn">
+                        <i class="fas fa-plus me-2"></i>Add Another Payment Method
+                    </button>
+
+                    <!-- Payment Validation Summary -->
+                    <div id="payment-validation" class="payment-validation-summary" style="display: none;">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <div>
+                                <strong>Payment Summary:</strong><br>
+                                <span id="validation-text">Payments total: {{ currency_symbol }}0.00 | Sale total: {{ currency_symbol }}0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Delivery Options -->
+                <div class="section-card">
+                    <h4 class="section-title">
+                        <i class="fas fa-truck me-2"></i>Delivery Options
+                    </h4>
+                    <div class="mb-3">
+                        <label for="id_delivery_option" class="form-label">Delivery Option</label>
+                        {{ delivery_form.delivery_option }}
+                    </div>
+                    <div id="delivery-cost-field" class="mb-3" style="display: none;">
+                        <label for="id_delivery_cost" class="form-label">Delivery Cost</label>
+                        {{ delivery_form.delivery_cost }}
+                    </div>
+                    <div id="delivery-address-field" class="mb-3" style="display: none;">
+                        <label for="id_delivery_address" class="form-label">Delivery Address</label>
+                        {{ delivery_form.delivery_address }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_delivery_date" class="form-label">Delivery Date</label>
+                        {{ delivery_form.delivery_date }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_delivery_status" class="form-label">Delivery Status</label>
+                        {{ delivery_form.delivery_status }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Complete Sale Button -->
+            <button type="submit" class="btn btn-success complete-sale-btn" id="complete-sale-btn">
+                <i class="fas fa-check-circle me-2"></i>Complete Sale
+            </button>
+        </form>
+    </div>
+
+    <!-- Scripts -->
+    <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+    <script src="{% static 'js/jquery-3.6.0.min.js' %}"></script>
+    <script src="{% static 'js/select2.full.min.js' %}"></script>
+
+    <script>
+        $(document).ready(function () {
+            // Currency symbol from backend
+            const CURRENCY_SYMBOL = '{{ currency_symbol }}';
+
+            let formIndex = parseInt($('#id_form-TOTAL_FORMS').val()) || 0;
+            let paymentMethodIndex = 1; // Start at 1 since we already have index 0
+            let saleTotal = 0;
+            let paymentTotal = 0;
+
+            // Dynamic payment method choices from backend
+            const paymentMethodChoices = [
+                {% for code, name in payment_method_choices %}
+                { code: '{{ code }}', name: '{{ name }}' }{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            ];
+            // Track the time of the last user interaction (click, keypress, etc.)
+            let lastUserInteractionTime = Date.now();
+            let userIsInteracting = false; // Track if user is intentionally interacting with other elements
+
+            // Track ANY user interaction (click, touch, keypress) EXCEPT on the barcode scanner
+            $(document).on('click mousedown keydown', function(e) {
+                if (!$(e.target).closest('#barcode-scan').length) {
+                    lastUserInteractionTime = Date.now();
+                }
+            });
+
+            // Track when user starts interacting with specific form elements
+            $(document).on('mousedown touchstart', 'input:not(#barcode-scan), select, textarea, button', function() {
+                userIsInteracting = true;
+                // Clear the flag after a reasonable time (user finished their interaction)
+                setTimeout(() => {
+                    userIsInteracting = false;
+                }, 5000); // Give user 5 seconds to complete their interaction
+            });
+
+            // Also track when user focuses on other elements intentionally
+            $(document).on('focus', 'input:not(#barcode-scan), select, textarea', function() {
+                userIsInteracting = true;
+                setTimeout(() => {
+                    userIsInteracting = false;
+                }, 3000); // Shorter timeout when just focusing
+            });
+
+            // Enhanced Customer Display Communication Functions
+            function updateCustomerDisplay(action, data) {
+                try {
+                    const updateData = {
+                        action: action,
+                        ...data,
+                        timestamp: Date.now()
+                    };
+                    // Use postMessage for communication
+                    window.postMessage({
+                        type: 'customerDisplayUpdate',
+                        payload: updateData
+                    }, '*');
+                    // Custom event for same-window communication
+                    window.dispatchEvent(new CustomEvent('customerDisplayUpdate', {
+                        detail: updateData
+                    }));
+                    console.log('Customer display updated:', updateData);
+                } catch (e) {
+                    console.error('Could not update customer display:', e);
+                }
+            }
+
+            function syncCustomerDisplayTotals() {
+                let subtotal = 0;
+                const items = [];
+                $('#form-body .product-row').each(function() {
+                    const row = $(this);
+                    const productSelect = row.find('.product-select');
+                    const selectedOption = productSelect.find('option:selected');
+                    if (selectedOption.val()) {
+                        const fullText = selectedOption.text();
+                        const parts = fullText.split(' - ');
+                        const brand = parts[0] || 'Unknown Product';
+                        let size = '';
+                        let color = '';
+                        for (let i = 1; i < parts.length; i++) {
+                            if (parts[i].startsWith('Size: ')) {
+                                size = parts[i].replace('Size: ', '');
+                            } else if (parts[i].startsWith('Color: ')) {
+                                color = parts[i].split(' (')[0].replace('Color: ', '');
+                            }
+                        }
+                        const quantity = parseFloat(row.find('.quantity-input').val()) || 1;
+                        const unitPrice = parseFloat(selectedOption.data('price')) || 0;
+                        const discount = parseFloat(row.find('.discount-input').val()) || 0;
+                        const itemTotal = (unitPrice * quantity) - discount;
+                        subtotal += itemTotal;
+                        items.push({
+                            id: selectedOption.val(),
+                            name: brand,
+                            details: `Size: ${size} - Color: ${color}`,
+                            quantity: quantity,
+                            unitPrice: unitPrice,
+                            discount: discount,
+                            total: itemTotal
+                        });
+                    }
+                });
+                const billDiscount = parseFloat($('#id_discount_percentage').val()) || 0;
+                const discountAmount = subtotal * (billDiscount / 100);
+                const deliveryOption = $('#id_delivery_option').val();
+                const deliveryCost = deliveryOption === 'delivery' ? (parseFloat($('#id_delivery_cost').val()) || 0) : 0;
+                saleTotal = subtotal - discountAmount + deliveryCost;
+                const saleData = {
+                    items: items,
+                    subtotal: subtotal,
+                    billDiscountPercent: billDiscount,
+                    discountAmount: discountAmount,
+                    deliveryCost: deliveryCost,
+                    total: saleTotal,
+                    timestamp: Date.now()
+                };
+                // Send to customer display
+                updateCustomerDisplay('syncAll', saleData);
+            }
+
+            // Enhanced validation and feedback
+            function validateStock(row) {
+                const productSelect = row.find('.product-select');
+                const quantityInput = row.find('.quantity-input');
+                const stockWarning = row.find('.stock-warning');
+                const stockInfo = row.find('.stock-info .max-stock');
+                const selectedOption = productSelect.find('option:selected');
+                const availableStock = parseInt(selectedOption.data('stock')) || 0;
+                const requestedQuantity = parseInt(quantityInput.val()) || 0;
+                stockInfo.text(availableStock);
+                quantityInput.attr('max', availableStock);
+                if (requestedQuantity > availableStock) {
+                    quantityInput.addClass('invalid');
+                    stockWarning.show();
+                    return false;
+                } else {
+                    quantityInput.removeClass('invalid');
+                    stockWarning.hide();
+                    return true;
+                }
+            }
+
+            function hasStockErrors() {
+                let hasErrors = false;
+                $('#form-body .product-row').each(function() {
+                    const row = $(this);
+                    if (row.find('.product-select').val() && !validateStock(row)) {
+                        hasErrors = true;
+                    }
+                });
+                return hasErrors;
+            }
+
+            function updateItemTotal(row) {
+                const selected = row.find('.product-select option:selected');
+                const price = parseFloat(selected.data('price')) || 0;
+                const quantity = parseFloat(row.find('.quantity-input').val()) || 1;
+                const discountAmount = parseFloat(row.find('.discount-input').val()) || 0;
+                const subtotal = price * quantity;
+                const itemTotal = subtotal - discountAmount;
+                row.find('.unit-price-display').text(price.toFixed(2));
+                row.find('.item-total').text(itemTotal.toFixed(2));
+                if (itemTotal !== subtotal) {
+                    row.find('.item-total').parent().addClass('text-success');
+                } else {
+                    row.find('.item-total').parent().removeClass('text-success');
+                }
+                return itemTotal;
+            }
+
+            function updateTotalAmount() {
+                let subtotal = 0;
+                $('#form-body .product-row').each(function() {
+                    subtotal += updateItemTotal($(this));
+                });
+                const billDiscount = parseFloat($('#id_discount_percentage').val()) || 0;
+                const discountAmount = subtotal * (billDiscount / 100);
+                let total = subtotal - discountAmount;
+                const deliveryOption = $('#id_delivery_option').val();
+                let deliveryCost = 0;
+                if (deliveryOption === 'delivery') {
+                    deliveryCost = parseFloat($('#id_delivery_cost').val()) || 0;
+                    total += deliveryCost;
+                }
+
+                // Apply loyalty discount AFTER bill discount and delivery
+                if (appliedLoyaltyDiscount > 0) {
+                    total -= appliedLoyaltyDiscount;
+                    $('#summary-loyalty-discount').text(appliedLoyaltyDiscount.toFixed(2));
+                    $('#loyalty-discount-row').show();
+                } else {
+                    $('#loyalty-discount-row').hide();
+                }
+
+                // Calculate taxes
+                let totalTaxAmount = 0;
+                const taxableAmount = total - deliveryCost; // Tax on items only, not delivery
+
+                $('.tax-row').each(function() {
+                    const taxRow = $(this);
+                    const taxCode = taxRow.data('tax-code');
+                    const taxRate = parseFloat(taxRow.data('tax-rate')) || 0;
+                    const taxMethod = taxRow.data('tax-method');
+
+                    let taxAmount = 0;
+
+                    if (taxMethod === 'inclusive') {
+                        // Tax is already in the price
+                        // Tax Amount = Amount - (Amount / (1 + rate/100))
+                        taxAmount = taxableAmount - (taxableAmount / (1 + (taxRate / 100)));
+                    } else {
+                        // Tax is added to the price
+                        // Tax Amount = Amount * (rate/100)
+                        taxAmount = taxableAmount * (taxRate / 100);
+                    }
+
+                    totalTaxAmount += taxAmount;
+
+                    // Display tax amount
+                    taxRow.find('.tax-amount').text(taxAmount.toFixed(2));
+
+                    // For exclusive tax, add to total
+                    if (taxMethod === 'exclusive') {
+                        total += taxAmount;
+                    }
+                });
+
+                $('#subtotal-amount').text(subtotal.toFixed(2));
+                $('#bill-discount-amount').text(discountAmount.toFixed(2));
+                $('#delivery-cost-display').text(deliveryCost.toFixed(2));
+                $('#total-amount').text(total.toFixed(2));
+                $('#total-price').val(total.toFixed(2));
+                saleTotal = total;
+                // Auto-fill the first payment method amount with total
+                const firstPaymentAmount = $('#payment-methods-container .payment-amount').first();
+                if (firstPaymentAmount.length && firstPaymentAmount.val() === '') {
+                    firstPaymentAmount.val(total.toFixed(2));
+                }
+                // Update payment validation
+                validatePaymentMethods(total);
+                // Update submit button state
+                const submitBtn = $('#complete-sale-btn');
+                if (hasStockErrors()) {
+                    submitBtn.prop('disabled', true);
+                    submitBtn.html('<i class="fas fa-exclamation-triangle me-2"></i>Fix Stock Issues');
+                    submitBtn.removeClass('btn-success').addClass('btn-warning');
+                } else {
+                    submitBtn.prop('disabled', false);
+                    submitBtn.html('<i class="fas fa-check-circle me-2"></i>Complete Sale');
+                    submitBtn.removeClass('btn-warning').addClass('btn-success');
+                }
+                if (total > 1000) {
+                    $('#total-amount').addClass('text-success');
+                } else {
+                    $('#total-amount').removeClass('text-success');
+                }
+                // Sync to customer display
+                syncCustomerDisplayTotals();
+            }
+
+            function validatePaymentMethods(saleTotal) {
+                paymentTotal = 0;
+                let hasEmptyMethods = false;
+                $('.payment-method-row').each(function() {
+                    const amountInput = $(this).find('.payment-amount');
+                    const methodSelect = $(this).find('.payment-method-select');
+                    const amount = parseFloat(amountInput.val()) || 0;
+                    if (methodSelect.val() && amount > 0) {
+                        paymentTotal += amount;
+                    } else if (methodSelect.val() || amount > 0) {
+                        // Incomplete method (has method but no amount or vice versa)
+                        hasEmptyMethods = true;
+                    }
+                });
+                const validationDiv = $('#payment-validation');
+                const validationText = $('#validation-text');
+                if (hasEmptyMethods) {
+                    validationDiv.removeClass('payment-validation-success payment-validation-error').addClass('payment-validation-error');
+                    validationText.html('Some payment methods are incomplete. Please fill all fields or remove empty methods.');
+                    validationDiv.show();
+                    $('#complete-sale-btn').prop('disabled', true);
+                } else if (paymentTotal > 0) {
+                    const difference = Math.abs(paymentTotal - saleTotal);
+                    const tolerance = 0.01; // Allow 1 cent difference for rounding
+                    if (difference <= tolerance) {
+                        validationDiv.removeClass('payment-validation-error').addClass('payment-validation-success');
+                        validationText.html(`Payments total: ${CURRENCY_SYMBOL}${paymentTotal.toFixed(2)} | Sale total: ${CURRENCY_SYMBOL}${saleTotal.toFixed(2)} - <span class="text-success">Perfect match!</span>`);
+                        validationDiv.show();
+                        $('#complete-sale-btn').prop('disabled', false);
+                    } else if (paymentTotal > saleTotal) {
+                        validationDiv.removeClass('payment-validation-success').addClass('payment-validation-error');
+                        validationText.html(`Payments total: ${CURRENCY_SYMBOL}${paymentTotal.toFixed(2)} | Sale total: ${CURRENCY_SYMBOL}${saleTotal.toFixed(2)} - <span class="text-danger">Overpayment of ${CURRENCY_SYMBOL}${(paymentTotal - saleTotal).toFixed(2)}</span>`);
+                        validationDiv.show();
+                        $('#complete-sale-btn').prop('disabled', true);
+                    } else {
+                        validationDiv.removeClass('payment-validation-success').addClass('payment-validation-error');
+                        validationText.html(`Payments total: ${CURRENCY_SYMBOL}${paymentTotal.toFixed(2)} | Sale total: ${CURRENCY_SYMBOL}${saleTotal.toFixed(2)} - <span class="text-danger">Shortfall of ${CURRENCY_SYMBOL}${(saleTotal - paymentTotal).toFixed(2)}</span>`);
+                        validationDiv.show();
+                        $('#complete-sale-btn').prop('disabled', true);
+                    }
+                } else {
+                    validationDiv.hide();
+                    $('#complete-sale-btn').prop('disabled', false);
+                }
+            }
+
+            function updateFormIndices() {
+                $('#form-body .product-row').each(function(index) {
+                    $(this).find('select, input').each(function() {
+                        const name = $(this).attr('name').replace(/form-\d+/, `form-${index}`);
+                        $(this).attr('name', name);
+                    });
+                });
+                $('#id_form-TOTAL_FORMS').val($('#form-body .product-row').length);
+            }
+
+            function updatePaymentMethodIndices() {
+                $('#payment-methods-container .payment-method-row').each(function(index) {
+                    $(this).attr('data-form-index', index);
+                    $(this).find('select, input, textarea').each(function() {
+                        const name = $(this).attr('name').replace(/payment_method-\d+/, `payment_method-${index}`);
+                        $(this).attr('name', name);
+                    });
+                    // Show/hide remove button based on index
+                    if (index === 0) {
+                        $(this).find('.remove-payment-method').hide();
+                    } else {
+                        $(this).find('.remove-payment-method').show();
+                    }
+                });
+                $('#id_payment_method-TOTAL_FORMS').val($('#payment-methods-container .payment-method-row').length);
+            }
+
+            // ==================== LOYALTY PROGRAM FUNCTIONS ====================
+            let currentLoyaltyData = null;
+            let appliedLoyaltyDiscount = 0;
+            let appliedLoyaltyPoints = 0;
+
+            function fetchCustomerLoyaltyInfo(customerId) {
+                $.ajax({
+                    url: `/api/loyalty/customer/${customerId}/`,
+                    type: 'GET',
+                    success: function(data) {
+                        if (data.success && data.has_account && data.is_active) {
+                            currentLoyaltyData = data;
+                            displayLoyaltyInfo(data);
+                        } else {
+                            $('#loyalty-quick-info').hide();
+                            $('#loyalty-detail-card').hide();
+                            currentLoyaltyData = null;
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error fetching loyalty info:', error);
+                        $('#loyalty-quick-info').hide();
+                        $('#loyalty-detail-card').hide();
+                        currentLoyaltyData = null;
+                    }
+                });
+            }
+
+            function displayLoyaltyInfo(data) {
+                // Show quick info badge
+                $('#loyalty-points-badge').text(data.current_balance + ' pts');
+                $('#loyalty-quick-info').fadeIn();
+
+                // Show detailed card
+                $('#loyalty-current-balance').text(data.current_balance);
+                $('#loyalty-redeemable-value').text(CURRENCY_SYMBOL + data.redeemable_value.toFixed(2));
+                $('#points-to-redeem').attr('max', data.current_balance);
+                $('#min-redemption').text(data.minimum_points_for_redemption);
+                $('#max-discount-percent').text(data.maximum_discount_percentage);
+
+                // Show/hide redeem section based on eligibility
+                if (data.can_redeem) {
+                    $('#loyalty-redeem-section').show();
+                    $('#loyalty-detail-card').fadeIn();
+                } else {
+                    $('#loyalty-redeem-section').hide();
+                    $('#loyalty-detail-card').fadeIn();
+                }
+
+                resetLoyaltyDiscount();
+            }
+
+            function resetLoyaltyDiscount() {
+                appliedLoyaltyDiscount = 0;
+                appliedLoyaltyPoints = 0;
+                $('#points-to-redeem').val('');
+                $('#loyalty-discount-preview').hide();
+                $('#loyalty-points-redeemed').val('0');
+                $('#loyalty-discount-amount-input').val('0');
+                updateTotalAmount();
+            }
+
+            $('#apply-loyalty-btn').on('click', function() {
+                const pointsToRedeem = parseInt($('#points-to-redeem').val()) || 0;
+                const customerId = $('#customer').val();
+                const currentTotal = saleTotal; // Use the global saleTotal variable
+
+                if (!customerId) {
+                    showAlert('Please select a customer first', 'warning');
+                    return;
+                }
+
+                if (!pointsToRedeem || pointsToRedeem <= 0) {
+                    showAlert('Please enter points to redeem', 'warning');
+                    return;
+                }
+
+                if (!currentLoyaltyData) {
+                    showAlert('Loyalty information not available', 'warning');
+                    return;
+                }
+
+                if (pointsToRedeem > currentLoyaltyData.current_balance) {
+                    showAlert(`Customer only has ${currentLoyaltyData.current_balance} points`, 'warning');
+                    return;
+                }
+
+                if (pointsToRedeem < currentLoyaltyData.minimum_points_for_redemption) {
+                    showAlert(`Minimum redemption is ${currentLoyaltyData.minimum_points_for_redemption} points`, 'warning');
+                    return;
+                }
+
+                // Call API to calculate discount
+                $.ajax({
+                    url: '/api/loyalty/apply-discount/',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        customer_id: customerId,
+                        points_to_redeem: pointsToRedeem,
+                        transaction_total: currentTotal
+                    }),
+                    success: function(data) {
+                        if (data.success) {
+                            appliedLoyaltyDiscount = data.discount_amount;
+                            appliedLoyaltyPoints = pointsToRedeem;
+
+                            // Update hidden form fields
+                            $('#loyalty-points-redeemed').val(pointsToRedeem);
+                            $('#loyalty-discount-amount-input').val(data.discount_amount.toFixed(2));
+
+                            // Show preview
+                            $('#loyalty-discount-amount').text(CURRENCY_SYMBOL + data.discount_amount.toFixed(2));
+                            $('#loyalty-points-used').text(pointsToRedeem);
+                            $('#loyalty-discount-preview').fadeIn();
+
+                            // Update totals
+                            updateTotalAmount();
+
+                            showAlert(`Loyalty discount of ${CURRENCY_SYMBOL}${data.discount_amount.toFixed(2)} applied!`, 'success');
+                        } else {
+                            showAlert(data.error || 'Failed to apply discount', 'danger');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        showAlert('Error applying loyalty discount: ' + error, 'danger');
+                    }
+                });
+            });
+
+            // Remove loyalty discount on clear button
+            $('#loyalty-discount-preview').on('click', function() {
+                if (confirm('Remove loyalty discount?')) {
+                    resetLoyaltyDiscount();
+                    showAlert('Loyalty discount removed', 'info');
+                }
+            });
+
+            // Initialize Select2
+            $('.product-select').each(function () {
+                if (!$(this).data('select2')) {
+                    $(this).select2({
+                        placeholder: 'Select a product',
+                        allowClear: true,
+                        width: '100%'
+                    });
+                }
+            });
+
+            $('#customer').select2({
+                placeholder: 'Choose a customer...',
+                allowClear: true,
+                width: '100%'
+            }).on('change', function() {
+                const selectedCustomer = $(this).find('option:selected').text();
+                const customerId = $(this).val();
+
+                if (selectedCustomer && selectedCustomer !== '-- Select Customer --') {
+                    updateCustomerDisplay('customerSelected', {
+                        customerName: selectedCustomer
+                    });
+
+                    // Fetch loyalty information for the selected customer
+                    if (customerId) {
+                        fetchCustomerLoyaltyInfo(customerId);
+                    }
+                } else {
+                    // Hide loyalty info if no customer selected
+                    $('#loyalty-quick-info').hide();
+                    $('#loyalty-detail-card').hide();
+                    resetLoyaltyDiscount();
+                }
+            });
+
+            // Event handlers using event delegation
+            $(document).on('change', '.product-select', function() {
+                const row = $(this).closest('.product-row');
+                const selectedOption = $(this).find('option:selected');
+                const availableStock = parseInt(selectedOption.data('stock')) || 0;
+                const quantityInput = row.find('.quantity-input');
+                quantityInput.attr('max', availableStock);
+                if (parseInt(quantityInput.val()) > availableStock) {
+                    quantityInput.val(availableStock);
+                }
+                validateStock(row);
+                updateItemTotal(row);
+                updateTotalAmount();
+                row.addClass('success-highlight');
+                setTimeout(() => row.removeClass('success-highlight'), 1000);
+                // Update customer display when product is selected
+                updateCustomerDisplay('productAdded', {
+                    productName: selectedOption.text().split(' - ')[0],
+                    quantity: parseInt(quantityInput.val()) || 1,
+                    price: parseFloat(selectedOption.data('price')) || 0
+                });
+            });
+
+            $(document).on('input change', '.quantity-input', function() {
+                const row = $(this).closest('.product-row');
+                validateStock(row);
+                updateItemTotal(row);
+                updateTotalAmount();
+            });
+
+            $(document).on('change', '.discount-input', function() {
+                const row = $(this).closest('.product-row');
+                updateItemTotal(row);
+                updateTotalAmount();
+            });
+
+            $('#id_discount_percentage').on('change', function() {
+                updateTotalAmount();
+            });
+
+            $('#id_delivery_cost').on('change', function() {
+                updateTotalAmount();
+            });
+
+            $('#id_delivery_option').on('change', function() {
+                if ($(this).val() === 'delivery') {
+                    $('#delivery-cost-field, #delivery-address-field').slideDown();
+                } else {
+                    $('#delivery-cost-field, #delivery-address-field').slideUp();
+                    $('#id_delivery_cost').val('0');
+                }
+                updateTotalAmount();
+            });
+
+            // Payment method event handlers
+            $(document).on('change input', '.payment-method-select, .payment-amount', function() {
+                updateTotalAmount();
+            });
+
+            // Remove product with event delegation
+            $(document).on('click', '.remove-product', function() {
+                const row = $(this).closest('.product-row');
+                const productSelect = row.find('.product-select');
+                const selectedOption = productSelect.find('option:selected');
+                if ($('#form-body .product-row').length > 1) {
+                    const productName = selectedOption.text().split(' - ')[0] || 'Product';
+                    row.fadeOut(300, function() {
+                        $(this).remove();
+                        updateFormIndices();
+                        updateTotalAmount();
+                        // Update customer display when product is removed
+                        updateCustomerDisplay('productRemoved', {
+                            productName: productName
+                        });
+                    });
+                } else {
+                    alert('You must have at least one product in the sale.');
+                }
+            });
+
+            // Add payment method
+            $('#add-payment-method').on('click', function () {
+                // Build payment method options dynamically
+                let paymentMethodOptions = '<option value="">-- Select Method --</option>';
+                paymentMethodChoices.forEach(function(method) {
+                    paymentMethodOptions += `<option value="${method.code}">${method.name}</option>`;
+                });
+
+                const newRow = $(`
+                    <div class="payment-method-row" data-form-index="${paymentMethodIndex}">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label class="form-label">Payment Method</label>
+                                <select name="payment_method-${paymentMethodIndex}-payment_method" class="form-select payment-method-select" required>
+                                    ${paymentMethodOptions}
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Amount</label>
+                                <input type="number" name="payment_method-${paymentMethodIndex}-amount" class="form-control payment-amount" step="0.01" min="0.01" placeholder="0.00" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Reference</label>
+                                <input type="text" name="payment_method-${paymentMethodIndex}-reference_number" class="form-control" placeholder="Reference (optional)">
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="button" class="btn btn-danger remove-payment-method">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-12">
+                                <textarea name="payment_method-${paymentMethodIndex}-notes" class="form-control" rows="2" placeholder="Additional notes (optional)"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                `);
+                $('#payment-methods-container').append(newRow);
+                paymentMethodIndex++;
+                updatePaymentMethodIndices();
+                updateTotalAmount();
+            });
+
+            // Remove payment method
+            $(document).on('click', '.remove-payment-method', function() {
+                if ($('#payment-methods-container .payment-method-row').length > 1) {
+                    $(this).closest('.payment-method-row').fadeOut(300, function() {
+                        $(this).remove();
+                        updatePaymentMethodIndices();
+                        updateTotalAmount();
+                    });
+                } else {
+                    alert('You must have at least one payment method.');
+                }
+            });
+
+            // Add more products
+            $('#add-more-products').on('click', function () {
+                const formCount = $('#form-body .product-row').length;
+                const newRow = $(`
+                    <tr class="product-row" style="display: none;" data-row-index="${formCount}">
+                        <td class="product-select-container">
+                            <select name="form-${formCount}-product" class="form-control product-select">
+                                <option value="">-- Select Product --</option>
+                                {% for product in products %}
+                                    <option value="{{ product.id }}" data-price="{{ product.selling_price }}" data-stock="{{ product.quantity }}">
+                                        {{ product.brand }} - Size: {{ product.size }} - Color: {{ product.color }} (Stock: {{ product.quantity }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td class="quantity-container">
+                            <input type="number" name="form-${formCount}-quantity" class="form-control quantity-input text-center" min="1" max="1" value="1">
+                            <div class="stock-info">Max: <span class="max-stock">1</span></div>
+                            <div class="stock-warning">
+                                <i class="fas fa-exclamation-triangle"></i> Insufficient stock!
+                            </div>
+                        </td>
+                        <td>
+                            <div class="price-display">${CURRENCY_SYMBOL}<span class="unit-price-display">0.00</span></div>
+                        </td>
+                        <td class="discount-container">
+                            <input type="number" name="form-${formCount}-discount_amount" class="form-control discount-input text-center" step="0.01" min="0" value="0">
+                        </td>
+                        <td>
+                            <div class="total-display">${CURRENCY_SYMBOL}<span class="item-total">0.00</span></div>
+                        </td>
+                        <td class="action-container">
+                            <button type="button" class="btn btn-danger btn-sm remove-product">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `);
+                $('#form-body').append(newRow);
+                newRow.fadeIn(300);
+                // Initialize Select2 for the new row
+                const newSelect = newRow.find('.product-select');
+                newSelect.select2({
+                    placeholder: 'Select a product',
+                    allowClear: true,
+                    width: '100%'
+                });
+                updateFormIndices();
+                updateTotalAmount();
+                newRow[0].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                // Focus on the new select after animation
+                setTimeout(() => {
+                    newSelect.select2('open');
+                }, 400);
+            });
+
+            // Enhanced barcode scanner with intelligent focus retention
+            const barcodeInput = document.getElementById('barcode-scan');
+            let isProcessing = false;
+
+            if (barcodeInput) {
+                // Force focus on barcode input when page loads
+                setTimeout(() => {
+                    barcodeInput.focus();
+                }, 500);
+
+                // Improved blur handler that respects user interactions
+                barcodeInput.addEventListener('blur', function(e) {
+                    // Don't refocus if:
+                    // 1. We're processing a barcode
+                    // 2. User is intentionally interacting with other elements
+                    // 3. The focus is moving to specific form elements
+                    const focusedElement = document.activeElement;
+                    const isFormElement = focusedElement && (
+                        focusedElement.tagName === 'INPUT' ||
+                        focusedElement.tagName === 'SELECT' ||
+                        focusedElement.tagName === 'TEXTAREA' ||
+                        focusedElement.tagName === 'BUTTON' ||
+                        focusedElement.classList.contains('select2-selection') ||
+                        focusedElement.closest('.select2-container')
+                    );
+
+                    if (!isProcessing && !userIsInteracting && !isFormElement) {
+                        setTimeout(() => {
+                            // Double-check that user hasn't started interacting in the meantime
+                            if (!userIsInteracting && !document.activeElement.closest('.payment-method-row, .discount-container, .select2-container')) {
+                                barcodeInput.focus();
+                            }
+                        }, 100);
+                    }
+                });
+
+                // Clear user interaction flag when barcode scanner gets focus
+                barcodeInput.addEventListener('focus', function() {
+                    userIsInteracting = false;
+                });
+
+                barcodeInput.addEventListener('input', function () {
+                    if (isProcessing) return;
+                    const barcode = barcodeInput.value.trim();
+                    if (barcode.length !== 13) return;
+
+                    isProcessing = true;
+                    userIsInteracting = false; // Clear interaction flag during processing
+                    barcodeInput.classList.add('loading');
+                    barcodeInput.disabled = true;
+
+                    fetch(`/lookup-product/?barcode=${barcode}&context=sell`)
+                        .then(response => {
+                            if (!response.ok) throw new Error('Network error');
+                            return response.json();
+                        })
+                        .then(data => {
+                            if (!data.found) {
+                                showAlert("Product not found in Inventory. Please check warehouse and transfer!", 'warning');
+                                return;
+                            }
+                            if (data.quantity <= 0) {
+                                showAlert(`${data.brand} is out of stock!`, 'danger');
+                                return;
+                            }
+                            // Check if product already exists in the cart
+                            let existingRow = null;
+                            $('#form-body .product-row').each(function() {
+                                const productSelect = $(this).find('.product-select');
+                                if (productSelect.val() == data.id) {
+                                    existingRow = $(this);
+                                    return false; // Break out of the loop
+                                }
+                            });
+                            if (existingRow) {
+                                // Product already in cart - just increment quantity
+                                const quantityInput = existingRow.find('.quantity-input');
+                                const currentQty = parseInt(quantityInput.val()) || 1;
+                                const maxQty = parseInt(quantityInput.attr('max')) || 1;
+                                if (currentQty < maxQty) {
+                                    quantityInput.val(currentQty + 1);
+                                    quantityInput.trigger('change');
+                                    showAlert(`Increased quantity of ${data.brand} to ${currentQty + 1}`, 'success');
+                                } else {
+                                    showAlert(`Cannot add more ${data.brand}. Only ${maxQty} available.`, 'warning');
+                                }
+                            } else {
+                                // Add new product to cart
+                                let targetRow = $('.product-row')
+                                    .filter(function() {
+                                        return $(this).find('.product-select').val() === '';
+                                    })
+                                    .first();
+                                if (!targetRow.length) {
+                                    $('#add-more-products').click();
+                                    targetRow = $('#form-body tr:last');
+                                }
+                                const productSelect = targetRow.find('.product-select');
+                                const fullName = `${data.brand} - Size: ${data.size} - Color: ${data.color} (Stock: ${data.quantity})`;
+                                let option = productSelect.find(`option[value='${data.id}']`);
+                                if (option.length === 0) {
+                                    option = new Option(fullName, data.id, true, true);
+                                    option.setAttribute('data-price', data.selling_price || data.price);
+                                    option.setAttribute('data-stock', data.quantity);
+                                    productSelect.append(option);
+                                }
+                                productSelect.val(data.id).trigger('change.select2');
+                                const quantityInput = targetRow.find('.quantity-input');
+                                quantityInput.attr('max', data.quantity);
+                                quantityInput.val(1);
+                                validateStock(targetRow);
+                                updateItemTotal(targetRow);
+                                updateTotalAmount();
+                                targetRow.addClass('success-highlight');
+                                setTimeout(() => targetRow.removeClass('success-highlight'), 2000);
+                                showAlert(`Added ${data.brand} to cart! (${data.quantity} available)`, 'success');
+                            }
+                            // Update customer display for barcode scan
+                            updateCustomerDisplay('productScanned', {
+                                productName: data.brand,
+                                size: data.size,
+                                color: data.color,
+                                quantity: 1,
+                                price: data.selling_price || data.price,
+                                stock: data.quantity
+                            });
+                        })
+                        .catch(err => {
+                            console.error("Barcode lookup failed:", err);
+                            showAlert("Error looking up product! Please try again.", 'danger');
+                        })
+                        .finally(() => {
+                            setTimeout(() => {
+                                barcodeInput.value = '';
+                                barcodeInput.classList.remove('loading');
+                                barcodeInput.disabled = false;
+                                // Only refocus if user hasn't started interacting with other elements
+                                if (!userIsInteracting) {
+                                    barcodeInput.focus();
+                                }
+                                isProcessing = false;
+                            }, 300);
+                        });
+                });
+
+                barcodeInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (!isProcessing && barcodeInput.value.trim().length === 13) {
+                            barcodeInput.dispatchEvent(new Event('input'));
+                        }
+                    }
+                });
+            }
+
+            // Enhanced alert system
+            function showAlert(message, type = 'info') {
+                const alertDiv = $(`
+                    <div class="alert alert-${type === 'success' ? 'success' : type === 'warning' ? 'warning' : type === 'danger' ? 'danger' : 'info'} alert-dismissible fade show position-fixed"
+                         style="top: 20px; right: 20px; z-index: 9999; max-width: 400px;">
+                        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : type === 'danger' ? 'times-circle' : 'info-circle'} me-2"></i>
+                        ${message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                `);
+                $('body').append(alertDiv);
+                setTimeout(() => {
+                    alertDiv.alert('close');
+                }, 4000);
+            }
+
+            // UPDATED FORM SUBMISSION WITH AJAX REDIRECT FIX
+            $('#sale-form').on('submit', function(e) {
+                e.preventDefault();
+                const hasProducts = $('#form-body .product-row').length > 0 &&
+                                  $('#form-body .product-select').filter(function() {
+                                      return $(this).val() !== '';
+                                  }).length > 0;
+                const hasCustomer = $('#customer').val() !== '';
+                const hasPaymentMethods = $('#payment-methods-container .payment-method-row').filter(function() {
+                    const methodSelect = $(this).find('.payment-method-select');
+                    const amountInput = $(this).find('.payment-amount');
+                    return methodSelect.val() && parseFloat(amountInput.val()) > 0;
+                }).length > 0;
+
+                if (!hasProducts) {
+                    showAlert('Please add at least one product to the sale.', 'warning');
+                    return false;
+                }
+                if (!hasCustomer) {
+                    showAlert('Please select a customer.', 'warning');
+                    $('#customer').focus();
+                    return false;
+                }
+                if (!hasPaymentMethods) {
+                    showAlert('Please add at least one payment method.', 'warning');
+                    return false;
+                }
+                if (hasStockErrors()) {
+                    showAlert('Please fix stock quantity issues before completing the sale.', 'danger');
+                    return false;
+                }
+
+                const saleTotal = parseFloat($('#total-price').val());
+                let paymentTotal = 0;
+                $('.payment-method-row').each(function() {
+                    const amountInput = $(this).find('.payment-amount');
+                    const methodSelect = $(this).find('.payment-method-select');
+                    const amount = parseFloat(amountInput.val()) || 0;
+                    if (methodSelect.val() && amount > 0) {
+                        paymentTotal += amount;
+                    }
+                });
+
+                const difference = Math.abs(paymentTotal - saleTotal);
+                const tolerance = 0.01;
+                if (difference > tolerance) {
+                    showAlert(`Payment total (${CURRENCY_SYMBOL}${paymentTotal.toFixed(2)}) does not match sale total (${CURRENCY_SYMBOL}${saleTotal.toFixed(2)}). Please adjust payment amounts.`, 'danger');
+                    return false;
+                }
+
+                const submitBtn = $(this).find('button[type="submit"]');
+                submitBtn.html('<i class="fas fa-spinner fa-spin me-2"></i>Processing Sale...');
+                submitBtn.prop('disabled', true);
+                showAlert('Processing your sale...', 'info');
+
+                // Collect form data
+                const formData = new FormData(this);
+
+                // NEW AJAX SUBMISSION WITH PROPER REDIRECT HANDLING
+                $.ajax({
+                    url: $(this).attr('action'),
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'  // Identify as AJAX request
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            // Sale was successful
+                            showAlert(response.message || 'Sale completed successfully! Redirecting...', 'success');
+                            // Update customer display with sale completion
+                            updateCustomerDisplay('saleCompleted', {
+                                total: saleTotal,
+                                paymentTotal: paymentTotal,
+                                customerName: $('#customer option:selected').text(),
+                                receiptId: response.receipt_id
+                            });
+                            // Redirect to the success page
+                            setTimeout(function() {
+                                window.location.href = response.redirect_url;
+                            }, 1500);
+                        } else {
+                            // Handle validation errors or other issues
+                            showAlert(response.message || 'There was an error processing your sale.', 'danger');
+                            submitBtn.prop('disabled', false).html('<i class="fas fa-check-circle me-2"></i>Complete Sale');
+                            // If there are form errors, display them specifically
+                            if (response.errors) {
+                                for (let error of response.errors) {
+                                    showAlert(error, 'warning');
+                                }
+                            }
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        let errorMessage = 'Error completing sale: ' + error;
+                        // Try to parse error response for more specific messages
+                        try {
+                            let errorResponse = JSON.parse(xhr.responseText);
+                            if (errorResponse.message) {
+                                errorMessage = errorResponse.message;
+                            }
+                        } catch (e) {
+                            // Use default error message
+                        }
+                        showAlert(errorMessage, 'danger');
+                        submitBtn.prop('disabled', false).html('<i class="fas fa-check-circle me-2"></i>Complete Sale');
+                    }
+                });
+            });
+
+            // Keyboard shortcuts
+            $(document).on('keydown', function(e) {
+                // Ctrl+B or Cmd+B to focus barcode scanner
+                if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+                    e.preventDefault();
+                    userIsInteracting = false; // Clear interaction flag
+                    $('#barcode-scan').focus();
+                }
+
+                // ESC key to refocus on barcode scanner from any form element
+                if (e.key === 'Escape' && e.target.id !== 'barcode-scan') {
+                    e.preventDefault();
+                    userIsInteracting = false;
+                    $('#barcode-scan').focus();
+                }
+
+                if ((e.ctrlKey || e.metaKey) && e.key === 'a' && e.target.tagName !== 'INPUT') {
+                    e.preventDefault();
+                    $('#add-more-products').click();
+                }
+                if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+                    e.preventDefault();
+                    $('#add-payment-method').click();
+                }
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    if (!hasStockErrors()) {
+                        $('#sale-form').submit();
+                    } else {
+                        showAlert('Cannot complete sale with stock issues!', 'danger');
+                    }
+                }
+            });
+
+            // Initialize everything
+            $('.product-select, .quantity-input, .discount-input').each(function() {
+                const row = $(this).closest('.product-row');
+                if (row.find('.product-select').val()) {
+                    validateStock(row);
+                }
+                updateItemTotal(row);
+            });
+
+            if ($('#id_delivery_option').val() !== 'delivery') {
+                $('#delivery-cost-field, #delivery-address-field').hide();
+            }
+
+            updateTotalAmount();
+            console.log('Sales screen initialized with intelligent barcode scanner focus management');
+        });
+    </script>
+</body>
+</html>

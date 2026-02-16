@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Delete Customer{% endblock %}
+{% block content %}
+<div class="py-5" style="background: linear-gradient(rgba(26, 26, 26, 0.8), rgba(26, 26, 26, 0.8)), url({% static 'img/homepage.jpg' %}) no-repeat center center fixed; background-size: cover;">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                <div class="card border-0 shadow" style="background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px);">
+                    <div class="card-body p-5 text-center">
+                        <i class="bi bi-exclamation-triangle-fill text-danger display-4 mb-4"></i>
+                        <h2 class="mb-4 fw-bold">Delete Customer</h2>
+                        <p class="lead mb-4">Are you sure you want to delete <strong>{{ customer.user.username }}</strong>?</p>
+
+                        <form method="POST" class="d-flex flex-column gap-3 align-items-center">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger px-4 py-2 fs-5 fw-semibold d-flex align-items-center gap-2">
+                                <i class="bi bi-trash"></i> Confirm Delete
+                            </button>
+                        </form>
+
+                        <a href="{% url 'customer_list' %}" class="btn btn-outline-light mt-3 px-4 py-2">
+                            <i class="bi bi-arrow-left-circle me-2"></i> Back to Customer List
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .btn-danger {
+        background-color: #c8003e;
+        border: none;
+        transition: background-color 0.3s ease;
+    }
+
+    .btn-danger:hover {
+        background-color: #a50034;
+    }
+
+    .btn-outline-light:hover {
+        background-color: #ffffff22;
+        color: white !important;
+    }
+</style>
+{% endblock %}

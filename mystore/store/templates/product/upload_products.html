@@ -1,0 +1,70 @@
+<!-- templates/upload_products.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Upload Products via Excel{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-md-10">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0"><i class="bi bi-upload me-2"></i>Upload Products via Excel</h3>
+                </div>
+                <div class="card-body">
+                    <!-- Download Template -->
+                    <div class="mb-4 text-center">
+                        <a href="{% url 'download_template' %}" class="btn btn-outline-success btn-lg px-4">
+                            <i class="bi bi-download me-2"></i>Download Excel Template
+                        </a>
+                    </div>
+
+                    <!-- Upload Form -->
+                    <form method="post" enctype="multipart/form-data" class="border p-4 rounded bg-light">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            {{ form.as_p }}
+                        </div>
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-primary btn-lg px-5">
+                                <i class="bi bi-cloud-upload me-2"></i>Upload Products
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Instructions -->
+                    <div class="mt-5">
+                        <h5><i class="bi bi-info-circle text-primary me-2"></i>Instructions</h5>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex">
+                                <span class="badge bg-danger me-3">Required</span>
+                                <span>Fields: <strong>brand, price, size, category, quantity, shop</strong></span>
+                            </li>
+                            <li class="list-group-item d-flex">
+                                <span class="badge bg-secondary me-3">Optional</span>
+                                <span>Fields: <strong>color, design, markup_type, markup, barcode_number</strong></span>
+                            </li>
+                            <li class="list-group-item">
+                                For <code>markup_type</code>, use <code>percentage</code> or <code>fixed</code>.
+                            </li>
+                            <li class="list-group-item">
+                                For <code>color</code> and <code>design</code>, use exact values from predefined choices.
+                            </li>
+                            <li class="list-group-item">
+                                If <code>barcode_number</code> is not provided, it will be auto-generated.
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<!-- Bootstrap Icons (optional, for better icons) -->
+<link href="{% static 'css/bootstrap-icons.css' %}" rel="stylesheet">
+
+{% endblock %}

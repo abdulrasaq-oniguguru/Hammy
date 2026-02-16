@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Email Receipt</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f7f7f7;
+            margin: 0;
+            padding: 20px;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: auto;
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #c8003e;
+        }
+        p {
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        .receipt-info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f2f2f2;
+            border-left: 5px solid #c8003e;
+        }
+        .footer {
+            margin-top: 30px;
+            font-size: 14px;
+            color: #666;
+            text-align: center;
+        }
+        a {
+            color: #c8003e;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <h2>Dear {{ customer_name }},</h2>
+
+        <p>Thank you for your recent purchase from <strong>{{ store_name }}</strong>. We truly appreciate your support and look forward to serving you again in the future.</p>
+
+        <p>If you have any questions or concerns regarding your purchase, please don't hesitate to reach out to us. We're always here to help!</p>
+
+        <div class="receipt-info">
+            <p><strong>Receipt Number:</strong> {{ receipt.receipt_number }}</p>
+            <p><strong>Date:</strong> {{ receipt.date|date:"F j, Y" }}</p>
+            <p><strong>Total Amount:</strong> {{ currency_symbol }}{{ final_total }}</p>
+            {% if receipt.loyalty_discount_amount > 0 %}
+            <p style="color: #28a745; font-weight: bold;"><strong>💚 Loyalty Discount Applied:</strong> -{{ currency_symbol }}{{ receipt.loyalty_discount_amount|floatformat:2 }} ({{ receipt.loyalty_points_redeemed }} points redeemed)</p>
+            {% endif %}
+        </div>
+
+        {% if loyalty_info %}
+        <div class="receipt-info" style="background-color: #f0f9ff; border-left: 5px solid #059669; margin-top: 20px;">
+            <h3 style="color: #059669; margin-top: 0;">🎉 {{ loyalty_info.program_name }}</h3>
+            <p><strong>✨ Points Earned:</strong> {{ loyalty_info.points_earned }} points</p>
+            <p><strong>📊 Previous Balance:</strong> {{ loyalty_info.previous_balance }} points</p>
+            <p><strong>🎯 New Balance:</strong> {{ loyalty_info.new_balance }} points</p>
+            <p><strong>💰 Redeemable Value:</strong> {{ currency_symbol }}{{ loyalty_info.redeemable_value|floatformat:2 }}</p>
+            <p style="margin-bottom: 0; color: #047857; font-style: italic;">Keep shopping to earn more points and save on future purchases!</p>
+        </div>
+        {% endif %}
+
+        <p>We hope you enjoy your new items and return soon for more great products.</p>
+
+        <div class="footer">
+            <p><strong>{{ store_name }}</strong></p>
+            <p>{{ store_config.address_line_1 }}</p>
+            {% if store_config.address_line_2 %}<p>{{ store_config.address_line_2 }}</p>{% endif %}
+            <p>{{ store_config.city }}, {{ store_config.state }}</p>
+            <p>Phone: {{ store_phone }} | Email: {{ store_email }}</p>
+            <p>&copy; {% now "Y" %} {{ store_name }}. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

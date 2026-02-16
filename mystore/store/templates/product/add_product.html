@@ -1,0 +1,569 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load widget_tweaks %}
+{% block title %}Add Multiple Products{% endblock %}
+{% block content %}
+<!-- Display Messages -->
+{% if messages %}
+    <div class="messages mb-4">
+        {% for message in messages %}
+            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show py-2" role="alert">
+                <small>
+                    <i class="bi bi-exclamation-circle"></i>
+                    {{ message }}
+                </small>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+{% block extra_css %}
+<style>
+    .page-wrapper {
+        min-height: 100vh;
+        padding: 3rem 0;
+    }
+
+    .page-header {
+        background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        color: white;
+        box-shadow: var(--shadow-lg);
+        text-align: center;
+    }
+
+    .form-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        box-shadow: var(--shadow-md);
+    }
+
+    .form-card .form-label {
+        color: var(--text-primary);
+        font-weight: 500;
+    }
+
+    .form-card .form-control,
+    .form-card .form-select {
+        background-color: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+    }
+</style>
+{% endblock %}
+
+<div class="page-wrapper">
+    <div class="container-fluid px-4" style="max-width: 1800px; margin: 0 auto;">
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1 class="display-5 fw-bold mb-0">
+                <i class="bi bi-plus-circle me-2"></i>Add Multiple Products
+            </h1>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div class="form-card">
+                    <div class="card-body p-4">
+
+                        <form method="POST" id="product-form" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            {{ formset.management_form }}
+
+                            <!-- Form Rows Container -->
+                            <div id="form-container" class="mb-4">
+                                {% for form in formset %}
+                                    <div class="form-row mb-4 border-bottom pb-4 position-relative" data-form-index="{{ forloop.counter0 }}">
+                                        <!-- Form Number Badge -->
+                                        <div class="position-absolute top-0 start-0 translate-middle">
+                                            <span class="badge bg-danger rounded-pill form-number">{{ forloop.counter }}</span>
+                                        </div>
+
+                                        <!-- First Line -->
+                                        <div class="row gx-2 gy-2 mb-2">
+                                            <div class="col-md-2">
+                                                <label for="{{ form.brand.id_for_label }}" class="form-label">{{ form.brand.label }}</label>
+                                                {{ form.brand|add_class:"form-control  form-control-sm" }}
+                                            </div>
+                                            <div class="col-md-1">
+                                                <label for="{{ form.price.id_for_label }}" class="form-label">{{ form.price.label }}</label>
+                                                {{ form.price|add_class:"form-control  form-control-sm" }}
+                                            </div>
+                                            <div class="col-md-1">
+                                                <label for="{{ form.color.id_for_label }}" class="form-label">{{ form.color.label }}</label>
+                                                {{ form.color|add_class:"form-select  form-select-sm" }}
+                                            </div>
+                                            <div class="col-md-1">
+                                                <label for="{{ form.design.id_for_label }}" class="form-label">Design</label>
+                                                {{ form.design|add_class:"form-select  form-select-sm" }}
+                                            </div>
+                                            <div class="col-md-1">
+                                                <label for="{{ form.size.id_for_label }}" class="form-label">{{ form.size.label }}</label>
+                                                {{ form.size|add_class:"form-control  form-control-sm" }}
+                                            </div>
+                                            <div class="col-md-1">
+                                                <label for="{{ form.category.id_for_label }}" class="form-label">Category</label>
+                                                {{ form.category|add_class:"form-select  form-select-sm" }}
+                                            </div>
+                                            <div class="col-md-1">
+                                                <label for="{{ form.quantity.id_for_label }}" class="form-label">{{ form.quantity.label }}</label>
+                                                {{ form.quantity|add_class:"form-control  form-control-sm" }}
+                                            </div>
+                                            <div class="col-md-1">
+                                                <label for="{{ form.markup.id_for_label }}" class="form-label">{{ form.markup.label }}</label>
+                                                {{ form.markup|add_class:"form-control  form-control-sm" }}
+                                            </div>
+                                            <div class="col-md-1">
+                                                <label for="{{ form.markup_type.id_for_label }}" class="form-label">Type</label>
+                                                {{ form.markup_type|add_class:"form-select  form-select-sm" }}
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label for="{{ form.shop.id_for_label }}" class="form-label">{{ form.shop.label }}</label>
+                                                {{ form.shop|add_class:"form-select  form-select-sm" }}
+                                            </div>
+                                        </div>
+
+                                        <!-- Second Line -->
+                                        <div class="row gx-2 gy-2">
+                                            <div class="col-md-2">
+                                                <label for="{{ form.barcode_number.id_for_label }}" class="form-label">Barcode</label>
+                                                {{ form.barcode_number|add_class:"form-control  form-control-sm" }}
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label for="{{ form.image.id_for_label }}" class="form-label">
+                                                    <i class="bi bi-image"></i> Image
+                                                </label>
+                                                {{ form.image|add_class:"form-control  form-control-sm" }}
+                                            </div>
+                                            <div class="col-md-4 d-flex align-items-end gap-1">
+                                                <button type="button" class="btn btn-outline-info btn-sm clone-product flex-fill d-flex align-items-center justify-content-center gap-1" title="Clone this product">
+                                                    <i class="bi bi-files"></i> Clone
+                                                </button>
+                                                <button type="button" class="btn btn-outline-danger btn-sm remove-product flex-fill d-flex align-items-center justify-content-center gap-1" title="Remove this product">
+                                                    <i class="bi bi-trash"></i> Remove
+                                                </button>
+                                            </div>
+                                            <div class="col-md-3"></div> <!-- Spacer -->
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+
+                            <!-- Add More Button -->
+                            <div class="d-flex justify-content-center mb-4">
+                                <button type="button" id="add-more" class="btn btn-danger px-4 py-2 d-flex align-items-center gap-2">
+                                    <i class="bi bi-plus-circle"></i> Add Another Product
+                                </button>
+                            </div>
+
+                            <!-- Submit Button -->
+                            <div class="d-flex justify-content-center">
+                                <button type="submit" class="btn btn-danger px-4 py-2 d-flex align-items-center gap-2">
+                                    <i class="bi bi-save"></i> Save All Products
+                                </button>
+                            </div>
+                        </form>
+
+                        <!-- Back Link -->
+                        <div class="text-center mt-4">
+                            <a href="{% url 'product_list' %}" class="text-decoration-none text-light d-inline-flex align-items-center gap-2">
+                                <i class="bi bi-arrow-left-circle"></i> Back to Product List
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Clone Success Toast -->
+<div class="toast-container position-fixed top-0 end-0 p-3">
+    <div id="clone-toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header bg-info text-white">
+            <i class="bi bi-files me-2"></i>
+            <strong class="me-auto">Product Cloned</strong>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body bg-dark text-white">
+            Product has been successfully cloned. You can now modify the details as needed.
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Compact Labels */
+    .form-label {
+        color: #fff !important;
+        font-weight: 600 !important;
+        font-size: 0.75rem;
+        margin-bottom: 0.2rem;
+        display: block;
+        line-height: 1.1;
+    }
+
+    /* Compact Inputs & Selects */
+    .form-control-sm,
+    .form-select-sm {
+        background-color: var(--bg-tertiary) !important;
+        color: var(--text-primary) !important;
+        border: 1px solid var(--border-color) !important;
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+        height: calc(1.5em + 0.5rem + 2px);
+    }
+
+    .form-control-sm:focus,
+    .form-select-sm:focus {
+        background-color: var(--bg-tertiary) !important;
+        color: var(--text-primary) !important;
+        box-shadow: 0 0 0 0.15rem rgba(102, 126, 234, 0.25);
+        border-color: var(--accent-primary) !important;
+    }
+
+    /* File input styling */
+    .form-control-sm[type="file"] {
+        padding: 0.25rem;
+    }
+
+    .form-control-sm[type="file"]::-webkit-file-upload-button {
+        background-color: #c8003e;
+        border: none;
+        color: white;
+        padding: 0.2rem 0.5rem;
+        margin-right: 0.5rem;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 0.7rem;
+    }
+
+    .form-control-sm[type="file"]::-webkit-file-upload-button:hover {
+        background-color: #a0002f;
+    }
+
+    /* Compact form rows */
+    .form-row {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border-radius: 8px;
+        padding: 1rem 0.75rem 0.75rem 1.5rem;
+        margin-bottom: 0.75rem;
+        background-color: rgba(255, 255, 255, 0.02);
+        position: relative;
+    }
+
+    .form-row:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Form number badge */
+    .form-number {
+        font-size: 0.7rem;
+        min-width: 1.5rem;
+        height: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Clone button styling */
+    .clone-product {
+        background-color: transparent;
+        border-color: #17a2b8;
+        color: #17a2b8;
+        transition: all 0.3s ease;
+    }
+
+    .clone-product:hover {
+        background-color: #17a2b8;
+        border-color: #17a2b8;
+        color: white;
+        transform: scale(1.05);
+    }
+
+    /* Clone animation */
+    @keyframes cloneSuccess {
+        0% {
+            transform: scale(1);
+            background-color: rgba(23, 162, 184, 0.1);
+        }
+        50% {
+            transform: scale(1.02);
+            background-color: rgba(23, 162, 184, 0.3);
+        }
+        100% {
+            transform: scale(1);
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+    }
+
+    .form-row.clone-animation {
+        animation: cloneSuccess 0.8s ease;
+    }
+
+    /* Compact button styling */
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
+        line-height: 1.3;
+    }
+
+    /* Icon styling */
+    .bi {
+        font-size: 0.9rem;
+    }
+
+    /* Button group styling */
+    .btn-group-clone {
+        gap: 0.25rem;
+    }
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        .col-md-1,
+        .col-md-2,
+        .col-md-3,
+        .col-md-4 {
+            flex: 0 0 50%;
+            max-width: 50%;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-label {
+            font-size: 0.7rem;
+        }
+
+        .form-control-sm,
+        .form-select-sm {
+            font-size: 0.75rem;
+        }
+
+        .btn-sm {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.4rem;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .col-md-1,
+        .col-md-2,
+        .col-md-3,
+        .col-md-4 {
+            flex: 0 0 100%;
+            max-width: 100%;
+        }
+    }
+
+    /* Remove any extra spacing */
+    .row {
+        margin-left: -0.25rem;
+        margin-right: -0.25rem;
+    }
+
+    .row > * {
+        padding-left: 0.25rem;
+        padding-right: 0.25rem;
+    }
+
+    /* Toast styling */
+    .toast {
+        border: none;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const formContainer = document.getElementById('form-container');
+    const totalForms = document.getElementById('id_form-TOTAL_FORMS');
+    const addMoreButton = document.getElementById('add-more');
+    const cloneToast = new bootstrap.Toast(document.getElementById('clone-toast'));
+
+    let formIdx = formContainer.children.length;
+
+    // Update form numbers
+    function updateFormNumbers() {
+        const formRows = formContainer.children;
+        for (let i = 0; i < formRows.length; i++) {
+            const badge = formRows[i].querySelector('.form-number');
+            if (badge) {
+                badge.textContent = i + 1;
+            }
+            formRows[i].setAttribute('data-form-index', i);
+        }
+    }
+
+    // Clone form row function
+    function cloneFormRow(sourceRow) {
+        // First, collect all the current values from the source row
+        const sourceData = {};
+        const sourceInputs = sourceRow.querySelectorAll('input, select, textarea');
+
+        sourceInputs.forEach(input => {
+            if (input.name) {
+                if (input.type === 'file') {
+                    sourceData[input.name] = null; // Don't copy file inputs
+                } else if (input.name.includes('barcode_number')) {
+                    sourceData[input.name] = ''; // Clear barcode for new product
+                } else if (input.type === 'checkbox' || input.type === 'radio') {
+                    sourceData[input.name] = input.checked;
+                } else {
+                    sourceData[input.name] = input.value;
+                }
+            }
+        });
+
+        // Clone the HTML structure
+        const newFormRow = sourceRow.cloneNode(true);
+
+        // Update form field names and IDs with new index FIRST
+        const regex = new RegExp(`form-(\\d+)`, 'g');
+        newFormRow.innerHTML = newFormRow.innerHTML.replace(regex, `form-₦{formIdx}`);
+
+        // Insert the new form after the source form
+        sourceRow.parentNode.insertBefore(newFormRow, sourceRow.nextSibling);
+
+        // Now populate the new form with the collected data
+        const newInputs = newFormRow.querySelectorAll('input, select, textarea');
+        newInputs.forEach(input => {
+            if (input.name) {
+                // Convert the new form field name back to get the original field name
+                const originalFieldName = input.name.replace(`form-₦{formIdx}`, sourceRow.getAttribute('data-form-index') !== null ?
+                    `form-₦{sourceRow.getAttribute('data-form-index')}` : 'form-0');
+
+                if (sourceData.hasOwnProperty(originalFieldName)) {
+                    if (input.type === 'file') {
+                        // Don't set file inputs
+                        input.value = '';
+                    } else if (input.name.includes('barcode_number')) {
+                        // Clear barcode for new product
+                        input.value = '';
+                    } else if (input.type === 'checkbox' || input.type === 'radio') {
+                        input.checked = sourceData[originalFieldName];
+                    } else if (input.tagName === 'SELECT') {
+                        // For select elements, set the value
+                        input.value = sourceData[originalFieldName];
+                    } else {
+                        input.value = sourceData[originalFieldName];
+                    }
+                }
+            }
+        });
+
+        // Update form count
+        totalForms.value = ++formIdx;
+
+        // Update form numbers
+        updateFormNumbers();
+
+        // Add animation to the new row
+        newFormRow.classList.add('clone-animation');
+        setTimeout(() => {
+            newFormRow.classList.remove('clone-animation');
+        }, 800);
+
+        // Show success toast
+        cloneToast.show();
+
+        // Scroll to the new form
+        newFormRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // Focus on the first different field (usually color or size)
+        const firstColorInput = newFormRow.querySelector('select[name*="color"]');
+        const firstSizeInput = newFormRow.querySelector('input[name*="size"]');
+        if (firstColorInput) {
+            setTimeout(() => firstColorInput.focus(), 500);
+        } else if (firstSizeInput) {
+            setTimeout(() => firstSizeInput.focus(), 500);
+        }
+    }
+
+    // Add new empty form row
+    addMoreButton.addEventListener('click', function () {
+        if (formContainer.children.length === 0) return;
+
+        const firstFormRow = formContainer.children[0];
+        const newFormRow = firstFormRow.cloneNode(true);
+
+        // Clear all input values in the new form
+        const inputs = newFormRow.querySelectorAll('input, select');
+        inputs.forEach(input => {
+            if (input.type === 'file') {
+                input.value = '';
+            } else if (input.tagName === 'SELECT') {
+                input.selectedIndex = 0;
+            } else {
+                input.value = '';
+            }
+        });
+
+        const regex = new RegExp(`form-(\\d+)`, 'g');
+        newFormRow.innerHTML = newFormRow.innerHTML.replace(regex, `form-₦{formIdx}`);
+        formContainer.appendChild(newFormRow);
+        totalForms.value = ++formIdx;
+        updateFormNumbers();
+
+        // Scroll to new form and focus on brand field
+        newFormRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const brandInput = newFormRow.querySelector('input[name*="brand"]');
+        if (brandInput) {
+            setTimeout(() => brandInput.focus(), 500);
+        }
+    });
+
+    // Handle clone and remove buttons
+    formContainer.addEventListener('click', function (e) {
+        const cloneButton = e.target.closest('.clone-product');
+        const removeButton = e.target.closest('.remove-product');
+
+        if (cloneButton) {
+            const sourceRow = cloneButton.closest('.form-row');
+            cloneFormRow(sourceRow);
+        }
+
+        if (removeButton) {
+            if (formContainer.children.length > 1) {
+                const rowToRemove = removeButton.closest('.form-row');
+                rowToRemove.style.transition = 'all 0.3s ease';
+                rowToRemove.style.transform = 'scale(0.95)';
+                rowToRemove.style.opacity = '0';
+
+                setTimeout(() => {
+                    rowToRemove.remove();
+                    formIdx--;
+                    totalForms.value = formIdx;
+                    updateFormNumbers();
+                }, 300);
+            } else {
+                alert("You must have at least one product.");
+            }
+        }
+    });
+
+    // File input preview enhancement
+    formContainer.addEventListener('change', function (e) {
+        if (e.target.type === 'file' && e.target.files[0]) {
+            const file = e.target.files[0];
+            const fileSize = (file.size / 1024 / 1024).toFixed(2);
+
+            // Remove existing file info
+            const fileInfo = e.target.parentNode.querySelector('.file-info');
+            if (fileInfo) fileInfo.remove();
+
+            // Add new file info
+            const info = document.createElement('small');
+            info.className = 'file-info text-success d-block mt-1';
+            info.innerHTML = `<i class="bi bi-check-circle"></i> ₦{file.name} (₦{fileSize} MB)`;
+            e.target.parentNode.appendChild(info);
+        }
+    });
+
+    // Initialize form numbers on page load
+    updateFormNumbers();
+});
+</script>
+{% endblock %}

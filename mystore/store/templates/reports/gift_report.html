@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Gift Report{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-lg border-0" style="border-radius: 20px;">
+                <div class="card-header text-white text-center" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 20px 20px 0 0; padding: 2rem;">
+                    <h2 class="mb-0"><i class="bi bi-gift me-2"></i>Gift Report</h2>
+                    <p class="mb-0 mt-2">Track all items given as gifts</p>
+                </div>
+                <div class="card-body p-4">
+                    <!-- Filters -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <form method="GET" class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Start Date</label>
+                                    <input type="date" name="start_date" class="form-control" value="{{ start_date }}">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">End Date</label>
+                                    <input type="date" name="end_date" class="form-control" value="{{ end_date }}">
+                                </div>
+                                <div class="col-md-4 d-flex align-items-end">
+                                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-funnel me-2"></i>Filter</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Summary Cards -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="card bg-primary text-white h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">Total Items</h6>
+                                    <h3 class="mb-0">{{ stats.total_items|default:0 }}</h3>
+                                    <small>Gift transactions</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-success text-white h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">Total Quantity</h6>
+                                    <h3 class="mb-0">{{ stats.total_quantity|default:0 }}</h3>
+                                    <small>Items given as gifts</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-danger text-white h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">Total Value</h6>
+                                    <h3 class="mb-0">₦{{ stats.total_value|default:0|floatformat:2 }}</h3>
+                                    <small>Original value of gifts</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gift Sales Table -->
+                    <h5 class="mt-4 mb-3"><i class="bi bi-list-ul"></i> Gift Transactions</h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Receipt</th>
+                                    <th>Product</th>
+                                    <th>Quantity</th>
+                                    <th>Original Value</th>
+                                    <th>Customer</th>
+                                    <th>Reason</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sale in gift_sales %}
+                                <tr>
+                                    <td>{{ sale.sale_date|date:"Y-m-d H:i" }}</td>
+                                    <td>
+                                        <a href="{% url 'receipt_detail' sale.receipt.id %}" class="text-decoration-none">
+                                            {{ sale.receipt.receipt_number }}
+                                        </a>
+                                    </td>
+                                    <td>{{ sale.product.product_name }}</td>
+                                    <td>{{ sale.quantity }}</td>
+                                    <td>₦{{ sale.original_value|default:0|floatformat:2 }}</td>
+                                    <td>{{ sale.customer.name|default:"Walk-in" }}</td>
+                                    <td>
+                                        <small class="text-muted">{{ sale.gift_reason|default:"No reason provided"|truncatewords:10 }}</small>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-5">
+                                        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                        No gift transactions found for the selected period
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Export Options -->
+                    <div class="mt-4">
+                        <a href="{% url 'reports_menu' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-2"></i>Back to Reports
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

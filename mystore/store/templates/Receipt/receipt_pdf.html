@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Receipt - {{ store_name }}</title>
+    <style>
+        @font-face {
+            font-family: 'DejaVu Sans';
+            src: local('DejaVu Sans');
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'DejaVu Sans', 'Arial Unicode MS', Arial, sans-serif;
+            font-size: 10px;
+            color: #333;
+            background: #fff;
+            padding: 15px;
+            line-height: 1.3;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: #fff;
+            position: relative;
+        }
+
+        /* Watermark */
+        .watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 80px;
+            color: rgba(76, 175, 80, 0.08);
+            font-weight: bold;
+            letter-spacing: 10px;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .content-wrapper {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Header Section */
+        .header-section {
+            display: table;
+            width: 100%;
+            margin-bottom: 12px;
+        }
+
+        .header-left {
+            display: table-cell;
+            width: 50%;
+            vertical-align: top;
+        }
+
+        .header-right {
+            display: table-cell;
+            width: 50%;
+            text-align: right;
+            vertical-align: top;
+        }
+
+        .logo {
+            max-width: 140px;
+            height: auto;
+            margin-bottom: 5px;
+        }
+
+        .receipt-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 6px;
+            letter-spacing: 1.5px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            background: #4CAF50;
+            color: white;
+            padding: 4px 16px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        /* Info Boxes */
+        .info-box {
+            background: #E3F2FD;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+
+        .info-box-title {
+            font-size: 9px;
+            color: #666;
+            margin-bottom: 3px;
+        }
+
+        .info-box-content {
+            font-size: 12px;
+            font-weight: bold;
+            color: #1976D2;
+            margin-bottom: 2px;
+        }
+
+        .info-box p {
+            margin: 2px 0;
+            font-size: 9px;
+            color: #555;
+        }
+
+        /* Two Column Layout */
+        .two-column {
+            display: table;
+            width: 100%;
+            margin-bottom: 12px;
+        }
+
+        .column-left {
+            display: table-cell;
+            width: 60%;
+            vertical-align: top;
+            padding-right: 12px;
+        }
+
+        .column-right {
+            display: table-cell;
+            width: 40%;
+            vertical-align: top;
+        }
+
+        /* Items Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+
+        thead th {
+            background: #4CAF50;
+            color: white;
+            padding: 8px 8px;
+            text-align: left;
+            font-size: 10px;
+            font-weight: 600;
+            border: none;
+        }
+
+        tbody td {
+            padding: 6px 8px;
+            border-bottom: 1px solid #e0e0e0;
+            color: #333;
+            font-size: 10px;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .product-name {
+            font-weight: 600;
+            color: #000;
+        }
+
+        /* Payment Method Section */
+        .payment-section {
+            background: #E8F5E9;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+
+        .payment-title {
+            font-weight: bold;
+            font-size: 11px;
+            margin-bottom: 5px;
+            color: #2E7D32;
+        }
+
+        .payment-method {
+            font-size: 10px;
+            color: #333;
+            padding: 3px 0;
+        }
+
+        /* Totals Section */
+        .totals-section {
+            margin-bottom: 12px;
+        }
+
+        .total-row {
+            display: table;
+            width: 100%;
+            margin-bottom: 5px;
+        }
+
+        .total-label {
+            display: table-cell;
+            text-align: right;
+            padding-right: 12px;
+            font-size: 10px;
+            color: #333;
+        }
+
+        .total-value {
+            display: table-cell;
+            text-align: right;
+            width: 130px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .subtotal-value {
+            background: #2196F3;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+        }
+
+        .discount-value {
+            padding: 4px 12px;
+        }
+
+        .grand-total-value {
+            background: #2196F3;
+            color: white;
+            padding: 7px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        /* Tax Breakdown */
+        .tax-breakdown {
+            background: #FFF9C4;
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+
+        .tax-row {
+            display: table;
+            width: 100%;
+            margin: 3px 0;
+            font-size: 9px;
+        }
+
+        .tax-label {
+            display: table-cell;
+            text-align: right;
+            padding-right: 12px;
+        }
+
+        .tax-value {
+            display: table-cell;
+            text-align: right;
+            width: 130px;
+            font-weight: 600;
+        }
+
+        /* Thank You Section */
+        .thank-you {
+            text-align: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: #333;
+            margin: 12px 0;
+        }
+
+        /* Signature Section */
+        .signature-section {
+            text-align: right;
+            margin: 15px 0;
+            padding-right: 40px;
+        }
+
+        .signature-line {
+            border-top: 2px solid #333;
+            width: 180px;
+            margin: 0 0 4px auto;
+            padding-top: 4px;
+        }
+
+        .signature-text {
+            font-size: 9px;
+            color: #555;
+            font-weight: 600;
+        }
+
+        /* QR Code Section */
+        .qr-section {
+            border: 2px dashed #FF9800;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            margin: 12px 0;
+            background: #FFF8E1;
+        }
+
+        .qr-title {
+            color: #F57C00;
+            font-size: 11px;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+
+        .qr-code {
+            width: 100px;
+            height: 100px;
+            margin: 6px auto;
+            background: white;
+            padding: 8px;
+            border-radius: 6px;
+        }
+
+        .qr-description {
+            font-size: 8px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        /* Contact Section */
+        .contact-section {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 2px solid #e0e0e0;
+        }
+
+        .contact-title {
+            font-size: 11px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .contact-info {
+            font-size: 9px;
+            color: #555;
+            line-height: 1.5;
+        }
+
+        /* Loyalty Section */
+        .loyalty-section {
+            background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+            border: 2px solid #4CAF50;
+            border-radius: 8px;
+            padding: 10px;
+            margin: 12px 0;
+        }
+
+        .loyalty-title {
+            color: #2E7D32;
+            font-size: 11px;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+
+        .loyalty-info {
+            font-size: 9px;
+            color: #333;
+            margin: 3px 0;
+        }
+
+        .loyalty-highlight {
+            background: #4CAF50;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-top: 5px;
+            font-weight: bold;
+            font-size: 9px;
+        }
+
+        /* Delivery Section */
+        .delivery-section {
+            background: #F3E5F5;
+            border-left: 3px solid #9C27B0;
+            padding: 8px 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+
+        .delivery-title {
+            color: #7B1FA2;
+            font-weight: bold;
+            font-size: 10px;
+            margin-bottom: 5px;
+        }
+
+        .delivery-info {
+            font-size: 9px;
+            color: #555;
+            margin: 3px 0;
+        }
+
+        /* Print Styles */
+        @media print {
+            body {
+                padding: 10px;
+            }
+            .watermark {
+                opacity: 0.5;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Watermark -->
+        <div class="watermark">RECEIVED WITH THANKS</div>
+
+        <div class="content-wrapper">
+            <!-- Header with Logo and Title -->
+            <div class="header-section">
+                <div class="header-left">
+                    <div class="receipt-title">RECEIPT</div>
+                    <div class="status-badge">PAID</div>
+                </div>
+                <div class="header-right">
+                    {% if logo_url %}
+                    <img src="{{ logo_url }}" alt="{{ store_name }}" class="logo">
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Customer and Receipt Info -->
+            <div class="two-column">
+                <div class="column-left">
+                    <div class="info-box">
+                        <div class="info-box-title">Receipt to:</div>
+                        <div class="info-box-content">{{ customer_name }}</div>
+                        {% if receipt.customer.phone_number %}
+                        <p>{{ receipt.customer.phone_number }}</p>
+                        {% endif %}
+                        {% if receipt.customer.email %}
+                        <p>{{ receipt.customer.email }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="column-right">
+                    <div class="info-box">
+                        <div class="info-box-title">Receipt Date</div>
+                        <div class="info-box-content">{{ receipt.date|date:"d/m/Y" }}</div>
+                    </div>
+                    <div class="info-box">
+                        <div class="info-box-title">Receipt Number</div>
+                        <div class="info-box-content">{{ receipt.receipt_number }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Items Table -->
+            <table>
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th style="text-align: center;">Qty</th>
+                        <th style="text-align: right;">Price</th>
+                        <th style="text-align: right;">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sale in sales %}
+                    <tr{% if sale.is_gift %} style="background-color: #ffe6e6;"{% endif %}>
+                        <td>
+                            <div class="product-name">
+                                {{ sale.product.brand }}
+                                {% if sale.is_gift %}<span style="background: #e74c3c; color: white; padding: 2px 6px; border-radius: 4px; font-size: 8px; margin-left: 5px;">🎁 GIFT</span>{% endif %}
+                            </div>
+                            <div style="font-size: 8px; color: #777;">
+                                Size: {{ sale.product.size }} | Color: {{ sale.product.color }}
+                                {% if sale.is_gift and sale.gift_reason %}<br><em style="color: #e74c3c;">Reason: {{ sale.gift_reason }}</em>{% endif %}
+                            </div>
+                        </td>
+                        <td style="text-align: center;">{{ sale.quantity }}</td>
+                        <td style="text-align: right;">{% autoescape off %}{{ currency_symbol }}{% endautoescape %}{{ sale.product.selling_price|floatformat:2 }}</td>
+                        <td style="text-align: right; font-weight: 600;{% if sale.is_gift %} color: #e74c3c;{% endif %}">
+                            {% autoescape off %}{{ currency_symbol }}{% endautoescape %}{{ sale.total_price|floatformat:2 }}
+                            {% if sale.is_gift %}<div style="font-size: 7px; color: #e74c3c;">(GIFT)</div>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <!-- Payment Method and Totals Side by Side -->
+            <div class="two-column">
+                <div class="column-left">
+                    <div class="payment-section">
+                        <div class="payment-title">Payment Method</div>
+                        {% for payment in payments %}
+                        <div class="payment-method">
+                            <strong>{{ payment.get_payment_method_display }}</strong>
+                            {% if payments|length > 1 %}<br><span style="font-size: 11px; color: #555;">Amount: {% autoescape off %}{{ currency_symbol }}{% endautoescape %}{{ payment.amount|floatformat:2 }}</span>{% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="column-right">
+                    <div class="totals-section">
+                        <div class="total-row">
+                            <div class="total-label">Sub Total:</div>
+                            <div class="total-value subtotal-value">
+                                {% autoescape off %}{{ currency_symbol }}{% endautoescape %}{{ total_price_before_discount|floatformat:2 }}
+                            </div>
+                        </div>
+
+                        {% if total_item_discount > 0 or total_bill_discount > 0 %}
+                        <div class="total-row">
+                            <div class="total-label">Discount:</div>
+                            <div class="total-value discount-value">
+                                {{ total_item_discount|add:total_bill_discount|floatformat:2 }}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if receipt.loyalty_discount_amount > 0 %}
+                        <div class="total-row">
+                            <div class="total-label" style="color: #28a745; font-weight: bold;">Loyalty Discount ({{ receipt.loyalty_points_redeemed }} pts):</div>
+                            <div class="total-value discount-value" style="color: #28a745; font-weight: bold;">
+                                {% autoescape off %}{{ currency_symbol }}{% endautoescape %}{{ receipt.loyalty_discount_amount|floatformat:2 }}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if delivery and delivery.delivery_cost > 0 %}
+                        <div class="total-row">
+                            <div class="total-label">Delivery:</div>
+                            <div class="total-value discount-value">
+                                {% autoescape off %}{{ currency_symbol }}{% endautoescape %}{{ delivery.delivery_cost|floatformat:2 }}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <div class="total-row">
+                            <div class="total-label">Total:</div>
+                            <div class="total-value grand-total-value">
+                                {% autoescape off %}{{ currency_symbol }}{% endautoescape %}{{ final_total_with_delivery|floatformat:2 }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tax Breakdown -->
+            {% if receipt.tax_amount > 0 and receipt.tax_details %}
+                {% load custom_filters %}
+                {% with tax_data=receipt.tax_details|parse_json %}
+                <div class="tax-breakdown">
+                    <div style="font-weight: bold; margin-bottom: 3px; font-size: 9px;">Tax Breakdown:</div>
+                    {% for tax_code, tax_info in tax_data.items %}
+                        <div class="tax-row">
+                            <div class="tax-label">
+                                {{ tax_info.name }} ({{ tax_info.rate }}% {% if tax_info.method == 'inclusive' %}Incl.{% else %}Excl.{% endif %}):
+                            </div>
+                            <div class="tax-value">
+                                {% autoescape off %}{{ currency_symbol }}{% endautoescape %}{{ tax_info.amount|floatformat:2 }}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+                {% endwith %}
+            {% endif %}
+
+            <!-- Delivery Details -->
+            {% if delivery %}
+            <div class="delivery-section">
+                <div class="delivery-title">🚚 Delivery Information</div>
+                <div class="delivery-info">
+                    <strong>Option:</strong>
+                    {% if delivery.delivery_option == 'pickup' %}Customer Pickup{% else %}Home Delivery{% endif %}
+                </div>
+                {% if delivery.delivery_address %}
+                <div class="delivery-info"><strong>Address:</strong> {{ delivery.delivery_address }}</div>
+                {% endif %}
+                {% if delivery.delivery_date %}
+                <div class="delivery-info"><strong>Date:</strong> {{ delivery.delivery_date|date:"F j, Y" }}</div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Loyalty Points -->
+            {% if loyalty_info %}
+            <div class="loyalty-section">
+                <div class="loyalty-title">🎉 {{ loyalty_info.program_name }}</div>
+                <div class="loyalty-info">✨ <strong>Points Earned:</strong> {{ loyalty_info.points_earned }} points</div>
+                <div class="loyalty-info">📊 <strong>Previous Balance:</strong> {{ loyalty_info.previous_balance }} points</div>
+                <div class="loyalty-info">🎯 <strong>New Balance:</strong> {{ loyalty_info.new_balance }} points</div>
+                <div class="loyalty-highlight">
+                    💰 Redeemable Value: {% autoescape off %}{{ currency_symbol }}{% endautoescape %}{{ loyalty_info.redeemable_value|floatformat:2 }}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Thank You Message -->
+            <div class="thank-you">
+                Thank you for your patronage!
+            </div>
+
+            <!-- Signature -->
+            <div class="signature-section">
+                <div class="signature-line"></div>
+                <div class="signature-text">Authorized Signature</div>
+            </div>
+
+            <!-- QR Code Section -->
+            {% if location_qr_code_url %}
+            <div class="qr-section">
+                <div class="qr-title">Find Our Location</div>
+                <div class="qr-code">
+                    <img src="{{ location_qr_code_url }}" alt="Location QR" style="width: 100%; height: 100%;">
+                </div>
+                <div class="qr-description">Scan this QR code to find our address on Google Maps</div>
+            </div>
+            {% endif %}
+
+            <!-- Contact Information -->
+            <div class="contact-section">
+                <div class="contact-title">Contact Us</div>
+                <div class="contact-info">
+                    <strong>{{ store_name }}</strong><br>
+                    <strong>Tel:</strong> {{ store_phone }}{% if store_config.phone_2 %} | {{ store_config.phone_2 }}{% endif %}<br>
+                    <strong>Address:</strong> {{ store_config.address_line_1 }}{% if store_config.address_line_2 %}, {{ store_config.address_line_2 }}{% endif %}, {{ store_config.city }}, {{ store_config.state }}{% if store_config.postal_code %} {{ store_config.postal_code }}{% endif %}{% if store_config.country %}, {{ store_config.country }}{% endif %}<br>
+                    <strong>Email:</strong> {{ store_email }}
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

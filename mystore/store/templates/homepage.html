@@ -1,0 +1,416 @@
+{% extends 'base.html' %}
+{% block title %}Homepage{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-header {
+        text-align: center;
+        padding: 1.5rem 0 1rem;
+        background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+        border-radius: 12px;
+        margin: 1rem auto 1.5rem;
+        color: white;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .dashboard-header h1 {
+        font-weight: 800;
+        font-size: 1.8rem;
+        margin-bottom: 0.3rem;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .dashboard-header p {
+        font-size: 0.95rem;
+        opacity: 0.95;
+    }
+
+    .menu-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1rem;
+        text-decoration: none;
+        display: block;
+        height: 100%;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: var(--shadow-sm);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .menu-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
+    }
+
+    .menu-card:hover::before {
+        transform: scaleX(1);
+    }
+
+    .menu-card:hover {
+        transform: translateY(-8px);
+        box-shadow: var(--shadow-lg);
+        border-color: var(--accent-primary);
+    }
+
+    .menu-card-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+        margin-bottom: 0.75rem;
+        transition: all 0.3s ease;
+    }
+
+    .menu-card:hover .menu-card-icon {
+        transform: scale(1.1) rotate(5deg);
+    }
+
+    .menu-card-title {
+        color: var(--text-primary);
+        font-weight: 700;
+        font-size: 0.95rem;
+        margin-bottom: 0.3rem;
+    }
+
+    .menu-card-desc {
+        color: var(--text-secondary);
+        font-size: 0.75rem;
+        margin: 0;
+        line-height: 1.3;
+    }
+
+    .category-section {
+        margin-bottom: 1.5rem;
+    }
+
+    .category-title {
+        color: var(--text-primary);
+        font-weight: 700;
+        font-size: 1.05rem;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.4rem;
+        border-bottom: 2px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .category-title i {
+        color: var(--accent-primary);
+    }
+
+    .icon-gradient-1 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .icon-gradient-2 { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+    .icon-gradient-3 { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    .icon-gradient-4 { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+    .icon-gradient-5 { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+    .icon-gradient-6 { background: linear-gradient(135deg, #30cfd0 0%, #330867 100%); }
+    .icon-gradient-7 { background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); }
+    .icon-gradient-8 { background: linear-gradient(135deg, #ff9a56 0%, #ff6a88 100%); }
+
+    @media (max-width: 768px) {
+        .dashboard-header h1 {
+            font-size: 1.8rem;
+        }
+
+        .menu-card-icon {
+            width: 50px;
+            height: 50px;
+            font-size: 1.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <h1><i class="bi bi-shop-window me-2"></i>{{ store_name|upper }}</h1>
+        <p>Complete Point of Sale & Inventory Management System</p>
+    </div>
+
+    <div class="container-fluid">
+        <!-- INVENTORY MANAGEMENT -->
+        <div class="category-section">
+            <h3 class="category-title">
+                <i class="bi bi-box-seam"></i>
+                Inventory Management
+            </h3>
+            <div class="row g-3">
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <a href="{% url 'product_list' %}" class="menu-card">
+                        <div class="menu-card-icon icon-gradient-1">
+                            <i class="bi bi-box text-white"></i>
+                        </div>
+                        <div class="menu-card-title">Product List</div>
+                        <p class="menu-card-desc">View and manage all products</p>
+                    </a>
+                </div>
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <a href="{% url 'add_product' %}" class="menu-card">
+                        <div class="menu-card-icon icon-gradient-2">
+                            <i class="bi bi-plus-circle text-white"></i>
+                        </div>
+                        <div class="menu-card-title">Add Product</div>
+                        <p class="menu-card-desc">Add new products to inventory</p>
+                    </a>
+                </div>
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <a href="{% url 'invoice_list' %}" class="menu-card">
+                        <div class="menu-card-icon icon-gradient-3">
+                            <i class="bi bi-receipt text-white"></i>
+                        </div>
+                        <div class="menu-card-title">Invoices</div>
+                        <p class="menu-card-desc">Manage invoices</p>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- CUSTOMER MANAGEMENT -->
+        <div class="category-section">
+            <h3 class="category-title">
+                <i class="bi bi-people"></i>
+                Customer Management
+            </h3>
+            <div class="row g-3">
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <a href="{% url 'customer_list' %}" class="menu-card">
+                        <div class="menu-card-icon icon-gradient-3">
+                            <i class="bi bi-person-lines-fill text-white"></i>
+                        </div>
+                        <div class="menu-card-title">Customer List</div>
+                        <p class="menu-card-desc">View all customer records</p>
+                    </a>
+                </div>
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <a href="{% url 'create_customer' %}" class="menu-card">
+                        <div class="menu-card-icon icon-gradient-4">
+                            <i class="bi bi-person-plus text-white"></i>
+                        </div>
+                        <div class="menu-card-title">New Customer</div>
+                        <p class="menu-card-desc">Register a new customer</p>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- SALES & TRANSACTIONS -->
+        <div class="category-section">
+            <h3 class="category-title">
+                <i class="bi bi-cart-check"></i>
+                Sales & Transactions
+            </h3>
+            <div class="row g-3">
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <a href="{% url 'sell_product' %}" class="menu-card">
+                        <div class="menu-card-icon icon-gradient-5">
+                            <i class="bi bi-cart text-white"></i>
+                        </div>
+                        <div class="menu-card-title">POS</div>
+                        <p class="menu-card-desc">Point of Sale system</p>
+                    </a>
+                </div>
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <a href="{% url 'receipt_list' %}" class="menu-card">
+                        <div class="menu-card-icon icon-gradient-1">
+                            <i class="bi bi-file-earmark-text text-white"></i>
+                        </div>
+                        <div class="menu-card-title">Receipts</div>
+                        <p class="menu-card-desc">View all sales receipts</p>
+                    </a>
+                </div>
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <a href="{% url 'return_list' %}" class="menu-card">
+                        <div class="menu-card-icon icon-gradient-2">
+                            <i class="bi bi-arrow-return-left text-white"></i>
+                        </div>
+                        <div class="menu-card-title">Returns</div>
+                        <p class="menu-card-desc">Process product returns</p>
+                    </a>
+                </div>
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <a href="{% url 'store_credit_list' %}" class="menu-card">
+                        <div class="menu-card-icon icon-gradient-3">
+                            <i class="bi bi-wallet2 text-white"></i>
+                        </div>
+                        <div class="menu-card-title">Store Credits</div>
+                        <p class="menu-card-desc">Manage store credits</p>
+                    </a>
+                </div>
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <a href="{% url 'customer_debt_dashboard' %}" class="menu-card">
+                        <div class="menu-card-icon icon-gradient-4">
+                            <i class="bi bi-cash-stack text-white"></i>
+                        </div>
+                        <div class="menu-card-title">Outstanding Balances</div>
+                        <p class="menu-card-desc">Manage customer debts</p>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- PRE-ORDERS -->
+        <div class="category-section">
+            <h3 class="category-title">
+                <i class="bi bi-bookmark-check"></i>
+                Pre-Orders
+            </h3>
+            <div class="row g-3">
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <a href="{% url 'pre_order' %}" class="menu-card">
+                        <div class="menu-card-icon icon-gradient-4">
+                            <i class="bi bi-bookmark-plus text-white"></i>
+                        </div>
+                        <div class="menu-card-title">New Pre-Order</div>
+                        <p class="menu-card-desc">Create a new pre-order</p>
+                    </a>
+                </div>
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <a href="{% url 'pre_order_list' %}" class="menu-card">
+                        <div class="menu-card-icon icon-gradient-5">
+                            <i class="bi bi-bookmark text-white"></i>
+                        </div>
+                        <div class="menu-card-title">Pre-Order List</div>
+                        <p class="menu-card-desc">View all pre-orders</p>
+                    </a>
+                </div>
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <a href="{% url 'delivered_items' %}" class="menu-card">
+                        <div class="menu-card-icon icon-gradient-6">
+                            <i class="bi bi-truck text-white"></i>
+                        </div>
+                        <div class="menu-card-title">Delivery Status</div>
+                        <p class="menu-card-desc">Track deliveries</p>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- BARCODE TOOLS -->
+        <div class="category-section">
+            <h3 class="category-title">
+                <i class="bi bi-upc-scan"></i>
+                Barcode Tools
+            </h3>
+            <div class="row g-3">
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <a href="{% url 'barcode_lookup_page' %}" class="menu-card">
+                        <div class="menu-card-icon icon-gradient-6">
+                            <i class="bi bi-search text-white"></i>
+                        </div>
+                        <div class="menu-card-title">Barcode Lookup</div>
+                        <p class="menu-card-desc">Search products by barcode</p>
+                    </a>
+                </div>
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <a href="{% url 'barcode_print_manager' %}" class="menu-card">
+                        <div class="menu-card-icon icon-gradient-7">
+                            <i class="bi bi-printer text-white"></i>
+                        </div>
+                        <div class="menu-card-title">Barcode Manager</div>
+                        <p class="menu-card-desc">Print and manage barcodes</p>
+                    </a>
+                </div>
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <a href="{% url 'generate_barcodes' %}" class="menu-card">
+                        <div class="menu-card-icon icon-gradient-8">
+                            <i class="bi bi-upc text-white"></i>
+                        </div>
+                        <div class="menu-card-title">Generate Barcodes</div>
+                        <p class="menu-card-desc">Create product barcodes</p>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- REPORTS & ANALYTICS -->
+        <div class="category-section">
+            <h3 class="category-title">
+                <i class="bi bi-graph-up"></i>
+                Reports & Analytics
+            </h3>
+            <div class="row g-3">
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <a href="{% url 'reports_menu' %}" class="menu-card">
+                        <div class="menu-card-icon icon-gradient-1">
+                            <i class="bi bi-bar-chart-line text-white"></i>
+                        </div>
+                        <div class="menu-card-title">Reports Menu</div>
+                        <p class="menu-card-desc">Access all reports</p>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- SYSTEM & TOOLS -->
+        <div class="category-section">
+            <h3 class="category-title">
+                <i class="bi bi-tools"></i>
+                System & Tools
+            </h3>
+            <div class="row g-3">
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <a href="{% url 'transfer_menu' %}" class="menu-card">
+                        <div class="menu-card-icon icon-gradient-2">
+                            <i class="bi bi-arrow-left-right text-white"></i>
+                        </div>
+                        <div class="menu-card-title">Transfers</div>
+                        <p class="menu-card-desc">Manage inventory transfers</p>
+                    </a>
+                </div>
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <a href="{% url 'tools_menu' %}" class="menu-card">
+                        <div class="menu-card-icon icon-gradient-5">
+                            <i class="bi bi-wrench text-white"></i>
+                        </div>
+                        <div class="menu-card-title">Tools & Utilities</div>
+                        <p class="menu-card-desc">System utilities</p>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONFIGURATION -->
+        <div class="category-section">
+            <h3 class="category-title">
+                <i class="bi bi-gear"></i>
+                Configuration
+            </h3>
+            <div class="row g-3">
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <a href="{% url 'configuration_menu' %}" class="menu-card">
+                        <div class="menu-card-icon icon-gradient-3">
+                            <i class="bi bi-sliders text-white"></i>
+                        </div>
+                        <div class="menu-card-title">System Settings</div>
+                        <p class="menu-card-desc">Configure system settings</p>
+                    </a>
+                </div>
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <a href="{% url 'user_menu' %}" class="menu-card">
+                        <div class="menu-card-icon icon-gradient-4">
+                            <i class="bi bi-people text-white"></i>
+                        </div>
+                        <div class="menu-card-title">User Management</div>
+                        <p class="menu-card-desc">Manage system users</p>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

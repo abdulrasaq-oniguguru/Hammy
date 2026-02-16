@@ -1,0 +1,574 @@
+{% extends 'oem_reporting/base_oem.html' %}
+{% load static %}
+{% block title %}Sales Report{% endblock %}
+
+{% block content %}
+<style>
+    /* Theme-aware variables */
+    :root[data-theme="light"] .sales-report-page {
+        --page-bg: var(--bg-primary);
+        --card-bg: var(--bg-secondary);
+        --input-bg: var(--bg-secondary);
+        --text-color: var(--text-primary);
+        --text-muted: var(--text-secondary);
+        --border: var(--border-color);
+        --accent: var(--accent-primary);
+        --shadow: var(--shadow-md);
+        --filter-bg: var(--bg-tertiary);
+        --table-header-bg: var(--accent-primary);
+        --table-row-hover: rgba(102, 126, 234, 0.1);
+        --receipt-header-bg: var(--bg-tertiary);
+    }
+
+    :root[data-theme="dark"] .sales-report-page {
+        --page-bg: var(--bg-primary);
+        --card-bg: var(--bg-secondary);
+        --input-bg: var(--bg-tertiary);
+        --text-color: var(--text-primary);
+        --text-muted: var(--text-secondary);
+        --border: var(--border-color);
+        --accent: var(--accent-primary);
+        --shadow: var(--shadow-md);
+        --filter-bg: var(--bg-tertiary);
+        --table-header-bg: var(--accent-primary);
+        --table-row-hover: rgba(102, 126, 234, 0.15);
+        --receipt-header-bg: var(--bg-tertiary);
+    }
+
+    .sales-report-page {
+        background: var(--page-bg);
+        min-height: 100vh;
+        padding: 3rem 0;
+    }
+
+    .page-header {
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+
+    .page-header h1 {
+        color: var(--text-color);
+        font-weight: 700;
+        font-size: 3rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+    }
+
+    .page-header i {
+        color: var(--accent);
+        font-size: 3rem;
+    }
+
+    .main-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 2.5rem;
+        box-shadow: var(--shadow);
+    }
+
+    /* Filter Sidebar */
+    .filter-section {
+        background: var(--filter-bg);
+        border-radius: 16px;
+        padding: 2rem;
+        border: 1px solid var(--border);
+    }
+
+    .filter-title {
+        color: var(--text-color);
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .filter-title i {
+        color: var(--accent);
+    }
+
+    .form-label {
+        color: var(--text-muted);
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+        display: block;
+    }
+
+    .form-control,
+    .form-select {
+        background: var(--input-bg) !important;
+        color: var(--text-color) !important;
+        border: 2px solid var(--border) !important;
+        border-radius: 12px;
+        height: 54px;
+        padding: 0.875rem 1.25rem;
+        font-size: 1.05rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: var(--accent) !important;
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1) !important;
+        outline: none;
+    }
+
+    .btn-apply {
+        background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 1rem;
+        font-weight: 700;
+        font-size: 1.1rem;
+        height: 58px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-apply:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+        color: white;
+    }
+
+    .btn-clear {
+        background: var(--card-bg);
+        color: var(--text-color);
+        border: 2px solid var(--border);
+        border-radius: 12px;
+        padding: 1rem;
+        font-weight: 700;
+        font-size: 1.1rem;
+        height: 58px;
+        transition: all 0.3s ease;
+    }
+
+    .btn-clear:hover {
+        background: var(--border);
+        color: var(--text-color);
+        transform: translateY(-2px);
+    }
+
+
+    .total-sales-card {
+        background: var(--accent);
+        border-radius: 16px;
+        padding: 2rem;
+        text-align: center;
+        margin-top: 2rem;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .total-sales-card h6 {
+        color: white;
+        font-size: 1.1rem;
+        margin-bottom: 0.75rem;
+        font-weight: 600;
+    }
+
+    .total-sales-card strong {
+        color: white;
+        font-size: 2.25rem;
+        font-weight: 800;
+    }
+
+
+    /* Daily Report Card */
+    .daily-report-card {
+        background: var(--filter-bg);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .daily-report-card h5 {
+        color: var(--text-color);
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .daily-report-card i {
+        color: var(--accent);
+    }
+
+    .automation-status {
+        background: rgba(25, 135, 84, 0.1);
+        border-left: 4px solid #198754;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-top: 1rem;
+    }
+
+    .automation-status p {
+        margin: 0.5rem 0;
+        color: var(--text-color);
+    }
+
+    /* Table Styles */
+    .sales-table {
+        background: var(--card-bg);
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+    }
+
+    .sales-table table {
+        margin-bottom: 0;
+        font-size: 1.05rem;
+    }
+
+    .sales-table thead th {
+        background: var(--table-header-bg);
+        color: white;
+        font-weight: 700;
+        font-size: 1.1rem;
+        padding: 1.25rem 1rem;
+        border: none;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .sales-table tbody td {
+        color: var(--text-color);
+        padding: 1rem;
+        border-color: var(--border);
+        font-size: 1.05rem;
+    }
+
+    .sales-table tbody tr:hover {
+        background: var(--table-row-hover);
+    }
+
+    .receipt-header {
+        background: var(--receipt-header-bg) !important;
+        border-top: 2px solid var(--border) !important;
+        border-bottom: 2px solid var(--border) !important;
+    }
+
+    .receipt-header td {
+        padding: 1.25rem 1rem !important;
+        font-size: 1.15rem !important;
+    }
+
+    .badge {
+        font-size: 0.95rem;
+        padding: 0.6rem 1rem;
+        font-weight: 600;
+        border-radius: 8px;
+    }
+
+    .btn-view-receipt {
+        background: var(--accent);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .btn-view-receipt:hover {
+        background: var(--accent-secondary);
+        color: white;
+        transform: translateY(-2px);
+    }
+
+    .btn-back {
+        background: var(--card-bg);
+        color: var(--text-color);
+        border: 2px solid var(--border);
+        border-radius: 12px;
+        padding: 1rem 2rem;
+        font-weight: 700;
+        font-size: 1.1rem;
+        transition: all 0.3s ease;
+        text-decoration: none;
+    }
+
+    .btn-back:hover {
+        background: var(--border);
+        color: var(--text-color);
+        transform: translateY(-2px);
+    }
+
+    .alert-info {
+        background: rgba(102, 126, 234, 0.1);
+        border: 1px solid var(--accent);
+        color: var(--text-color);
+        border-radius: 12px;
+        padding: 2rem;
+        font-size: 1.15rem;
+    }
+
+    @media (max-width: 992px) {
+        .page-header h1 {
+            font-size: 2rem;
+        }
+
+        .filter-section {
+            margin-bottom: 2rem;
+        }
+
+        .main-card {
+            padding: 1.5rem;
+        }
+
+        .sales-table table {
+            font-size: 0.9rem;
+        }
+
+        .sales-table thead th,
+        .sales-table tbody td {
+            padding: 0.75rem 0.5rem;
+            font-size: 0.9rem;
+        }
+    }
+</style>
+
+<div class="sales-report-page">
+    <div class="container-fluid px-4">
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1>
+                <i class="bi bi-graph-up-arrow"></i>
+                Sales Report
+            </h1>
+        </div>
+
+        <div class="row">
+            <!-- Filters Sidebar -->
+            <div class="col-lg-3 mb-4">
+                <div class="filter-section">
+                    <h5 class="filter-title">
+                        <i class="bi bi-funnel-fill"></i>
+                        Filters
+                    </h5>
+
+                    <form method="get" id="filter-form">
+                        <div class="mb-3">
+                            <label for="start_date" class="form-label">Start Date</label>
+                            <input type="date" name="start_date" id="start_date" class="form-control"
+                                   value="{{ start_date|date:'Y-m-d' }}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="end_date" class="form-label">End Date</label>
+                            <input type="date" name="end_date" id="end_date" class="form-control"
+                                   value="{{ end_date|date:'Y-m-d' }}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="payment_method" class="form-label">Payment Method</label>
+                            <select name="payment_method" id="payment_method" class="form-select">
+                                <option value="">All Methods</option>
+                                {% for method, method_display in payment_methods %}
+                                    <option value="{{ method }}" {% if method == selected_payment_method %}selected{% endif %}>
+                                        {{ method_display }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="shop_type" class="form-label">Shop Type</label>
+                            <select name="shop_type" id="shop_type" class="form-select">
+                                <option value="">All Shops</option>
+                                {% for shop, shop_display in shop_types %}
+                                    <option value="{{ shop }}" {% if shop == selected_shop_type %}selected{% endif %}>
+                                        {{ shop_display }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="d-grid gap-3">
+                            <button type="submit" class="btn-apply">
+                                <i class="bi bi-funnel me-2"></i>Apply Filters
+                            </button>
+                            <a href="{% url 'oem_reporting:sales_report' %}" class="btn-clear text-center">
+                                <i class="bi bi-x-circle me-2"></i>Clear Filters
+                            </a>
+                        </div>
+                    </form>
+
+                    <!-- Total Sales Card -->
+                    <div class="total-sales-card">
+                        <h6>Total Sales</h6>
+                        <strong>{{ currency_symbol }}{{ total_sales|floatformat:2 }}</strong>
+
+                        <!-- Minimal Discount & Delivery Info -->
+                        {% if total_all_discounts > 0 or total_delivery_fees > 0 %}
+                        <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.3);">
+                            {% if total_all_discounts > 0 %}
+                            <div style="font-size: 1rem; color: rgba(255,255,255,0.9); margin-bottom: 0.5rem;">
+                                <i class="bi bi-percent me-2"></i>Total Discounts: <strong>{{ currency_symbol }}{{ total_all_discounts|floatformat:0 }}</strong>
+                            </div>
+                            {% endif %}
+                            {% if total_delivery_fees > 0 %}
+                            <div style="font-size: 1rem; color: rgba(255,255,255,0.9);">
+                                <i class="bi bi-truck me-2"></i>Total Delivery: <strong>{{ currency_symbol }}{{ total_delivery_fees|floatformat:0 }}</strong>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Report Area -->
+            <div class="col-lg-9">
+                <!-- Sales Table -->
+                {% if grouped_sales %}
+                    <div class="sales-table">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Receipt / Date</th>
+                                        <th>Item</th>
+                                        <th>Category</th>
+                                        <th>Qty</th>
+                                        <th>Unit Price</th>
+                                        <th>Total</th>
+                                        <th>Payment Methods</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for receipt, sale_list in grouped_sales %}
+                                        {% with sale=sale_list.0 %}
+                                        <!-- Receipt Header -->
+                                        <tr class="receipt-header">
+                                            <td colspan="8">
+                                                <strong style="font-size: 1.2rem;">Receipt #{{ receipt.pk }}</strong>
+                                                {% if sale.customer %}
+                                                    <br><span class="text-muted">Customer: {{ sale.customer.name }}</span>
+                                                {% endif %}
+                                                <br><span class="text-muted">{{ sale.sale_date|date:"M d, Y H:i" }}</span>
+                                            </td>
+                                        </tr>
+
+                                        <!-- Item Rows -->
+                                        {% for item in sale_list %}
+                                            <tr>
+                                                {% if forloop.first %}
+                                                    <td rowspan="{{ sale_list|length }}" class="align-middle"></td>
+                                                {% endif %}
+                                                <td>
+                                                    <strong>{{ item.product.brand }}</strong>
+                                                    {% if item.discount_amount and item.discount_amount > 0 %}
+                                                        <br><small class="text-success"><i class="bi bi-tag-fill"></i> Line Discount: -{{ currency_symbol }}{{ item.discount_amount|floatformat:2 }}</small>
+                                                    {% endif %}
+                                                </td>
+                                                <td>{{ item.product.category }}</td>
+                                                <td><strong>{{ item.quantity }}</strong></td>
+                                                <td>{{ currency_symbol }}{{ item.product.selling_price|floatformat:2 }}</td>
+                                                <td>
+                                                    <strong>{{ currency_symbol }}{{ item.total_price|floatformat:2 }}</strong>
+                                                    {% if item.discount_amount and item.discount_amount > 0 %}
+                                                        <br><small class="text-success">Saved {{ currency_symbol }}{{ item.discount_amount|floatformat:2 }}</small>
+                                                    {% endif %}
+                                                </td>
+                                                {% if forloop.first %}
+                                                    <td rowspan="{{ sale_list|length }}" class="align-middle">
+                                                        {% if sale.payment %}
+                                                            {% for pm in sale.payment.payment_methods.all %}
+                                                                <div class="mb-1">
+                                                                    <strong>{{ pm.get_payment_method_display }}:</strong> {{ currency_symbol }}{{ pm.amount|floatformat:2 }}
+                                                                </div>
+                                                            {% endfor %}
+                                                        {% else %}
+                                                            <span class="text-muted">No Payment</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td rowspan="{{ sale_list|length }}" class="align-middle">
+                                                        {% if sale.payment %}
+                                                            <span class="badge
+                                                                {% if sale.payment.payment_status == 'completed' %}bg-success
+                                                                {% elif sale.payment.payment_status == 'partial' %}bg-warning text-dark
+                                                                {% elif sale.payment.payment_status == 'pending' %}bg-secondary
+                                                                {% else %}bg-danger{% endif %}">
+                                                                {{ sale.payment.get_payment_status_display }}
+                                                            </span>
+                                                        {% else %}
+                                                            <span class="text-muted">N/A</span>
+                                                        {% endif %}
+                                                    </td>
+                                                {% endif %}
+                                            </tr>
+                                        {% endfor %}
+
+                                        <!-- Receipt Total Breakdown -->
+                                        <tr class="receipt-total-row">
+                                            <td colspan="4" class="text-end">
+                                                <strong>Subtotal:</strong>
+                                                <br><small class="text-muted">(includes line discounts if any)</small>
+                                            </td>
+                                            <td colspan="4"><strong>{{ currency_symbol }}{{ receipt.subtotal|floatformat:2 }}</strong></td>
+                                        </tr>
+                                        {% if sale.payment and sale.payment.discount_amount and sale.payment.discount_amount > 0 %}
+                                        <tr class="receipt-total-row">
+                                            <td colspan="4" class="text-end text-success"><strong>Payment Discount ({{ sale.payment.discount_percentage }}%):</strong></td>
+                                            <td colspan="4" class="text-success"><strong>-{{ currency_symbol }}{{ sale.payment.discount_amount|floatformat:2 }}</strong></td>
+                                        </tr>
+                                        {% endif %}
+                                        {% if receipt.delivery_cost and receipt.delivery_cost > 0 %}
+                                        <tr class="receipt-total-row">
+                                            <td colspan="4" class="text-end"><strong>Delivery:</strong></td>
+                                            <td colspan="4"><strong>{{ currency_symbol }}{{ receipt.delivery_cost|floatformat:2 }}</strong></td>
+                                        </tr>
+                                        {% endif %}
+                                        <tr class="receipt-total-row" style="border-top: 2px solid var(--border); background: var(--receipt-header-bg);">
+                                            <td colspan="4" class="text-end"><strong style="font-size: 1.1rem;">Total:</strong></td>
+                                            <td colspan="4"><strong style="font-size: 1.1rem;">{{ currency_symbol }}{{ receipt.total_with_delivery|floatformat:2 }}</strong></td>
+                                        </tr>
+
+                                        <!-- Receipt Actions -->
+                                        <tr>
+                                            <td colspan="8" class="text-end py-3">
+                                                <a href="{% url 'receipt_detail' receipt.pk %}" class="btn-view-receipt">
+                                                    <i class="bi bi-receipt me-2"></i>View Receipt
+                                                </a>
+                                            </td>
+                                        </tr>
+
+                                        <!-- Spacer -->
+                                        <tr><td colspan="8" style="height: 1.5rem; padding: 0; border: none;"></td></tr>
+                                        {% endwith %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info text-center" role="alert">
+                        <i class="bi bi-info-circle-fill me-2"></i>No sales found for the selected filters.
+                    </div>
+                {% endif %}
+
+                <!-- Back Button -->
+                <div class="mt-4 text-center">
+                    <a href="{% url 'oem_reporting:reports_menu' %}" class="btn-back">
+                        <i class="bi bi-arrow-left-circle me-2"></i>Back to OEM Reports
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

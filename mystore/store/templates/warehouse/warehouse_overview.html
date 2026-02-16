@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warehouse Overview</title>
+</head>
+<body>
+    <h1>Warehouse Overview</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>Brand</th>
+                <th>Quantity</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if warehouse_items %}
+                {% for item in warehouse_items %}
+                    <tr>
+                        <td>{{ item.product.name }}</td>
+                        <td>{{ item.product.brand }}</td>
+                        <td>{{ item.quantity }}</td>
+                    </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="3">No items in the warehouse.</td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</body>
+</html>

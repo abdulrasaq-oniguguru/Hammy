@@ -1,0 +1,232 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Store Credit Details - {{ credit.credit_number }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-wrapper {
+        min-height: 100vh;
+        padding: 3rem 0;
+    }
+
+    .page-header {
+        background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+        border-radius: 16px;
+        padding: 2.5rem;
+        margin-bottom: 2rem;
+        color: white;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .info-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        box-shadow: var(--shadow-md);
+        margin-bottom: 2rem;
+    }
+
+    .balance-card {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border-radius: 12px;
+        padding: 2rem;
+        color: white;
+        text-align: center;
+    }
+
+    .balance-amount {
+        font-size: 3rem;
+        font-weight: bold;
+    }
+
+    .usage-table {
+        background: var(--card-bg);
+        color: var(--text-primary);
+    }
+
+    .usage-table th {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border-color: var(--border-color);
+    }
+
+    .usage-table td {
+        border-color: var(--border-color);
+        color: var(--text-primary);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+    <div class="container-fluid px-4" style="max-width: 1400px; margin: 0 auto;">
+        <!-- Page Header -->
+        <div class="page-header text-center">
+            <h1 class="display-5 fw-bold mb-2">
+                <i class="bi bi-wallet2 me-2"></i>Store Credit Details
+            </h1>
+            <p class="mb-0 opacity-95">{{ credit.credit_number }}</p>
+        </div>
+
+        <div class="row">
+            <!-- Balance Display -->
+            <div class="col-md-4">
+                <div class="balance-card">
+                    <p class="mb-2 opacity-90">Remaining Balance</p>
+                    <div class="balance-amount">₦{{ credit.remaining_balance|floatformat:2 }}</div>
+                    <p class="mb-0 mt-2 opacity-90">
+                        of ₦{{ credit.original_amount|floatformat:2 }} original
+                    </p>
+                    <div class="mt-3">
+                        {% if credit.is_active and credit.remaining_balance > 0 %}
+                            <span class="badge bg-light text-success">Active</span>
+                        {% else %}
+                            <span class="badge bg-light text-secondary">Inactive</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Credit Information -->
+            <div class="col-md-8">
+                <div class="info-card">
+                    <div class="card-body p-4">
+                        <h5 class="mb-3">
+                            <i class="bi bi-info-circle me-2"></i>Credit Information
+                        </h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <table class="table table-borderless">
+                                    <tr>
+                                        <td><strong>Credit Number:</strong></td>
+                                        <td>{{ credit.credit_number }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Issued Date:</strong></td>
+                                        <td>{{ credit.issued_date|date:"Y-m-d H:i" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Issued By:</strong></td>
+                                        <td>{{ credit.issued_by.username }}</td>
+                                    </tr>
+                                    {% if credit.expiry_date %}
+                                    <tr>
+                                        <td><strong>Expiry Date:</strong></td>
+                                        <td>{{ credit.expiry_date|date:"Y-m-d" }}</td>
+                                    </tr>
+                                    {% endif %}
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <table class="table table-borderless">
+                                    <tr>
+                                        <td><strong>Customer:</strong></td>
+                                        <td>
+                                            {{ credit.customer.name }}<br>
+                                            <small class="text-muted">{{ credit.customer.phone }}</small>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Original Amount:</strong></td>
+                                        <td>₦{{ credit.original_amount|floatformat:2 }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Amount Used:</strong></td>
+                                        <td>₦{{ credit.original_amount|floatformat:2|add:credit.remaining_balance|floatformat:2|slice:"1:" }}</td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+
+                        {% if credit.return_transaction %}
+                        <div class="alert alert-info mt-3">
+                            <i class="bi bi-arrow-return-left me-2"></i>
+                            <strong>Issued from Return:</strong>
+                            <a href="{% url 'return_detail' credit.return_transaction.id %}">
+                                {{ credit.return_transaction.return_number }}
+                            </a>
+                            <br>
+                            <small class="text-muted">
+                                Receipt: {{ credit.return_transaction.receipt.receipt_number }} |
+                                Date: {{ credit.return_transaction.return_date|date:"Y-m-d" }}
+                            </small>
+                        </div>
+                        {% endif %}
+
+                        {% if credit.notes %}
+                        <div class="mt-3">
+                            <strong>Notes:</strong>
+                            <p class="text-muted mb-0">{{ credit.notes|linebreaks }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Usage History -->
+        <div class="info-card">
+            <div class="card-body p-4">
+                <h5 class="mb-4">
+                    <i class="bi bi-clock-history me-2"></i>Usage History
+                </h5>
+
+                {% if usages %}
+                <div class="table-responsive">
+                    <table class="table usage-table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Receipt</th>
+                                <th>Amount Used</th>
+                                <th>Used By</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for usage in usages %}
+                            <tr>
+                                <td>{{ usage.used_date|date:"Y-m-d H:i" }}</td>
+                                <td>
+                                    <a href="{% url 'receipt_detail' usage.receipt.id %}" target="_blank">
+                                        {{ usage.receipt.receipt_number }}
+                                        <i class="bi bi-box-arrow-up-right ms-1"></i>
+                                    </a>
+                                </td>
+                                <td>
+                                    <strong class="text-danger">-₦{{ usage.amount_used|floatformat:2 }}</strong>
+                                </td>
+                                <td>{{ usage.used_by.username }}</td>
+                                <td>
+                                    <a href="{% url 'receipt_detail' usage.receipt.id %}" class="btn btn-sm btn-outline-primary" target="_blank">
+                                        <i class="bi bi-eye"></i> View Receipt
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>This store credit has not been used yet.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="text-end">
+            <a href="{% url 'store_credit_list' %}" class="btn btn-secondary btn-lg">
+                <i class="bi bi-arrow-left me-2"></i>Back to List
+            </a>
+            {% if credit.customer %}
+            <a href="{% url 'customer_detail' credit.customer.id %}" class="btn btn-primary btn-lg">
+                <i class="bi bi-person me-2"></i>View Customer
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

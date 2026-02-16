@@ -1,0 +1,349 @@
+2{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OEM Reports Menu</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --primary-color: #4e73df;
+            --success-color: #1cc88a;
+            --info-color: #36b9cc;
+            --warning-color: #f6c23e;
+            --danger-color: #e74a3b;
+            --dark-color: #5a5c69;
+            --light-bg: #f8f9fc;
+        }
+
+        body {
+            background-color: var(--light-bg);
+            font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #224abe 100%);
+            box-shadow: 0 2px 4px rgba(0,0,0,.1);
+        }
+
+        .page-header {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+            margin-bottom: 2rem;
+        }
+
+        .report-card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+            transition: all 0.3s ease;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .report-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0.5rem 2rem 0 rgba(58, 59, 69, 0.25);
+        }
+
+        .report-card .card-body {
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .report-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .report-icon.primary { color: var(--primary-color); }
+        .report-icon.success { color: var(--success-color); }
+        .report-icon.info { color: var(--info-color); }
+        .report-icon.warning { color: var(--warning-color); }
+        .report-icon.danger { color: var(--danger-color); }
+
+        .report-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--dark-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-description {
+            font-size: 0.875rem;
+            color: #858796;
+            margin-bottom: 0;
+        }
+
+        .quick-stats {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+            margin-bottom: 2rem;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 1rem;
+        }
+
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--dark-color);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #858796;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-dark sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{% url 'oem_reporting:dashboard' %}">
+                <i class="fas fa-chart-line me-2"></i>
+                OEM Reporting System
+            </a>
+            <div class="d-flex align-items-center">
+                <span class="text-white me-3">
+                    <i class="fas fa-user-circle me-1"></i>
+                    {{ request.user.username }}
+                </span>
+                <a href="{% url 'admin:index' %}" class="btn btn-outline-light btn-sm me-2">
+                    <i class="fas fa-cog me-1"></i> Admin
+                </a>
+                <a href="/" class="btn btn-outline-light btn-sm">
+                    <i class="fas fa-home me-1"></i> Home
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container-fluid py-4">
+        <!-- Development Mode Notice -->
+        {% if using_local_data %}
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>Development Mode:</strong> {{ db_error|default:"Using local store database for testing. Online OEM database will be available when deployed." }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endif %}
+
+        <!-- Page Header -->
+        <div class="page-header">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h1 class="h3 mb-0 text-gray-800">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        OEM Reports & Analytics
+                    </h1>
+                    <p class="text-muted mb-0">Access comprehensive reports and business intelligence</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <div class="text-muted">
+                        <i class="fas fa-calendar-alt me-1"></i>
+                        {{ current_date|date:"F d, Y" }}
+                        <span class="mx-2">|</span>
+                        <i class="fas fa-clock me-1"></i>
+                        {{ current_time|time:"H:i" }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="quick-stats">
+            <div class="row">
+                <div class="col-md-3 stat-item">
+                    <div class="stat-value text-primary">{{ total_products }}</div>
+                    <div class="stat-label">Total Products</div>
+                </div>
+                <div class="col-md-3 stat-item">
+                    <div class="stat-value text-success">₦{{ total_revenue|floatformat:0 }}</div>
+                    <div class="stat-label">Total Revenue</div>
+                </div>
+                <div class="col-md-3 stat-item">
+                    <div class="stat-value text-warning">{{ low_stock_count }}</div>
+                    <div class="stat-label">Low Stock Alerts</div>
+                </div>
+                <div class="col-md-3 stat-item">
+                    <div class="stat-value text-info">{{ total_transactions }}</div>
+                    <div class="stat-label">Total Transactions</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Report Cards -->
+        <div class="row g-4">
+            <!-- Sales Report -->
+            <div class="col-xl-4 col-md-6">
+                <a href="{% url 'oem_reporting:sales_report' %}" class="text-decoration-none">
+                    <div class="card report-card">
+                        <div class="card-body">
+                            <i class="fas fa-file-invoice-dollar report-icon success"></i>
+                            <h5 class="report-title">Sales Report</h5>
+                            <p class="report-description">
+                                Detailed sales transactions, revenue analysis, and export options
+                            </p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Inventory Report -->
+            <div class="col-xl-4 col-md-6">
+                <a href="{% url 'oem_reporting:inventory_report' %}" class="text-decoration-none">
+                    <div class="card report-card">
+                        <div class="card-body">
+                            <i class="fas fa-boxes report-icon info"></i>
+                            <h5 class="report-title">Inventory Report</h5>
+                            <p class="report-description">
+                                Stock levels, product values, and inventory management insights
+                            </p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Financial Report -->
+            <div class="col-xl-4 col-md-6">
+                <a href="{% url 'oem_reporting:financial_report' %}" class="text-decoration-none">
+                    <div class="card report-card">
+                        <div class="card-body">
+                            <i class="fas fa-chart-pie report-icon warning"></i>
+                            <h5 class="report-title">Financial Report</h5>
+                            <p class="report-description">
+                                Revenue analysis, payment methods, and financial performance metrics
+                            </p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Stock Alerts -->
+            <div class="col-xl-4 col-md-6">
+                <a href="{% url 'oem_reporting:stock_alerts' %}" class="text-decoration-none">
+                    <div class="card report-card">
+                        <div class="card-body">
+                            <i class="fas fa-exclamation-triangle report-icon danger"></i>
+                            <h5 class="report-title">Stock Alerts</h5>
+                            <p class="report-description">
+                                Low stock warnings, critical inventory alerts, and restocking recommendations
+                            </p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Performance Analytics -->
+            <div class="col-xl-4 col-md-6">
+                <a href="{% url 'oem_reporting:performance_analytics' %}" class="text-decoration-none">
+                    <div class="card report-card">
+                        <div class="card-body">
+                            <i class="fas fa-trophy report-icon primary"></i>
+                            <h5 class="report-title">Performance Analytics</h5>
+                            <p class="report-description">
+                                Category performance, top products, and comparative analysis
+                            </p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        <!-- Export Options Section -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-download me-2"></i>
+                            Quick Export Options
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <button class="btn btn-outline-success w-100" onclick="exportData('inventory', 'excel')">
+                                    <i class="fas fa-file-excel me-2"></i>
+                                    Export Inventory (Excel)
+                                </button>
+                            </div>
+                            <div class="col-md-4">
+                                <button class="btn btn-outline-primary w-100" onclick="exportData('sales', 'csv')">
+                                    <i class="fas fa-file-csv me-2"></i>
+                                    Export Sales (CSV)
+                                </button>
+                            </div>
+                            <div class="col-md-4">
+                                <button class="btn btn-outline-danger w-100" onclick="exportData('financial', 'pdf')">
+                                    <i class="fas fa-file-pdf me-2"></i>
+                                    Export Financial (PDF)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sync Status -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">Data Synchronization Status</h6>
+                                <p class="text-muted mb-0 small">Last synced: {{ last_sync_time|default:"Never" }}</p>
+                            </div>
+                            <span class="badge bg-success px-3 py-2">
+                                <i class="fas fa-check-circle me-1"></i> Online & Synced
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        function exportData(reportType, format) {
+            // Placeholder for export functionality
+            alert(`Exporting ${reportType} report as ${format.toUpperCase()}...`);
+            // In production, this would call the appropriate export API endpoint
+            window.location.href = `/api/oem/export/${reportType}/?format=${format}`;
+        }
+
+        // Add smooth scrolling
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
+</body>
+</html>

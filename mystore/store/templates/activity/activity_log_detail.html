@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Activity Log Detail{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="text-white mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Activity Log Detail
+                    </h2>
+                    <p class="text-muted">Detailed information about this activity</p>
+                </div>
+                <a href="{% url 'activity_log_list' %}" class="btn btn-outline-light">
+                    <i class="bi bi-arrow-left me-2"></i>
+                    Back to Activity Logs
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Log Details Card -->
+    <div class="card bg-dark text-white">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="bi bi-file-text me-2"></i>
+                Log Entry #{{ log.id }}
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <!-- Left Column -->
+                <div class="col-md-6">
+                    <div class="mb-4">
+                        <h6 class="text-muted text-uppercase small mb-2">Timestamp</h6>
+                        <p class="mb-0">
+                            <i class="bi bi-clock text-info me-2"></i>
+                            {{ log.created_at|date:"F d, Y" }} at {{ log.created_at|date:"H:i:s" }}
+                        </p>
+                    </div>
+
+                    <div class="mb-4">
+                        <h6 class="text-muted text-uppercase small mb-2">User</h6>
+                        <p class="mb-0">
+                            <i class="bi bi-person text-info me-2"></i>
+                            {% if log.user %}
+                                <strong>{{ log.user.username }}</strong>
+                                {% if log.user.get_full_name %}
+                                    ({{ log.user.get_full_name }})
+                                {% endif %}
+                            {% else %}
+                                <strong>{{ log.username|default:"Unknown User" }}</strong>
+                            {% endif %}
+                        </p>
+                    </div>
+
+                    <div class="mb-4">
+                        <h6 class="text-muted text-uppercase small mb-2">Action</h6>
+                        <p class="mb-0">
+                            <span class="badge bg-secondary fs-6">{{ log.action_display }}</span>
+                        </p>
+                    </div>
+
+                    <div class="mb-4">
+                        <h6 class="text-muted text-uppercase small mb-2">Status</h6>
+                        <p class="mb-0">
+                            {% if log.success %}
+                                <span class="badge bg-success fs-6">
+                                    <i class="bi bi-check-circle me-1"></i>
+                                    Success
+                                </span>
+                            {% else %}
+                                <span class="badge bg-danger fs-6">
+                                    <i class="bi bi-x-circle me-1"></i>
+                                    Failed
+                                </span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Right Column -->
+                <div class="col-md-6">
+                    <div class="mb-4">
+                        <h6 class="text-muted text-uppercase small mb-2">IP Address</h6>
+                        <p class="mb-0">
+                            <i class="bi bi-globe text-info me-2"></i>
+                            {{ log.ip_address|default:"Not recorded" }}
+                        </p>
+                    </div>
+
+                    {% if log.model_name %}
+                    <div class="mb-4">
+                        <h6 class="text-muted text-uppercase small mb-2">Model</h6>
+                        <p class="mb-0">
+                            <i class="bi bi-database text-info me-2"></i>
+                            {{ log.model_name }}
+                        </p>
+                    </div>
+                    {% endif %}
+
+                    {% if log.object_id %}
+                    <div class="mb-4">
+                        <h6 class="text-muted text-uppercase small mb-2">Object ID</h6>
+                        <p class="mb-0">
+                            <i class="bi bi-hash text-info me-2"></i>
+                            {{ log.object_id }}
+                        </p>
+                    </div>
+                    {% endif %}
+
+                    {% if log.object_repr %}
+                    <div class="mb-4">
+                        <h6 class="text-muted text-uppercase small mb-2">Object</h6>
+                        <p class="mb-0">
+                            <i class="bi bi-box text-info me-2"></i>
+                            {{ log.object_repr }}
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Description Section -->
+            {% if log.description %}
+            <hr class="my-4" style="border-color: #2d2d2d;">
+            <div class="mb-4">
+                <h6 class="text-muted text-uppercase small mb-3">
+                    <i class="bi bi-card-text me-2"></i>
+                    Description
+                </h6>
+                <div class="bg-secondary rounded p-3">
+                    <p class="mb-0">{{ log.description }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- User Agent Section -->
+            {% if log.user_agent %}
+            <div class="mb-4">
+                <h6 class="text-muted text-uppercase small mb-3">
+                    <i class="bi bi-browser-chrome me-2"></i>
+                    User Agent
+                </h6>
+                <div class="bg-secondary rounded p-3">
+                    <small class="font-monospace">{{ log.user_agent }}</small>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Error Message Section -->
+            {% if not log.success and log.error_message %}
+            <div class="mb-4">
+                <h6 class="text-danger text-uppercase small mb-3">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Error Message
+                </h6>
+                <div class="bg-danger bg-opacity-25 rounded p-3 border border-danger">
+                    <p class="mb-0 text-danger">{{ log.error_message }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Extra Data Section -->
+            {% if log.extra_data %}
+            <div class="mb-0">
+                <h6 class="text-muted text-uppercase small mb-3">
+                    <i class="bi bi-code-square me-2"></i>
+                    Additional Data
+                </h6>
+                <div class="bg-secondary rounded p-3">
+                    <pre class="mb-0 text-white"><code>{{ log.extra_data }}</code></pre>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        border: 1px solid #2d2d2d;
+    }
+
+    .bg-secondary {
+        background-color: #2d2d2d !important;
+    }
+
+    pre {
+        background-color: transparent;
+        border: none;
+        padding: 0;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+
+    code {
+        color: #e9ecef;
+    }
+</style>
+{% endblock %}

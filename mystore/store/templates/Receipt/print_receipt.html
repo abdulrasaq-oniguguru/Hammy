@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Receipt - {{ receipt.receipt_number }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .receipt {
+            max-width: 600px;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .header h2 {
+            margin: 0;
+        }
+        .details, .items {
+            margin-bottom: 20px;
+        }
+        .items table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .items th, .items td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .total {
+            font-weight: bold;
+            text-align: right;
+        }
+        .print-button {
+            text-align: center;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="receipt">
+        <div class="header">
+            <h2>Receipt</h2>
+            <p><strong>Receipt Number:</strong> {{ receipt.receipt_number }}</p>
+            <p><strong>Date:</strong> {{ receipt.date }}</p>
+        </div>
+        <div class="details">
+            <p><strong>Customer:</strong> {{ receipt.customer.name }}</p>
+            <p><strong>User:</strong> {{ receipt.user.username }}</p>
+        </div>
+        <div class="items">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Qty</th>
+                        <th>Price</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sale in sales %}
+                    <tr>
+                        <td>{{ sale.product.name }}</td>
+                        <td>{{ sale.quantity }}</td>
+                        <td>{{ sale.discounted_price or sale.total_price }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="total"><strong>Total:</strong> {{ total_amount }}</p>
+        <div class="print-button">
+            <button onclick="window.print()">Print Receipt</button>
+        </div>
+    </div>
+</body>
+</html>

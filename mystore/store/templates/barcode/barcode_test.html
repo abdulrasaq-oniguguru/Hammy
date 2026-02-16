@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Print Barcode - {{ product.brand }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            padding: 25px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 300;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .product-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 25px;
+            border-left: 4px solid #007bff;
+        }
+
+        .product-info h3 {
+            margin: 0 0 15px 0;
+            color: #2c3e50;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.9rem;
+        }
+
+        .info-value {
+            color: #6c757d;
+            font-size: 1rem;
+            margin-top: 2px;
+        }
+
+        .barcode-preview {
+            text-align: center;
+            margin: 25px 0;
+            padding: 20px;
+            background: #fff;
+            border: 2px dashed #dee2e6;
+            border-radius: 10px;
+        }
+
+        .barcode-image {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            background: white;
+        }
+
+        .printer-section {
+            background: #e3f2fd;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+
+        .printer-selection {
+            margin-bottom: 20px;
+        }
+
+        .printer-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .printer-option {
+            background: white;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .printer-option:hover {
+            border-color: #007bff;
+            transform: translateY(-2px);
+        }
+
+        .printer-option.selected {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+
+        .printer-name {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .printer-details {
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+
+        .print-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .copies-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .copies-input {
+            width: 60px;
+            padding: 8px;
+            border: 2px solid #dee2e6;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 1rem;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745, #1e7e34);
+            color: white;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ffc107, #e0a800);
+            color: #212529;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            z-index: 9999;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            background: #28a745;
+        }
+
+        .notification.error {
+            background: #dc3545;
+        }
+
+        .method-selection {
+            margin: 20px 0;
+        }
+
+        .method-options {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .method-option {
+            padding: 8px 16px;
+            border: 2px solid #dee2e6;
+            border-radius: 20px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .method-option.selected {
+            border-color: #007bff;
+            background: #007bff;
+            color: white;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-ready { background: #28a745; }
+        .status-busy { background: #ffc107; }
+        .status-error { background: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🖨️ Print Barcode</h1>
+        </div>
+
+        <div class="content">
+            <!-- Product Information -->
+            <div class="product-info">
+                <h3>📦 Product Details</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Brand</span>
+                        <span class="info-value">{{ product.brand }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Size</span>
+                        <span class="info-value">{{ product.size|default:"N/A" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Color</span>
+                        <span class="info-value">{{ product.get_display_color|default:"N/A" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Price</span>
+                        <span class="info-value">₦{{ product.selling_price }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Barcode</span>
+                        <span class="info-value">{{ product.barcode_number }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Barcode Preview -->
+            {% if product.barcode_image %}
+            <div class="barcode-preview">
+                <h4>📋 Barcode Preview</h4>
+                <img src="{{ product.barcode_image.url }}" alt="Barcode" class="barcode-image">
+                <p><small>This is the exact image that will be printed</small></p>
+            </div>
+            {% else %}
+            <div class="barcode-preview">
+                <h4>⚠️ No Barcode Image</h4>
+                <p>Barcode image not found. Please generate barcode first.</p>
+                <a href="{% url 'generate_barcode' product.id %}" class="btn btn-warning">Generate Barcode</a>
+            </div>
+            {% endif %}
+
+            <!-- Printer Selection -->
+            <div class="printer-section">
+                <h4>🖨️ Select Printer</h4>
+                <div class="printer-options" id="printerOptions">
+                    <!-- Printers will be loaded via JavaScript -->
+                </div>
+
+                <!-- Print Method Selection -->
+                <div class="method-selection">
+                    <h5>Print Method</h5>
+                    <div class="method-options">
+                        <div class="method-option selected" data-method="auto">
+                            🔄 Auto (Recommended)
+                        </div>
+                        <div class="method-option" data-method="gdi">
+                            🖼️ High Quality (GDI)
+                        </div>
+                        <div class="method-option" data-method="shell">
+                            ⚡ Quick Print
+                        </div>
+                        <div class="method-option" data-method="raw">
+                            🔧 Raw Thermal
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Print Controls -->
+                <div class="print-controls">
+                    <div class="copies-control">
+                        <label for="copies">Copies:</label>
+                        <input type="number" id="copies" class="copies-input" value="1" min="1" max="10">
+                    </div>
+
+                    {% if product.barcode_image %}
+                    <button class="btn btn-success" onclick="printBarcodeNow({{ product.id }})">
+                        🖨️ Print Now
+                    </button>
+                    {% endif %}
+
+                    <button class="btn btn-primary" onclick="testPrinter()">
+                        🧪 Test Printer
+                    </button>
+
+                    <a href="{% url 'enhanced_printer_selection' %}" class="btn btn-warning">
+                        ⚙️ Printer Settings
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedPrinter = null;
+        let selectedMethod = 'auto';
+
+        // Load available printers
+        async function loadPrinters() {
+            try {
+                const response = await fetch('/api/printers/');
+                const data = await response.json();
+
+                const container = document.getElementById('printerOptions');
+                container.innerHTML = '';
+
+                data.printers.forEach(printer => {
+                    const div = document.createElement('div');
+                    div.className = 'printer-option';
+                    div.onclick = () => selectPrinter(printer.name, div);
+
+                    const statusClass = printer.is_ready ? 'status-ready' :
+                                      printer.status > 0 ? 'status-busy' : 'status-error';
+
+                    div.innerHTML = `
+                        <div class="printer-name">
+                            <span class="status-indicator ₦{statusClass}"></span>
+                            ₦{printer.name}
+                            ₦{printer.is_default ? ' (Default)' : ''}
+                        </div>
+                        <div class="printer-details">
+                            ₦{printer.type} • ₦{printer.status_text} • ₦{printer.port}
+                            ₦{printer.is_thermal ? ' • 🔥 Thermal' : ''}
+                        </div>
+                    `;
+
+                    container.appendChild(div);
+
+                    // Select default printer
+                    if (printer.is_default && !selectedPrinter) {
+                        selectPrinter(printer.name, div);
+                    }
+                });
+
+            } catch (error) {
+                console.error('Failed to load printers:', error);
+                showNotification('Failed to load printers', 'error');
+            }
+        }
+
+        function selectPrinter(printerName, element) {
+            // Remove previous selection
+            document.querySelectorAll('.printer-option').forEach(el => {
+                el.classList.remove('selected');
+            });
+
+            // Select new printer
+            element.classList.add('selected');
+            selectedPrinter = printerName;
+        }
+
+        // Method selection
+        document.querySelectorAll('.method-option').forEach(option => {
+            option.onclick = () => {
+                document.querySelectorAll('.method-option').forEach(el => {
+                    el.classList.remove('selected');
+                });
+                option.classList.add('selected');
+                selectedMethod = option.dataset.method;
+            };
+        });
+
+        async function printBarcodeNow(productId) {
+            if (!selectedPrinter) {
+                showNotification('Please select a printer first', 'error');
+                return;
+            }
+
+            const copies = document.getElementById('copies').value;
+
+            try {
+                showNotification('Sending to printer...', 'info');
+
+                const response = await fetch(`/print/barcode/direct/₦{productId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({
+                        printer_name: selectedPrinter,
+                        copies: parseInt(copies),
+                        method: selectedMethod
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                } else {
+                    showNotification(data.error, 'error');
+                }
+
+            } catch (error) {
+                console.error('Print error:', error);
+                showNotification('Print failed: ' + error.message, 'error');
+            }
+        }
+
+        async function testPrinter() {
+            if (!selectedPrinter) {
+                showNotification('Please select a printer first', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/print/test/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({
+                        printer_name: selectedPrinter
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                } else {
+                    showNotification(data.error, 'error');
+                }
+
+            } catch (error) {
+                showNotification('Test failed: ' + error.message, 'error');
+            }
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        function showNotification(message, type = 'info') {
+            // Remove existing notifications
+            document.querySelectorAll('.notification').forEach(n => n.remove());
+
+            const notification = document.createElement('div');
+            notification.className = `notification ₦{type}`;
+            notification.textContent = message;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 8px;
+                color: white;
+                font-weight: 600;
+                z-index: 9999;
+                transform: translateX(400px);
+                transition: transform 0.3s ease;
+                ₦{type === 'success' ? 'background: #28a745;' :
+                  type === 'error' ? 'background: #dc3545;' :
+                  'background: #17a2b8;'}
+            `;
+
+            document.body.appendChild(notification);
+
+            // Show notification
+            setTimeout(() => {
+                notification.classList.add('show');
+                notification.style.transform = 'translateX(0)';
+            }, 100);
+
+            // Hide notification
+            setTimeout(() => {
+                notification.style.transform = 'translateX(400px)';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        // Load printers when page loads
+        document.addEventListener('DOMContentLoaded', loadPrinters);
+    </script>
+</body>
+</html>

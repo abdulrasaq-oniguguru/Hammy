@@ -1,0 +1,134 @@
+{% extends 'authentication/base_auth.html' %}
+
+{% block title %}Manage 2FA{% endblock %}
+
+{% block content %}
+<div class="auth-card">
+    <div class="auth-header">
+        <i class="fas fa-user-shield"></i>
+        <h2>Two-Factor Authentication</h2>
+        <p>Secure your account with 2FA</p>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {% if message.tags == 'success' %}
+                    <i class="fas fa-check-circle me-2"></i>
+                {% else %}
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                {% endif %}
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Current Status -->
+    <div class="text-center mb-4">
+        <p class="mb-2" style="color: var(--text-muted);">Current Status:</p>
+        {% if two_factor_enabled %}
+            <div class="status-badge enabled">
+                <i class="fas fa-check-circle me-1"></i> 2FA Enabled
+            </div>
+        {% else %}
+            <div class="status-badge disabled">
+                <i class="fas fa-times-circle me-1"></i> 2FA Disabled
+            </div>
+        {% endif %}
+    </div>
+
+    {% if not two_factor_enabled %}
+        <!-- Setup 2FA -->
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Superuser Access Required:</strong> Only superusers can enable 2FA.
+        </div>
+
+        {% if user.is_superuser %}
+            <h5 class="mb-3" style="color: var(--text-primary);">
+                <i class="fas fa-mobile-alt me-2"></i>
+                Setup Two-Factor Authentication
+            </h5>
+
+            <ol style="color: var(--text-secondary);" class="mb-4">
+                <li class="mb-2">Download an authenticator app (Google Authenticator, Authy, Microsoft Authenticator)</li>
+                <li class="mb-2">Scan the QR code below with your authenticator app</li>
+                <li class="mb-2">Enter the 6-digit code from your app to verify</li>
+            </ol>
+
+            {% if qr_code %}
+                <div class="qr-code-container">
+                    <img src="data:image/png;base64,{{ qr_code }}" alt="2FA QR Code">
+                    <p style="color: var(--text-muted); margin-top: 1rem;">
+                        Can't scan? Enter this secret key manually:
+                    </p>
+                    <div class="secret-key">{{ secret }}</div>
+                </div>
+
+                <form method="post" action="{% url 'authentication:enable_2fa' %}">
+                    {% csrf_token %}
+                    <div class="mb-4">
+                        <label for="otp_code" class="form-label">
+                            <i class="fas fa-mobile-alt me-1"></i> Verification Code
+                        </label>
+                        <input type="text" class="form-control text-center" id="otp_code" name="otp_code"
+                               placeholder="000000" maxlength="6" pattern="[0-9]{6}" required
+                               style="font-size: 1.5rem; letter-spacing: 0.5rem;">
+                    </div>
+                    <button type="submit" class="btn-auth">
+                        <i class="fas fa-check-circle me-2"></i>
+                        Enable 2FA
+                    </button>
+                </form>
+            {% else %}
+                <form method="post" action="{% url 'authentication:setup_2fa' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-auth">
+                        <i class="fas fa-qrcode me-2"></i>
+                        Generate QR Code
+                    </button>
+                </form>
+            {% endif %}
+        {% endif %}
+
+    {% else %}
+        <!-- Disable 2FA -->
+        <div class="alert alert-success">
+            <i class="fas fa-check-circle me-2"></i>
+            Your account is protected with Two-Factor Authentication
+        </div>
+
+        {% if user.is_superuser %}
+            <div class="divider"><span>Disable 2FA</span></div>
+
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Warning:</strong> Disabling 2FA will make your account less secure.
+            </div>
+
+            <form method="post" action="{% url 'authentication:disable_2fa' %}">
+                {% csrf_token %}
+                <div class="mb-4">
+                    <label for="otp_code" class="form-label">
+                        <i class="fas fa-mobile-alt me-1"></i> Enter Code to Confirm
+                    </label>
+                    <input type="text" class="form-control text-center" id="otp_code" name="otp_code"
+                           placeholder="000000" maxlength="6" pattern="[0-9]{6}" required
+                           style="font-size: 1.5rem; letter-spacing: 0.5rem;">
+                </div>
+                <button type="submit" class="btn-secondary-auth">
+                    <i class="fas fa-times-circle me-2"></i>
+                    Disable 2FA
+                </button>
+            </form>
+        {% endif %}
+    {% endif %}
+
+    <div class="divider"><span>OR</span></div>
+
+    <a href="{% url 'oem_reporting:reports_menu' %}" class="btn-secondary-auth">
+        <i class="fas fa-arrow-left me-2"></i>
+        Back to Reports
+    </a>
+</div>
+{% endblock %}

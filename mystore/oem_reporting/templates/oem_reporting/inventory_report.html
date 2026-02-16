@@ -1,0 +1,226 @@
+{% extends 'oem_reporting/base_oem.html' %}
+{% load static %}
+{% block title %}Inventory Report - OEM{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .filter-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+    }
+
+    .filter-card-header {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border-bottom: 1px solid var(--border-color);
+        padding: 1rem;
+        border-radius: 12px 12px 0 0;
+    }
+
+    .filter-card-body {
+        color: var(--text-primary);
+        padding: 1rem;
+    }
+
+    .form-label {
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+    }
+
+    .summary-card {
+        background: var(--card-bg);
+        color: var(--text-primary);
+        border-radius: 8px;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .summary-card .card-title {
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    .summary-card .card-text {
+        color: var(--text-primary);
+    }
+
+    .inventory-table {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+    }
+
+    .table th {
+        background: var(--table-header-bg);
+        color: var(--text-primary);
+        border-color: var(--border-color);
+        padding: 0.5rem;
+        font-size: 0.85rem;
+    }
+
+    .table td {
+        color: var(--text-primary);
+        border-color: var(--border-color);
+        padding: 0.5rem;
+        font-size: 0.85rem;
+        white-space: nowrap;
+    }
+
+    .table tbody tr:hover {
+        background-color: var(--table-row-hover);
+    }
+
+    .page-title {
+        color: var(--text-primary);
+    }
+
+    .badge {
+        font-size: 0.75rem;
+        padding: 0.35em 0.5em;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+
+        <!-- Left Sidebar: Filters -->
+        <div class="col-lg-2 col-md-3 col-sm-4 mb-4">
+            <div class="filter-card">
+                <div class="filter-card-header">
+                    <h6 class="mb-0">Filters</h6>
+                </div>
+                <div class="filter-card-body">
+                    <form method="get" class="small">
+                        <!-- Category Filter -->
+                        <div class="form-group mb-3">
+                            <label for="category" class="form-label">Category</label>
+                            <select class="form-select form-select-sm" id="category" name="category">
+                                <option value="">All Categories</option>
+                                {% for value, name in categories %}
+                                <option value="{{ value }}" {% if selected_category == value %}selected{% endif %}>{{ name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Low Stock Only -->
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="low_stock" name="low_stock"
+                                   {% if show_low_stock %}checked{% endif %}>
+                            <label class="form-check-label" for="low_stock" style="color: var(--text-secondary);">
+                                Show Low Stock Only
+                            </label>
+                        </div>
+
+                        <!-- Actions -->
+                        <button type="submit" class="btn btn-oem-primary btn-sm w-100 mb-2">Apply</button>
+                        <a href="{% url 'oem_reporting:inventory_report' %}" class="btn btn-oem-secondary btn-sm w-100">Clear</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-lg-10 col-md-9 col-sm-8">
+
+            <!-- Page Title -->
+            <h1 class="h3 mb-4 page-title">Inventory Report</h1>
+
+            <!-- Summary Cards -->
+            <div class="row mb-4">
+                <div class="col-xl-3 col-md-6 mb-3">
+                    <div class="card summary-card" style="border-left: 4px solid #4e73df;">
+                        <div class="card-body">
+                            <h6 class="card-title text-primary">Total Value</h6>
+                            <p class="card-text fs-5 mb-0">{{ currency_symbol }}{{ total_value|floatformat:2 }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-3">
+                    <div class="card summary-card" style="border-left: 4px solid #36b9cc;">
+                        <div class="card-body">
+                            <h6 class="card-title text-info">Total Products</h6>
+                            <p class="card-text fs-5 mb-0">{{ products.count }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-3">
+                    <div class="card summary-card" style="border-left: 4px solid #f6c23e;">
+                        <div class="card-body">
+                            <h6 class="card-title text-warning">Low Stock</h6>
+                            <p class="card-text fs-5 mb-0">{{ low_stock_count }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-3">
+                    <div class="card summary-card" style="border-left: 4px solid #1cc88a;">
+                        <div class="card-body">
+                            <h6 class="card-title text-success">Avg. Markup</h6>
+                            <p class="card-text fs-5 mb-0">{{ avg_markup|floatformat:2 }}%</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inventory Table -->
+            <div class="inventory-table">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm" id="inventoryTable">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Category</th>
+                                    <th>Size</th>
+                                    <th>Cost Price</th>
+                                    <th>Selling Price</th>
+                                    <th>Markup</th>
+                                    <th>Stock</th>
+                                    <th>Status</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for product in products %}
+                                <tr>
+                                    <td>{{ product.brand|default:"Unnamed" }}</td>
+                                    <td>{{ product.get_category_display|default:"Uncategorized" }}</td>
+                                    <td>{{ product.size|default:"N/A" }}</td>
+                                    <td>{{ currency_symbol }}{{ product.price|floatformat:2 }}</td>
+                                    <td>{{ currency_symbol }}{{ product.selling_price|floatformat:2 }}</td>
+                                    <td>
+                                        {% if product.markup_type == 'percentage' %}
+                                            {{ product.markup }}%
+                                        {% else %}
+                                            {{ currency_symbol }}{{ product.markup|floatformat:2 }}
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ product.quantity }}</td>
+                                    <td>
+                                        {% if product.quantity < 5 %}
+                                            <span class="badge bg-danger">Critical</span>
+                                        {% elif product.quantity < 10 %}
+                                            <span class="badge bg-warning text-dark">Low</span>
+                                        {% else %}
+                                            <span class="badge bg-success">Good</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ currency_symbol }}{{ product.total_value|floatformat:2 }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" class="text-center" style="color: var(--text-muted);">No products found.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+{% endblock %}

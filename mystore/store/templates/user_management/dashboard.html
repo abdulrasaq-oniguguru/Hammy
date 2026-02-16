@@ -1,0 +1,688 @@
+<!-- user_management/dashboard.html -->
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}User Management Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Page Header */
+    .page-header {
+        background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+        border-radius: 20px;
+        padding: 2rem 2.5rem;
+        margin-bottom: 2rem;
+        color: white;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .page-header h1 {
+        font-weight: 800;
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .page-header p {
+        opacity: 0.95;
+        font-size: 1.05rem;
+        margin: 0;
+    }
+
+    /* Stats Overview Cards */
+    .stats-overview {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: var(--shadow-sm);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--accent-gradient);
+    }
+
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-lg);
+    }
+
+    .stat-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 1rem;
+        font-size: 1.5rem;
+    }
+
+    .stat-icon.primary {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15));
+        color: var(--accent-primary);
+    }
+
+    .stat-icon.success {
+        background: linear-gradient(135deg, rgba(40, 167, 69, 0.15), rgba(72, 187, 120, 0.15));
+        color: var(--accent-success);
+    }
+
+    .stat-icon.info {
+        background: linear-gradient(135deg, rgba(54, 185, 204, 0.15), rgba(99, 230, 226, 0.15));
+        color: var(--accent-info);
+    }
+
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 800;
+        color: var(--text-primary);
+        line-height: 1;
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-label {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    /* Search and Filter Bar */
+    .filter-bar {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .search-input-wrapper {
+        position: relative;
+        flex: 1;
+    }
+
+    .search-input-wrapper i {
+        position: absolute;
+        left: 1.25rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        font-size: 1.1rem;
+    }
+
+    .search-box {
+        background: var(--input-bg);
+        color: var(--text-primary);
+        border-radius: 12px;
+        border: 2px solid var(--border-color);
+        padding: 0.85rem 1rem 0.85rem 3rem;
+        font-size: 0.95rem;
+        width: 100%;
+        transition: all 0.3s ease;
+    }
+
+    .search-box:focus {
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.15);
+        background: var(--card-bg);
+        color: var(--text-primary);
+        outline: none;
+    }
+
+    .filter-select {
+        background: var(--input-bg);
+        color: var(--text-primary);
+        border: 2px solid var(--border-color);
+        border-radius: 12px;
+        padding: 0.85rem 1rem;
+        font-size: 0.95rem;
+        min-width: 200px;
+        transition: all 0.3s ease;
+    }
+
+    .filter-select:focus {
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.15);
+        background: var(--card-bg);
+        outline: none;
+    }
+
+    /* User Table */
+    .users-table-wrapper {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .users-table {
+        width: 100%;
+        margin: 0;
+    }
+
+    .users-table thead {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+    }
+
+    .users-table thead th {
+        padding: 1.25rem 1.5rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.5px;
+        color: var(--text-primary);
+        border-bottom: 2px solid var(--border-color);
+    }
+
+    .users-table tbody tr {
+        border-bottom: 1px solid var(--border-color);
+        transition: all 0.2s ease;
+    }
+
+    .users-table tbody tr:hover {
+        background: rgba(102, 126, 234, 0.03);
+    }
+
+    .users-table tbody td {
+        padding: 1.25rem 1.5rem;
+        color: var(--text-secondary);
+        vertical-align: middle;
+    }
+
+    .user-info {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .user-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .user-avatar i {
+        font-size: 1.25rem;
+        color: white;
+    }
+
+    .user-details h6 {
+        margin: 0 0 0.25rem 0;
+        font-weight: 700;
+        color: var(--text-primary);
+        font-size: 0.95rem;
+    }
+
+    .user-details small {
+        color: var(--text-muted);
+        font-size: 0.85rem;
+    }
+
+    .badge-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .access-badge, .group-badge, .status-badge {
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.4rem 0.75rem;
+        border-radius: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        display: inline-block;
+    }
+
+    .access-md { background: linear-gradient(135deg, #dc3545, #c82333); color: white; }
+    .access-accountant { background: linear-gradient(135deg, #28a745, #218838); color: white; }
+    .access-cashier { background: linear-gradient(135deg, #007bff, #0056b3); color: white; }
+
+    .group-badge {
+        background: rgba(102, 126, 234, 0.1);
+        color: var(--accent-primary);
+        border: 1px solid var(--accent-primary);
+    }
+
+    .status-badge.active {
+        background: rgba(40, 167, 69, 0.15);
+        color: var(--accent-success);
+        border: 1px solid var(--accent-success);
+    }
+
+    .status-badge.inactive {
+        background: rgba(220, 53, 69, 0.15);
+        color: var(--accent-danger);
+        border: 1px solid var(--accent-danger);
+    }
+
+    /* Action Buttons */
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .btn-action {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+        border: 1px solid var(--border-color);
+    }
+
+    .btn-action:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .btn-action.edit { color: var(--accent-primary); }
+    .btn-action.edit:hover { background: rgba(102, 126, 234, 0.1); border-color: var(--accent-primary); }
+
+    .btn-action.toggle { color: var(--accent-warning); }
+    .btn-action.toggle:hover { background: rgba(246, 194, 62, 0.1); border-color: var(--accent-warning); }
+
+    .btn-action.delete { color: var(--accent-danger); }
+    .btn-action.delete:hover { background: rgba(220, 53, 69, 0.1); border-color: var(--accent-danger); }
+
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: var(--text-muted);
+    }
+
+    .empty-state i {
+        font-size: 4rem;
+        opacity: 0.3;
+        margin-bottom: 1.5rem;
+    }
+
+    .empty-state h5 {
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    /* Pagination */
+    .pagination {
+        justify-content: center;
+        margin: 2rem 0 0 0;
+    }
+
+    .page-item .page-link {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+        border-radius: 8px;
+        margin: 0 0.25rem;
+        padding: 0.5rem 0.75rem;
+    }
+
+    .page-item.active .page-link {
+        background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+        border-color: var(--accent-primary);
+        color: white;
+    }
+
+    .page-item .page-link:hover {
+        background: rgba(102, 126, 234, 0.1);
+        border-color: var(--accent-primary);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .page-header h1 { font-size: 1.5rem; }
+        .stats-overview { grid-template-columns: 1fr; }
+        .users-table { font-size: 0.85rem; }
+        .users-table thead th,
+        .users-table tbody td { padding: 0.75rem; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <!-- Page Header -->
+    <div class="page-header d-flex justify-content-between align-items-center">
+        <div>
+            <h1><i class="bi bi-people-fill me-2"></i>User Management</h1>
+            <p>Manage team members, roles, and permissions</p>
+        </div>
+        <a href="{% url 'create_user' %}" class="btn btn-light btn-lg">
+            <i class="bi bi-person-plus-fill me-2"></i>Add New User
+        </a>
+    </div>
+
+    <!-- Stats Overview -->
+    <div class="stats-overview">
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i class="bi bi-people"></i>
+            </div>
+            <div class="stat-value">{{ total_users }}</div>
+            <div class="stat-label">Total Users</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon success">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="stat-value">{{ users|length }}</div>
+            <div class="stat-label">Active Users</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon info">
+                <i class="bi bi-person-badge"></i>
+            </div>
+            <div class="stat-value">{{ request.user.username }}</div>
+            <div class="stat-label">Current User</div>
+        </div>
+    </div>
+
+    <!-- Search & Filter Bar -->
+    <div class="filter-bar">
+        <div class="d-flex flex-wrap gap-3 align-items-center">
+            <form method="GET" class="search-input-wrapper">
+                <i class="bi bi-search"></i>
+                <input type="text" name="search" value="{{ search_query }}"
+                       class="search-box"
+                       placeholder="Search by name, username, or email...">
+            </form>
+
+            <form method="GET" class="d-flex gap-2">
+                {% if search_query %}
+                    <input type="hidden" name="search" value="{{ search_query }}">
+                {% endif %}
+                <select name="access_level" class="filter-select" onchange="this.form.submit()">
+                    <option value="">All Access Levels</option>
+                    {% for value, label in access_levels %}
+                        <option value="{{ value }}" {% if access_filter == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <a href="{% url 'user_management_dashboard' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-clockwise me-1"></i>Reset
+                </a>
+            </form>
+        </div>
+    </div>
+
+    <!-- Users Table -->
+    {% if users %}
+        <div class="users-table-wrapper">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Contact</th>
+                        <th>Access & Groups</th>
+                        <th>Status</th>
+                        <th>Joined</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                        <tr>
+                            <!-- User Info -->
+                            <td>
+                                <div class="user-info">
+                                    <div class="user-avatar">
+                                        <i class="bi bi-person-fill"></i>
+                                    </div>
+                                    <div class="user-details">
+                                        <h6>{{ user.first_name }} {{ user.last_name }}</h6>
+                                        <small>@{{ user.username }}</small>
+                                    </div>
+                                </div>
+                            </td>
+
+                            <!-- Contact -->
+                            <td>
+                                <div>
+                                    <i class="bi bi-envelope me-1"></i>
+                                    <small>{{ user.email }}</small>
+                                </div>
+                                {% if user.profile.phone_number %}
+                                    <div class="mt-1">
+                                        <i class="bi bi-telephone me-1"></i>
+                                        <small>{{ user.profile.phone_number }}</small>
+                                    </div>
+                                {% endif %}
+                            </td>
+
+                            <!-- Access & Groups -->
+                            <td>
+                                <div class="badge-container">
+                                    <span class="access-badge access-{{ user.profile.access_level }}">
+                                        {{ user.profile.get_access_level_display }}
+                                    </span>
+                                    {% if user.groups.all %}
+                                        {% for group in user.groups.all %}
+                                            <span class="group-badge">
+                                                <i class="bi bi-shield-check me-1"></i>{{ group.name }}
+                                            </span>
+                                        {% endfor %}
+                                    {% endif %}
+                                </div>
+                            </td>
+
+                            <!-- Status -->
+                            <td>
+                                {% if user.is_active %}
+                                    <span class="status-badge active">
+                                        <i class="bi bi-check-circle me-1"></i>Active
+                                    </span>
+                                {% else %}
+                                    <span class="status-badge inactive">
+                                        <i class="bi bi-x-circle me-1"></i>Inactive
+                                    </span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Joined Date -->
+                            <td>
+                                <small>{{ user.date_joined|date:"M d, Y" }}</small>
+                            </td>
+
+                            <!-- Actions -->
+                            <td>
+                                <div class="action-buttons justify-content-center">
+                                    <a href="{% url 'edit_user' user.id %}"
+                                       class="btn btn-action edit"
+                                       title="Edit User">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+
+                                    {% if not user.is_superuser %}
+                                        <button type="button"
+                                                class="btn btn-action toggle toggle-status-btn"
+                                                data-user-id="{{ user.id }}"
+                                                data-current-status="{{ user.is_active|yesno:'true,false' }}"
+                                                title="{% if user.is_active %}Deactivate{% else %}Activate{% endif %}">
+                                            <i class="bi bi-{% if user.is_active %}pause-circle{% else %}play-circle{% endif %}"></i>
+                                        </button>
+
+                                        {% if user != request.user %}
+                                            <a href="{% url 'delete_user' user.id %}"
+                                               class="btn btn-action delete"
+                                               title="Delete User"
+                                               onclick="return confirm('Are you sure you want to delete {{ user.get_full_name }}?')">
+                                                <i class="bi bi-trash"></i>
+                                            </a>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <!-- Pagination -->
+            {% if users.has_other_pages %}
+                <nav class="mt-4">
+                    <ul class="pagination">
+                        {% if users.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ users.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if access_filter %}&access_level={{ access_filter }}{% endif %}">
+                                    <i class="bi bi-chevron-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+
+                        {% for num in users.paginator.page_range %}
+                            {% if users.number == num %}
+                                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                            {% else %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if access_filter %}&access_level={{ access_filter }}{% endif %}">{{ num }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if users.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ users.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if access_filter %}&access_level={{ access_filter }}{% endif %}">
+                                    <i class="bi bi-chevron-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endif %}
+        </div>
+    {% else %}
+        <!-- Empty State -->
+        <div class="users-table-wrapper">
+            <div class="empty-state">
+                <i class="bi bi-people"></i>
+                <h5>No users found</h5>
+                <p>Try adjusting your search or filter, or add a new user.</p>
+                <a href="{% url 'create_user' %}" class="btn btn-primary btn-lg mt-3">
+                    <i class="bi bi-person-plus-fill me-2"></i>Add Your First User
+                </a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Messages -->
+{% if messages %}
+    <div class="position-fixed" style="top: 20px; right: 20px; z-index: 1050; min-width: 300px;">
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show small" role="alert">
+                <i class="fas fa-info-circle mr-1"></i> {{ message }}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+₦(document).ready(function() {
+    // Toggle user status
+    ₦('.toggle-status-btn').click(function() {
+        const userId = ₦(this).data('user-id');
+        const currentStatus = ₦(this).data('current-status') === 'true';
+        const button = ₦(this);
+        const row = button.closest('tr');
+
+        ₦.ajaxSetup({
+            beforeSend: function(xhr, settings) {
+                if (!this.crossDomain) {
+                    xhr.setRequestHeader("X-CSRFToken", ₦('[name=csrfmiddlewaretoken]').val());
+                }
+            }
+        });
+
+        // Disable button during request
+        button.prop('disabled', true);
+
+        ₦.post('{% url "toggle_user_status" 0 %}'.replace('0', userId), {
+            'csrfmiddlewaretoken': ₦('[name=csrfmiddlewaretoken]').val()
+        })
+        .done(function(response) {
+            if (response.success) {
+                const statusBadge = row.find('.status-badge');
+                const icon = button.find('i');
+
+                if (response.is_active) {
+                    statusBadge.removeClass('inactive').addClass('active')
+                        .html('<i class="bi bi-check-circle me-1"></i>Active');
+                    icon.removeClass('bi-play-circle').addClass('bi-pause-circle');
+                    button.attr('title', 'Deactivate User');
+                } else {
+                    statusBadge.removeClass('active').addClass('inactive')
+                        .html('<i class="bi bi-x-circle me-1"></i>Inactive');
+                    icon.removeClass('bi-pause-circle').addClass('bi-play-circle');
+                    button.attr('title', 'Activate User');
+                }
+
+                // Update data attribute
+                button.data('current-status', response.is_active);
+
+                showMessage(response.message, 'success');
+            } else {
+                showMessage(response.message, 'danger');
+            }
+        })
+        .fail(function() {
+            showMessage('Failed to update status. Please try again.', 'danger');
+        })
+        .always(function() {
+            // Re-enable button
+            button.prop('disabled', false);
+        });
+    });
+
+    // Auto-hide messages
+    setTimeout(() => ₦('.alert').fadeOut(), 5000);
+
+    function showMessage(message, type) {
+        const alertHtml = `
+            <div class="alert alert-₦{type} alert-dismissible fade show small" role="alert">
+                <i class="bi bi-bell me-1"></i> ₦{message}
+                <button type="button" class="close" data-dismiss="alert">&times;</button>
+            </div>`;
+        ₦('.position-fixed').append(alertHtml);
+        setTimeout(() => ₦('.alert').last().fadeOut(), 5000);
+    }
+});
+</script>
+{% endblock %}

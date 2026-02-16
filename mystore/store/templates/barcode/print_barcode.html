@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Barcode - {{ product.barcode_number }}</title>
+    <style>
+        @page {
+            size: 55mm 25mm;
+            margin: 0;
+        }
+
+        body {
+            width: 55mm;
+            height: 25mm;
+            margin: 0;
+            padding: 0;
+            background: white;
+            color: black;
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .label-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .barcode-image {
+            width: 55mm !important;
+            height: 25mm !important;
+            object-fit: contain;
+            image-rendering: pixelated;
+            filter: contrast(200%);
+        }
+    </style>
+</head>
+<body onload="setTimeout(() => { window.print(); window.close(); }, 500)">
+    <div class="label-container">
+        <img src="{{ barcode_url }}" alt="Barcode" class="barcode-image">
+    </div>
+</body>
+</html>

@@ -1,0 +1,537 @@
+<!-- templates/products/generate_barcodes.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generate Barcodes</title>
+    <style>
+        /* Dark Theme Base */
+        :root {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --bg-card: #333333;
+            --text-primary: #e0e0e0;
+            --text-secondary: #b0b0b0;
+            --text-muted: #888;
+            --accent-blue: #5dade2;
+            --accent-green: #2ecc71;
+            --accent-gray: #95a5a6;
+            --border: #444;
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            --btn-hover: #2c3e50;
+            --btn-active: #1a252f;
+            --alert-success-bg: #1d4b3b;
+            --alert-success-border: #166450;
+            --alert-error-bg: #5a2c2c;
+            --alert-error-border: #8b3d3d;
+            --alert-warning-bg: #5a4a2c;
+            --alert-warning-border: #8b733d;
+            --status-missing-bg: #4a1d1d;
+            --status-missing-color: #e74c3c;
+            --status-partial-bg: #4a422c;
+            --status-partial-color: #f39c12;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: var(--bg-secondary);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0 0 15px 0;
+            color: var(--accent-blue);
+            font-size: 2.2em;
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            margin: 0;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 20px 0;
+        }
+
+        .stat-item {
+            background: var(--accent-blue);
+            color: #000;
+            padding: 15px 25px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            display: block;
+        }
+
+        .actions-container {
+            background: var(--bg-secondary);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+        }
+
+        .actions-container h3 {
+            margin: 0 0 20px 0;
+            color: var(--text-primary);
+        }
+
+        .bulk-actions {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            color: white;
+        }
+
+        .btn-primary {
+            background: var(--accent-blue);
+        }
+
+        .btn-primary:hover {
+            background: #4a9ec0;
+            transform: translateY(-1px);
+        }
+
+        .btn-success {
+            background: var(--accent-green);
+        }
+
+        .btn-success:hover {
+            background: #27ae60;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: var(--accent-gray);
+        }
+
+        .btn-secondary:hover {
+            background: #8a979e;
+        }
+
+        .btn-home {
+            background: #8e44ad;
+        }
+
+        .btn-home:hover {
+            background: #7d3c98;
+        }
+
+        .products-container {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .products-header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .select-all-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .select-all-container label {
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .products-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .product-item {
+            display: flex;
+            align-items: center;
+            padding: 20px 30px;
+            border-bottom: 1px solid var(--border);
+            transition: background-color 0.2s ease;
+        }
+
+        .product-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .product-item:last-child {
+            border-bottom: none;
+        }
+
+        .product-checkbox {
+            margin-right: 20px;
+            transform: scale(1.2);
+        }
+
+        .product-info {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .product-name {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .product-brand {
+            color: var(--text-secondary);
+            font-size: 0.9em;
+        }
+
+        .product-detail {
+            color: var(--text-muted);
+            font-size: 0.9em;
+        }
+
+        .barcode-status {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 500;
+            text-align: center;
+        }
+
+        .status-missing {
+            background: var(--status-missing-bg);
+            color: var(--status-missing-color);
+        }
+
+        .status-partial {
+            background: var(--status-partial-bg);
+            color: var(--status-partial-color);
+        }
+
+        .individual-action {
+            padding: 8px 16px;
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+        }
+
+        .individual-action:hover {
+            background: #4a9ec0;
+            transform: translateY(-1px);
+        }
+
+        .no-products {
+            text-align: center;
+            padding: 60px 30px;
+            color: var(--text-secondary);
+        }
+
+        .no-products i {
+            font-size: 4em;
+            margin-bottom: 20px;
+            display: block;
+            color: #555;
+        }
+
+        .messages {
+            margin-bottom: 20px;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            border: 1px solid transparent;
+        }
+
+        .alert-success {
+            background: var(--alert-success-bg);
+            border-color: var(--alert-success-border);
+            color: #a3e4d7;
+        }
+
+        .alert-error {
+            background: var(--alert-error-bg);
+            border-color: var(--alert-error-border);
+            color: #e74c3c;
+        }
+
+        .alert-warning {
+            background: var(--alert-warning-bg);
+            border-color: var(--alert-warning-border);
+            color: #f39c12;
+        }
+
+        @media (max-width: 768px) {
+            .product-info {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            .bulk-actions {
+                flex-direction: column;
+            }
+
+            .stats {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Messages -->
+    {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- Header -->
+    <div class="header">
+        <h1>🏷️ Generate Barcodes</h1>
+        <p>Manage and generate barcodes for products</p>
+
+        <div class="stats">
+            <div class="stat-item">
+                <span class="stat-number">{{ total_count }}</span>
+                <span>Products Missing Barcodes</span>
+            </div>
+        </div>
+    </div>
+
+    {% if products %}
+        <form method="post" id="barcodeForm">
+            {% csrf_token %}
+
+            <!-- Bulk Actions -->
+            <div class="actions-container">
+                <h3>Bulk Actions</h3>
+                <div class="bulk-actions">
+                    <button type="submit" name="action" value="generate_all" class="btn btn-primary">
+                        <span>🚀</span> Generate All Barcodes
+                    </button>
+                    <button type="submit" name="action" value="generate_selected" class="btn btn-success" id="generateSelected" disabled>
+                        <span>✅</span> Generate Selected (<span id="selectedCount">0</span>)
+                    </button>
+                    <a href="{% url 'product_list' %}" class="btn btn-secondary">
+                        <span>⬅️</span> Back to Products
+                    </a>
+                    <a href="{% url 'homepage' %}" class="btn btn-home">
+                        <span>🏠</span> Back to Homepage
+                    </a>
+                </div>
+            </div>
+
+            <!-- Products List -->
+            <div class="products-container">
+                <div class="products-header">
+                    <h3>Products Without Barcodes</h3>
+                    <div class="select-all-container">
+                        <label>
+                            <input type="checkbox" id="selectAll"> Select All
+                        </label>
+                    </div>
+                </div>
+
+                <div class="products-list">
+                    {% for product in products %}
+                        <div class="product-item">
+                            <input type="checkbox"
+                                   name="selected_products"
+                                   value="{{ product.id }}"
+                                   class="product-checkbox">
+
+                            <div class="product-info">
+                                <div>
+                                    <div class="product-name">{{ product.name|default:"Unnamed Product" }}</div>
+                                    <div class="product-brand">{{ product.brand|default:"No Brand" }}</div>
+                                </div>
+                                <div class="product-detail">ID: {{ product.id }}</div>
+                                <div class="product-detail">
+                                    {% if product.barcode_number %}
+                                        Code: {{ product.barcode_number }}
+                                    {% else %}
+                                        <em>No barcode number</em>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    {% if not product.barcode_number and not product.barcode_image %}
+                                        <span class="barcode-status status-missing">Missing Both</span>
+                                    {% elif not product.barcode_image %}
+                                        <span class="barcode-status status-partial">Missing Image</span>
+                                    {% elif not product.barcode_number %}
+                                        <span class="barcode-status status-partial">Missing Number</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <button type="button"
+                                    class="individual-action"
+                                    onclick="generateSingleBarcode({{ product.id }}, this)">
+                                Generate
+                            </button>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </form>
+    {% else %}
+        <div class="products-container">
+            <div class="no-products">
+                <i>✅</i>
+                <h3>All products have barcodes!</h3>
+                <p>There are no products that need barcode generation.</p>
+                <a href="{% url 'product_list' %}" class="btn btn-primary" style="margin-top: 20px;">
+                    <span>←</span> Back to Products
+                </a>
+                <a href="{% url 'homepage' %}" class="btn btn-home" style="margin-top: 10px;">
+                    <span>🏠</span> Back to Homepage
+                </a>
+            </div>
+        </div>
+    {% endif %}
+
+    <script>
+        // Select all functionality
+        const selectAllCheckbox = document.getElementById('selectAll');
+        const productCheckboxes = document.querySelectorAll('input[name="selected_products"]');
+        const generateSelectedBtn = document.getElementById('generateSelected');
+        const selectedCountSpan = document.getElementById('selectedCount');
+
+        function updateSelectedCount() {
+            const selectedCount = document.querySelectorAll('input[name="selected_products"]:checked').length;
+            selectedCountSpan.textContent = selectedCount;
+            generateSelectedBtn.disabled = selectedCount === 0;
+        }
+
+        selectAllCheckbox.addEventListener('change', function() {
+            productCheckboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+            updateSelectedCount();
+        });
+
+        productCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                updateSelectedCount();
+
+                // Update select all checkbox
+                const allChecked = Array.from(productCheckboxes).every(cb => cb.checked);
+                const noneChecked = Array.from(productCheckboxes).every(cb => !cb.checked);
+
+                selectAllCheckbox.checked = allChecked;
+                selectAllCheckbox.indeterminate = !allChecked && !noneChecked;
+            });
+        });
+
+        // Generate single barcode via AJAX
+        function generateSingleBarcode(productId, button) {
+            const originalText = button.textContent;
+            button.textContent = 'Generating...';
+            button.disabled = true;
+
+            fetch(`/generate-single-barcode/₦{productId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    button.textContent = '✅ Generated';
+                    button.style.background = '#27ae60';
+
+                    // Fade out the item
+                    setTimeout(() => {
+                        button.closest('.product-item').style.opacity = '0.5';
+                    }, 1000);
+                } else {
+                    button.textContent = '❌ Error';
+                    button.style.background = '#e74c3c';
+                    console.error('Error:', data.error);
+                }
+            })
+            .catch(error => {
+                button.textContent = '❌ Error';
+                button.style.background = '#e74c3c';
+                console.error('Error:', error);
+            })
+            .finally(() => {
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.style.background = '#5dade2';
+                    button.disabled = false;
+                }, 3000);
+            });
+        }
+
+        // Form submission confirmation
+        document.getElementById('barcodeForm').addEventListener('submit', function(e) {
+            const action = e.submitter.value;
+            let message = '';
+
+            if (action === 'generate_all') {
+                message = `Generate barcodes for all ₦{productCheckboxes.length} products?`;
+            } else if (action === 'generate_selected') {
+                const selectedCount = document.querySelectorAll('input[name="selected_products"]:checked').length;
+                message = `Generate barcodes for ₦{selectedCount} selected products?`;
+            }
+
+            if (message && !confirm(message)) {
+                e.preventDefault();
+            }
+        });
+
+        // Initialize
+        updateSelectedCount();
+    </script>
+</body>
+</html>

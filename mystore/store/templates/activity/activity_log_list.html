@@ -1,0 +1,245 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Activity Logs{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2 class="text-white mb-0">
+                <i class="bi bi-activity me-2"></i>
+                Activity Logs
+            </h2>
+            <p class="text-muted">View and filter system activity logs</p>
+        </div>
+    </div>
+
+    <!-- Filters Card -->
+    <div class="card bg-dark text-white mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="bi bi-funnel me-2"></i>
+                Filters
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="get" action="{% url 'activity_log_list' %}" id="filterForm">
+                <div class="row g-3">
+                    <!-- Search -->
+                    <div class="col-md-3">
+                        <label for="search" class="form-label">Search</label>
+                        <input type="text"
+                               class="form-control bg-secondary text-white border-0"
+                               id="search"
+                               name="search"
+                               value="{{ search_query }}"
+                               placeholder="Search description, user, IP...">
+                    </div>
+
+                    <!-- Action Filter -->
+                    <div class="col-md-2">
+                        <label for="action" class="form-label">Action</label>
+                        <select class="form-select bg-secondary text-white border-0"
+                                id="action"
+                                name="action">
+                            <option value="">All Actions</option>
+                            {% for action_code, action_label in action_choices %}
+                                <option value="{{ action_code }}" {% if action_filter == action_code %}selected{% endif %}>
+                                    {{ action_label }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- User Filter -->
+                    <div class="col-md-2">
+                        <label for="user" class="form-label">User</label>
+                        <select class="form-select bg-secondary text-white border-0"
+                                id="user"
+                                name="user">
+                            <option value="">All Users</option>
+                            {% for username in unique_users %}
+                                <option value="{{ username }}" {% if user_filter == username %}selected{% endif %}>
+                                    {{ username }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Date From -->
+                    <div class="col-md-2">
+                        <label for="date_from" class="form-label">Date From</label>
+                        <input type="date"
+                               class="form-control bg-secondary text-white border-0"
+                               id="date_from"
+                               name="date_from"
+                               value="{{ date_from }}">
+                    </div>
+
+                    <!-- Date To -->
+                    <div class="col-md-2">
+                        <label for="date_to" class="form-label">Date To</label>
+                        <input type="date"
+                               class="form-control bg-secondary text-white border-0"
+                               id="date_to"
+                               name="date_to"
+                               value="{{ date_to }}">
+                    </div>
+
+                    <!-- Success Filter -->
+                    <div class="col-md-1">
+                        <label for="success" class="form-label">Status</label>
+                        <select class="form-select bg-secondary text-white border-0"
+                                id="success"
+                                name="success">
+                            <option value="">All</option>
+                            <option value="true" {% if success_filter == 'true' %}selected{% endif %}>Success</option>
+                            <option value="false" {% if success_filter == 'false' %}selected{% endif %}>Failed</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-search me-1"></i> Apply Filters
+                        </button>
+                        <a href="{% url 'activity_log_list' %}" class="btn btn-secondary">
+                            <i class="bi bi-x-circle me-1"></i> Clear Filters
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Activity Logs Table -->
+    <div class="card bg-dark text-white">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="bi bi-list-ul me-2"></i>
+                Activity Log Entries
+            </h5>
+            <span class="badge bg-primary">{{ logs.paginator.count }} total</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-dark table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>User</th>
+                            <th>Action</th>
+                            <th>Description</th>
+                            <th>IP Address</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td>
+                                <small>{{ log.created_at|date:"M d, Y H:i:s" }}</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-info">{{ log.username|default:"Unknown" }}</span>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ log.action_display }}</span>
+                            </td>
+                            <td>
+                                {{ log.description|truncatechars:60 }}
+                                {% if log.object_repr %}
+                                    <br><small class="text-muted">{{ log.object_repr|truncatechars:40 }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small>{{ log.ip_address|default:"N/A" }}</small>
+                            </td>
+                            <td>
+                                {% if log.success %}
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-check-circle"></i> Success
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-danger">
+                                        <i class="bi bi-x-circle"></i> Failed
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'activity_log_detail' log.id %}"
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye"></i> View
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4">
+                                <i class="bi bi-inbox fs-1 text-muted"></i>
+                                <p class="text-muted mt-2">No activity logs found</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        {% if logs.has_other_pages %}
+        <div class="card-footer">
+            <nav aria-label="Activity logs pagination">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if logs.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link bg-secondary text-white border-0"
+                               href="?page={{ logs.previous_page_number }}{% if action_filter %}&action={{ action_filter }}{% endif %}{% if user_filter %}&user={{ user_filter }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if success_filter %}&success={{ success_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">
+                                Previous
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    <li class="page-item disabled">
+                        <span class="page-link bg-dark text-white border-0">
+                            Page {{ logs.number }} of {{ logs.paginator.num_pages }}
+                        </span>
+                    </li>
+
+                    {% if logs.has_next %}
+                        <li class="page-item">
+                            <a class="page-link bg-secondary text-white border-0"
+                               href="?page={{ logs.next_page_number }}{% if action_filter %}&action={{ action_filter }}{% endif %}{% if user_filter %}&user={{ user_filter }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if success_filter %}&success={{ success_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">
+                                Next
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    .table-dark th {
+        background-color: #1a1a1a;
+        border-color: #2d2d2d;
+    }
+
+    .table-dark td {
+        border-color: #2d2d2d;
+    }
+
+    .table-hover tbody tr:hover {
+        background-color: #2d2d2d;
+    }
+
+    .card {
+        border: 1px solid #2d2d2d;
+    }
+</style>
+{% endblock %}

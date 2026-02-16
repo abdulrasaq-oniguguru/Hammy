@@ -1,0 +1,326 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Complete Return - {{ return_obj.return_number }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-wrapper {
+        min-height: 100vh;
+        padding: 3rem 0;
+    }
+
+    .page-header {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border-radius: 16px;
+        padding: 2.5rem;
+        margin-bottom: 2rem;
+        color: white;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .info-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        box-shadow: var(--shadow-md);
+        margin-bottom: 2rem;
+    }
+
+    .info-card .form-label {
+        color: var(--text-primary);
+        font-weight: 500;
+    }
+
+    .info-card .form-control,
+    .info-card .form-select {
+        background-color: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+    }
+
+    .refund-highlight {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border-radius: 12px;
+        padding: 2rem;
+        color: white;
+        text-align: center;
+    }
+
+    .refund-amount {
+        font-size: 3rem;
+        font-weight: bold;
+    }
+
+    .items-table {
+        background: var(--card-bg);
+        color: var(--text-primary);
+    }
+
+    .items-table th {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border-color: var(--border-color);
+    }
+
+    .items-table td {
+        border-color: var(--border-color);
+        color: var(--text-primary);
+    }
+
+    #cashRefundFields {
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+    <div class="container-fluid px-4" style="max-width: 1400px; margin: 0 auto;">
+        <!-- Page Header -->
+        <div class="page-header text-center">
+            <h1 class="display-5 fw-bold mb-2">
+                <i class="bi bi-check-square me-2"></i>Complete Return
+            </h1>
+            <p class="mb-0 opacity-95">{{ return_obj.return_number }}</p>
+        </div>
+
+        <form method="post" action="{% url 'return_complete' return_obj.id %}" id="completeReturnForm">
+            {% csrf_token %}
+
+            <div class="row">
+                <!-- Refund Amount -->
+                <div class="col-md-4">
+                    <div class="refund-highlight">
+                        <p class="mb-2 opacity-90">Total Refund Amount</p>
+                        <div class="refund-amount">₦{{ return_obj.refund_amount|floatformat:2 }}</div>
+                        <p class="mb-0 mt-2 opacity-90">{{ return_items|length }} item(s)</p>
+                    </div>
+                </div>
+
+                <!-- Return Summary -->
+                <div class="col-md-8">
+                    <div class="info-card">
+                        <div class="card-body p-4">
+                            <h5 class="mb-3">
+                                <i class="bi bi-info-circle me-2"></i>Return Summary
+                            </h5>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>Return Number:</strong> {{ return_obj.return_number }}</p>
+                                    <p><strong>Receipt:</strong>
+                                        <a href="{% url 'receipt_detail' return_obj.receipt.id %}" target="_blank">
+                                            {{ return_obj.receipt.receipt_number }}
+                                        </a>
+                                    </p>
+                                    <p><strong>Return Date:</strong> {{ return_obj.return_date|date:"Y-m-d H:i" }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>Customer:</strong>
+                                        {% if return_obj.customer %}
+                                            {{ return_obj.customer.name }}<br>
+                                            {{ return_obj.customer.phone }}
+                                        {% else %}
+                                            Walk-in Customer
+                                        {% endif %}
+                                    </p>
+                                    <p><strong>Reason:</strong> {{ return_obj.get_return_reason_display }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Items Being Returned -->
+            <div class="info-card">
+                <div class="card-body p-4">
+                    <h5 class="mb-3">
+                        <i class="bi bi-box-seam me-2"></i>Items Being Returned
+                    </h5>
+                    <div class="table-responsive">
+                        <table class="table items-table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Quantity</th>
+                                    <th>Price</th>
+                                    <th>Refund</th>
+                                    <th>Condition</th>
+                                    <th>Will Restock</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in return_items %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ item.product.brand }}</strong><br>
+                                        <small class="text-muted">
+                                            Size: {{ item.product.size }} | Color: {{ item.product.color }}
+                                        </small>
+                                    </td>
+                                    <td>{{ item.quantity_returned }}</td>
+                                    <td>₦{{ item.original_selling_price|floatformat:2 }}</td>
+                                    <td><strong>₦{{ item.refund_amount|floatformat:2 }}</strong></td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ item.get_item_condition_display }}</span>
+                                    </td>
+                                    <td>
+                                        {% if item.restock_to_inventory %}
+                                            <span class="badge bg-success">
+                                                <i class="bi bi-check-circle"></i> Yes
+                                            </span>
+                                            {% if item.new_selling_price %}
+                                                <br><small class="text-info">New price: ₦{{ item.new_selling_price|floatformat:2 }}</small>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="badge bg-secondary">No</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Refund Method Selection -->
+            <div class="info-card">
+                <div class="card-body p-4">
+                    <h5 class="mb-4">
+                        <i class="bi bi-cash-stack me-2"></i>Select Refund Method
+                    </h5>
+
+                    <div class="row">
+                        <div class="col-md-12 mb-4">
+                            <label class="form-label">Refund Type *</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="refund_type" id="refund_cash" value="cash" required>
+                                <label class="btn btn-outline-success" for="refund_cash">
+                                    <i class="bi bi-cash-coin me-2"></i>Cash Refund
+                                </label>
+
+                                <input type="radio" class="btn-check" name="refund_type" id="refund_credit" value="store_credit" required>
+                                <label class="btn btn-outline-info" for="refund_credit">
+                                    <i class="bi bi-wallet2 me-2"></i>Store Credit
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Cash Refund Fields (show only when cash selected) -->
+                        <div id="cashRefundFields" class="col-md-12">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="refund_method" class="form-label">Payment Method</label>
+                                    <select class="form-select" id="refund_method" name="refund_method">
+                                        <option value="">Select method...</option>
+                                        <option value="Cash">Cash</option>
+                                        <option value="Bank Transfer">Bank Transfer</option>
+                                        <option value="Check">Check</option>
+                                        <option value="Mobile Money">Mobile Money</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="refund_reference" class="form-label">Reference Number</label>
+                                    <input type="text" class="form-control" id="refund_reference" name="refund_reference"
+                                           placeholder="Transaction ID, Check #, etc.">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Store Credit Info (show only when store credit selected) -->
+                        <div id="storeCreditInfo" class="col-md-12" style="display: none;">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <strong>Store Credit Details:</strong>
+                                <ul class="mb-0 mt-2">
+                                    <li>Customer: <strong>{{ return_obj.customer.name }}</strong></li>
+                                    <li>Credit Amount: <strong>₦{{ return_obj.refund_amount|floatformat:2 }}</strong></li>
+                                    <li>The credit will be available immediately for use</li>
+                                    <li>No expiration date (unless configured)</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Confirmation Checkbox -->
+                    <div class="form-check mt-4">
+                        <input class="form-check-input" type="checkbox" id="confirmCompletion" required>
+                        <label class="form-check-label" for="confirmCompletion">
+                            <strong>I confirm that:</strong>
+                            <ul class="mb-0 mt-2">
+                                <li>Items have been inspected and condition verified</li>
+                                <li>Inventory will be restocked (where applicable)</li>
+                                <li>Customer will receive the selected refund method</li>
+                                <li>This action cannot be undone</li>
+                            </ul>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="text-end">
+                <a href="{% url 'return_detail' return_obj.id %}" class="btn btn-secondary btn-lg">
+                    <i class="bi bi-x-circle me-2"></i>Cancel
+                </a>
+                <button type="submit" class="btn btn-success btn-lg" id="submitBtn">
+                    <i class="bi bi-check-circle me-2"></i>Complete Return & Issue Refund
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const cashRadio = document.getElementById('refund_cash');
+    const creditRadio = document.getElementById('refund_credit');
+    const cashFields = document.getElementById('cashRefundFields');
+    const creditInfo = document.getElementById('storeCreditInfo');
+
+    // Show/hide fields based on refund type
+    cashRadio.addEventListener('change', function() {
+        if (this.checked) {
+            cashFields.style.display = 'block';
+            creditInfo.style.display = 'none';
+        }
+    });
+
+    creditRadio.addEventListener('change', function() {
+        if (this.checked) {
+            cashFields.style.display = 'none';
+            creditInfo.style.display = 'block';
+        }
+    });
+
+    // Form validation
+    document.getElementById('completeReturnForm').addEventListener('submit', function(e) {
+        const refundType = document.querySelector('input[name="refund_type"]:checked');
+
+        if (!refundType) {
+            e.preventDefault();
+            alert('Please select a refund type.');
+            return false;
+        }
+
+        const confirmed = document.getElementById('confirmCompletion').checked;
+        if (!confirmed) {
+            e.preventDefault();
+            alert('Please confirm the completion details.');
+            return false;
+        }
+
+        // Final confirmation
+        const refundTypeText = refundType.value === 'cash' ? 'Cash Refund' : 'Store Credit';
+        const message = `Complete this return with ₦{refundTypeText} of ₦{{ return_obj.refund_amount|floatformat:2 }}?\n\nThis will:\n- Restock inventory\n- Issue refund to customer\n- Mark return as completed\n\nThis action cannot be undone.`;
+
+        if (!confirm(message)) {
+            e.preventDefault();
+            return false;
+        }
+    });
+});
+</script>
+{% endblock %}

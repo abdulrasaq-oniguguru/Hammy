@@ -1,0 +1,14 @@
+Django==4.2.16
+djangorestframework==3.14.0
+djangorestframework-simplejwt==5.3.1
+mysqlclient==2.2.0
+python-decouple==3.8
+pytz==2024.1
+reportlab
+openpyxl
+pillow
+python-barcode
+pymysql
+# 2FA Authentication
+pyotp==2.9.0
+qrcode==7.4.2

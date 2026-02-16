@@ -1,0 +1,353 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block title %}Edit Loyalty Configuration - {{ store_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="mb-4">
+        <h2 class="mb-0">
+            <i class="bi bi-pencil-square text-primary me-2"></i>
+            Edit Loyalty Program Configuration
+        </h2>
+        <p class="text-muted mb-0">Configure your customer rewards program</p>
+    </div>
+
+    <div class="row">
+        <div class="col-12 col-xl-10">
+            <form method="post" class="needs-validation" novalidate>
+                {% csrf_token %}
+
+                <!-- Program Settings -->
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="bi bi-gear-fill me-2"></i>Program Settings
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <label for="{{ form.program_name.id_for_label }}" class="form-label fw-bold">
+                                    Program Name <span class="text-danger">*</span>
+                                </label>
+                                {{ form.program_name }}
+                                <div class="form-text">Give your loyalty program a memorable name</div>
+                                {% if form.program_name.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.program_name.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Program Status</label>
+                                <div class="form-check form-switch" style="padding-left: 2.5rem;">
+                                    {{ form.is_active }}
+                                    <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                        <strong>Active</strong>
+                                    </label>
+                                </div>
+                                <div class="form-text">Toggle to activate/deactivate the program</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Point Earning Rules -->
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">
+                            <i class="bi bi-plus-circle me-2"></i>Point Earning Rules
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info d-flex align-items-start mb-4">
+                            <i class="bi bi-info-circle-fill fs-5 me-3 mt-1"></i>
+                            <div class="small">
+                                <strong>How customers earn points:</strong><br>
+                                <strong>Per Transaction:</strong> Fixed points per purchase<br>
+                                <strong>Per Amount:</strong> Points based on money spent<br>
+                                <strong>Combined:</strong> Both transaction and amount-based points (recommended)
+                            </div>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-12">
+                                <label for="{{ form.calculation_type.id_for_label }}" class="form-label fw-bold">
+                                    Calculation Type <span class="text-danger">*</span>
+                                </label>
+                                {{ form.calculation_type }}
+                                {% if form.calculation_type.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.calculation_type.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="{{ form.points_per_transaction.id_for_label }}" class="form-label fw-bold">
+                                    Points per Transaction
+                                </label>
+                                <div class="input-group">
+                                    {{ form.points_per_transaction }}
+                                    <span class="input-group-text">points</span>
+                                </div>
+                                <div class="form-text">Fixed points earned per purchase (e.g., 1 point)</div>
+                                {% if form.points_per_transaction.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.points_per_transaction.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Points per Amount Spent</label>
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <div class="input-group">
+                                            {{ form.points_per_currency_unit }}
+                                            <span class="input-group-text">pts</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="input-group">
+                                            <span class="input-group-text">per ₦</span>
+                                            {{ form.currency_unit_value }}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-text">Example: 1 point per ₦100 spent</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Point Redemption Rules -->
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">
+                            <i class="bi bi-cash-coin me-2"></i>Point Redemption Rules
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info d-flex align-items-start mb-4">
+                            <i class="bi bi-info-circle-fill fs-5 me-3 mt-1"></i>
+                            <div class="small">
+                                <strong>Configure how customers redeem points:</strong><br>
+                                Set the value of points, minimum required to redeem, and maximum discount allowed.
+                            </div>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label for="{{ form.points_to_currency_rate.id_for_label }}" class="form-label fw-bold">
+                                    Point Value <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text">1 pt = ₦</span>
+                                    {{ form.points_to_currency_rate }}
+                                </div>
+                                <div class="form-text">How much 1 point is worth</div>
+                                {% if form.points_to_currency_rate.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.points_to_currency_rate.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="{{ form.minimum_points_for_redemption.id_for_label }}" class="form-label fw-bold">
+                                    Minimum to Redeem <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    {{ form.minimum_points_for_redemption }}
+                                    <span class="input-group-text">points</span>
+                                </div>
+                                <div class="form-text">Minimum points needed</div>
+                                {% if form.minimum_points_for_redemption.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.minimum_points_for_redemption.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="{{ form.maximum_discount_percentage.id_for_label }}" class="form-label fw-bold">
+                                    Max Discount % <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    {{ form.maximum_discount_percentage }}
+                                    <span class="input-group-text">%</span>
+                                </div>
+                                <div class="form-text">Max % of purchase</div>
+                                {% if form.maximum_discount_percentage.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.maximum_discount_percentage.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Point Expiration -->
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0">
+                            <i class="bi bi-clock-history me-2"></i>Point Expiration
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="form-check form-switch" style="padding-left: 2.5rem;">
+                                    {{ form.points_expire }}
+                                    <label class="form-check-label fw-bold" for="{{ form.points_expire.id_for_label }}">
+                                        Points Expire After Period
+                                    </label>
+                                </div>
+                                <div class="form-text">Enable if you want points to expire</div>
+                            </div>
+
+                            <div class="col-md-6" id="expiry-days-field">
+                                <label for="{{ form.points_expiry_days.id_for_label }}" class="form-label fw-bold">
+                                    Expiry Period
+                                </label>
+                                <div class="input-group">
+                                    {{ form.points_expiry_days }}
+                                    <span class="input-group-text">days</span>
+                                </div>
+                                <div class="form-text">Number of days before points expire</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Email Notifications -->
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0">
+                            <i class="bi bi-envelope me-2"></i>Email Notifications
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info d-flex align-items-start mb-4">
+                            <i class="bi bi-info-circle-fill fs-5 me-3 mt-1"></i>
+                            <div class="small">
+                                <strong>Recommended:</strong> Enable "Points Earned Email" to send customers their receipt with points balance after each purchase.
+                            </div>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="form-check form-switch" style="padding-left: 2.5rem;">
+                                    {{ form.send_welcome_email }}
+                                    <label class="form-check-label" for="{{ form.send_welcome_email.id_for_label }}">
+                                        <strong>Welcome Email</strong>
+                                    </label>
+                                </div>
+                                <div class="form-text ms-4">When customer joins program</div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-check form-switch" style="padding-left: 2.5rem;">
+                                    {{ form.send_points_earned_email }}
+                                    <label class="form-check-label" for="{{ form.send_points_earned_email.id_for_label }}">
+                                        <strong>Points Earned Email</strong>
+                                    </label>
+                                </div>
+                                <div class="form-text ms-4">After each purchase (with receipt)</div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-check form-switch" style="padding-left: 2.5rem;">
+                                    {{ form.send_points_redeemed_email }}
+                                    <label class="form-check-label" for="{{ form.send_points_redeemed_email.id_for_label }}">
+                                        <strong>Points Redeemed Email</strong>
+                                    </label>
+                                </div>
+                                <div class="form-text ms-4">When points are redeemed</div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-check form-switch" style="padding-left: 2.5rem;">
+                                    {{ form.send_expiry_reminder_email }}
+                                    <label class="form-check-label" for="{{ form.send_expiry_reminder_email.id_for_label }}">
+                                        <strong>Expiry Reminder Email</strong>
+                                    </label>
+                                </div>
+                                <div class="form-text ms-4">Before points expire</div>
+                            </div>
+
+                            <div class="col-md-6" id="expiry-reminder-field">
+                                <label for="{{ form.expiry_reminder_days.id_for_label }}" class="form-label fw-bold">
+                                    Send Reminder
+                                </label>
+                                <div class="input-group">
+                                    {{ form.expiry_reminder_days }}
+                                    <span class="input-group-text">days before expiry</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Advanced Settings -->
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-dark text-white">
+                        <h5 class="mb-0">
+                            <i class="bi bi-star me-2"></i>Advanced Settings
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-check form-switch" style="padding-left: 2.5rem;">
+                            {{ form.enable_bonus_multipliers }}
+                            <label class="form-check-label fw-bold" for="{{ form.enable_bonus_multipliers.id_for_label }}">
+                                Enable Bonus Multipliers (Future Feature)
+                            </label>
+                        </div>
+                        <div class="form-text ms-4">Enable special bonus periods or tier multipliers</div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="bi bi-check-circle me-2"></i>Save Configuration
+                    </button>
+                    <a href="{% url 'loyalty_configuration' %}" class="btn btn-secondary btn-lg">
+                        <i class="bi bi-x-circle me-2"></i>Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Toggle expiry days field based on points_expire checkbox
+    document.addEventListener('DOMContentLoaded', function() {
+        const pointsExpireCheckbox = document.getElementById('{{ form.points_expire.id_for_label }}');
+        const expiryDaysField = document.getElementById('expiry-days-field');
+        const expiryReminderField = document.getElementById('expiry-reminder-field');
+
+        function toggleExpiryFields() {
+            if (pointsExpireCheckbox.checked) {
+                expiryDaysField.style.display = 'block';
+                expiryReminderField.style.display = 'block';
+            } else {
+                expiryDaysField.style.display = 'none';
+                expiryReminderField.style.display = 'none';
+            }
+        }
+
+        pointsExpireCheckbox.addEventListener('change', toggleExpiryFields);
+        toggleExpiryFields(); // Initial check
+    });
+
+    // Form validation
+    (function () {
+        'use strict'
+        var forms = document.querySelectorAll('.needs-validation')
+        Array.prototype.slice.call(forms).forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                if (!form.checkValidity()) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                }
+                form.classList.add('was-validated')
+            }, false)
+        })
+    })()
+</script>
+{% endblock %}

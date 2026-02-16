@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+{% block title %}Tools & Utilities{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+        border-radius: 16px;
+        padding: 2.5rem;
+        margin: 2rem 0;
+        color: white;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .page-header h1 {
+        font-weight: 800;
+        font-size: 2.2rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .page-header p {
+        margin: 0;
+        opacity: 0.95;
+        font-size: 1.05rem;
+    }
+
+    .tool-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 2rem 1.5rem;
+        text-decoration: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        height: 100%;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: var(--shadow-sm);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .tool-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
+    }
+
+    .tool-card:hover::before {
+        transform: scaleX(1);
+    }
+
+    .tool-card:hover {
+        transform: translateY(-10px) scale(1.02);
+        box-shadow: var(--shadow-lg);
+        border-color: var(--accent-primary);
+    }
+
+    .tool-card-icon {
+        width: 80px;
+        height: 80px;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        margin-bottom: 1.25rem;
+        transition: all 0.3s ease;
+        color: white;
+    }
+
+    .tool-card:hover .tool-card-icon {
+        transform: scale(1.15) rotate(-5deg);
+    }
+
+    .tool-card-title {
+        color: var(--text-primary);
+        font-weight: 700;
+        font-size: 1.15rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .tool-card-desc {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        margin: 0;
+    }
+
+    .icon-gradient-1 { background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); }
+    .icon-gradient-2 { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+    .icon-gradient-3 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .icon-gradient-4 { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+    .icon-gradient-5 { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    .icon-gradient-6 { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+
+    @media (max-width: 768px) {
+        .page-header h1 {
+            font-size: 1.7rem;
+        }
+
+        .tool-card-icon {
+            width: 65px;
+            height: 65px;
+            font-size: 2rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- Page Header -->
+    <div class="page-header">
+        <h1><i class="bi bi-tools me-2"></i>Tools & Utilities</h1>
+        <p>Helpful tools and system utilities</p>
+    </div>
+
+    <!-- Tools Grid -->
+    <div class="row g-4 mb-4">
+        <!-- Barcode Lookup -->
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+            <a href="{% url 'barcode_lookup_page' %}" class="tool-card">
+                <div class="tool-card-icon icon-gradient-1">
+                    <i class="bi bi-upc-scan"></i>
+                </div>
+                <div class="tool-card-title">Barcode Scanner</div>
+                <p class="tool-card-desc">Scan & lookup products</p>
+            </a>
+        </div>
+
+        <!-- Generate Barcodes -->
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+            <a href="{% url 'generate_barcodes' %}" class="tool-card">
+                <div class="tool-card-icon icon-gradient-2">
+                    <i class="bi bi-upc"></i>
+                </div>
+                <div class="tool-card-title">Generate Barcodes</div>
+                <p class="tool-card-desc">Create product barcodes</p>
+            </a>
+        </div>
+
+        <!-- Upload Products -->
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+            <a href="{% url 'upload_products' %}" class="tool-card">
+                <div class="tool-card-icon icon-gradient-3">
+                    <i class="bi bi-cloud-upload"></i>
+                </div>
+                <div class="tool-card-title">Upload Products</div>
+                <p class="tool-card-desc">Bulk import via Excel</p>
+            </a>
+        </div>
+
+        <!-- Activity Logs -->
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+            <a href="{% url 'activity_log_list' %}" class="tool-card">
+                <div class="tool-card-icon icon-gradient-4">
+                    <i class="bi bi-activity"></i>
+                </div>
+                <div class="tool-card-title">Activity Logs</div>
+                <p class="tool-card-desc">System activity tracking</p>
+            </a>
+        </div>
+
+        <!-- Settings -->
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+            <a href="{% url 'configuration_menu' %}" class="tool-card">
+                <div class="tool-card-icon icon-gradient-5">
+                    <i class="bi bi-gear"></i>
+                </div>
+                <div class="tool-card-title">System Settings</div>
+                <p class="tool-card-desc">Configure system</p>
+            </a>
+        </div>
+    </div>
+
+    <!-- Back Button -->
+    <div class="mt-4 mb-4">
+        <a href="{% url 'homepage' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left me-2"></i>Back to Homepage
+        </a>
+    </div>
+</div>
+{% endblock %}

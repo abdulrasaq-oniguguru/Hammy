@@ -1,0 +1,234 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Store Configuration - {{ store_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">
+                <i class="bi bi-gear-fill text-primary me-2"></i>
+                Store Configuration
+            </h2>
+            <p class="text-muted mb-0">Manage deployment settings and store details</p>
+        </div>
+        <a href="{% url 'add_configuration' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-2"></i>Add New Deployment
+        </a>
+    </div>
+
+    <!-- Active Configuration Card -->
+    {% if config %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">
+                <i class="bi bi-check-circle-fill me-2"></i>
+                Active Configuration: {{ config.deployment_name }}
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <!-- Store Identity -->
+                <div class="col-md-6">
+                    <h6 class="text-primary mb-3"><i class="bi bi-shop me-2"></i>Store Identity</h6>
+                    <table class="table table-sm">
+                        <tr>
+                            <th width="40%">Store Name:</th>
+                            <td>{{ config.store_name }}</td>
+                        </tr>
+                        <tr>
+                            <th>Tagline:</th>
+                            <td>{{ config.tagline|default:"Not set" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Deployment:</th>
+                            <td><span class="badge bg-success">{{ config.deployment_name }}</span></td>
+                        </tr>
+                    </table>
+
+                    <h6 class="text-primary mb-3 mt-4"><i class="bi bi-envelope me-2"></i>Contact Information</h6>
+                    <table class="table table-sm">
+                        <tr>
+                            <th width="40%">Email:</th>
+                            <td>{{ config.email }}</td>
+                        </tr>
+                        <tr>
+                            <th>Phone:</th>
+                            <td>{{ config.phone }}</td>
+                        </tr>
+                        {% if config.phone_2 %}
+                        <tr>
+                            <th>Phone 2:</th>
+                            <td>{{ config.phone_2 }}</td>
+                        </tr>
+                        {% endif %}
+                    </table>
+
+                    <h6 class="text-primary mb-3 mt-4"><i class="bi bi-geo-alt me-2"></i>Address</h6>
+                    <table class="table table-sm">
+                        <tr>
+                            <th width="40%">Address:</th>
+                            <td>
+                                {{ config.address_line_1 }}<br>
+                                {% if config.address_line_2 %}{{ config.address_line_2 }}<br>{% endif %}
+                                {{ config.city }}, {{ config.state }}<br>
+                                {{ config.country }} {{ config.postal_code }}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- Business & Branding -->
+                <div class="col-md-6">
+                    <h6 class="text-primary mb-3"><i class="bi bi-briefcase me-2"></i>Business Information</h6>
+                    <table class="table table-sm">
+                        <tr>
+                            <th width="40%">Tax ID:</th>
+                            <td>{{ config.tax_id|default:"Not set" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Website:</th>
+                            <td>{{ config.website|default:"Not set" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Business Hours:</th>
+                            <td>{{ config.business_hours|default:"Not set" }}</td>
+                        </tr>
+                    </table>
+
+                    <h6 class="text-primary mb-3 mt-4"><i class="bi bi-palette me-2"></i>Branding</h6>
+                    <div class="row mb-3">
+                        <div class="col-4 text-center">
+                            <label class="form-label small">Logo</label>
+                            {% if config.logo %}
+                            <img src="{{ config.logo.url }}" class="img-thumbnail" style="max-height: 80px;">
+                            {% else %}
+                            <div class="border rounded p-3 text-muted">No logo</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-4 text-center">
+                            <label class="form-label small">Receipt Logo</label>
+                            {% if config.receipt_logo %}
+                            <img src="{{ config.receipt_logo.url }}" class="img-thumbnail" style="max-height: 80px;">
+                            {% else %}
+                            <div class="border rounded p-3 text-muted">No logo</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-4 text-center">
+                            <label class="form-label small">Favicon</label>
+                            {% if config.favicon %}
+                            <img src="{{ config.favicon.url }}" class="img-thumbnail" style="max-height: 80px;">
+                            {% else %}
+                            <div class="border rounded p-3 text-muted">No icon</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <h6 class="text-primary mb-3 mt-4"><i class="bi bi-currency-exchange me-2"></i>Currency & Localization</h6>
+                    <table class="table table-sm">
+                        <tr>
+                            <th width="40%">Currency:</th>
+                            <td>{{ config.currency_symbol }} ({{ config.currency_code }})</td>
+                        </tr>
+                        <tr>
+                            <th>Timezone:</th>
+                            <td>{{ config.timezone }}</td>
+                        </tr>
+                        <tr>
+                            <th>Date Format:</th>
+                            <td>{{ config.date_format }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="mt-4 d-flex gap-2">
+                <a href="{% url 'edit_configuration' %}" class="btn btn-primary">
+                    <i class="bi bi-pencil me-2"></i>Edit Configuration
+                </a>
+                <a href="{% url 'preview_configuration' config.pk %}" class="btn btn-info text-white">
+                    <i class="bi bi-eye me-2"></i>Preview
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- All Configurations List -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">
+                <i class="bi bi-list-ul me-2"></i>
+                All Deployment Configurations
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if all_configs %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Deployment Name</th>
+                            <th>Store Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Currency</th>
+                            <th>Status</th>
+                            <th>Last Updated</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for conf in all_configs %}
+                        <tr>
+                            <td>
+                                <strong>{{ conf.deployment_name }}</strong>
+                                {% if conf.is_active %}
+                                <span class="badge bg-success ms-2">Active</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ conf.store_name }}</td>
+                            <td>{{ conf.email }}</td>
+                            <td>{{ conf.phone }}</td>
+                            <td>{{ conf.currency_symbol }} {{ conf.currency_code }}</td>
+                            <td>
+                                {% if conf.is_active %}
+                                <span class="badge bg-success">Active</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ conf.updated_at|date:"M d, Y H:i" }}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'preview_configuration' conf.pk %}" class="btn btn-info" title="Preview">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a href="{% url 'edit_configuration_pk' conf.pk %}" class="btn btn-primary" title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    {% if not conf.is_active %}
+                                    <a href="{% url 'activate_configuration' conf.pk %}" class="btn btn-success" title="Activate">
+                                        <i class="bi bi-check-circle"></i>
+                                    </a>
+                                    <a href="{% url 'delete_configuration' conf.pk %}" class="btn btn-danger" title="Delete">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted">No configurations found. <a href="{% url 'add_configuration' %}">Add your first configuration</a></p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

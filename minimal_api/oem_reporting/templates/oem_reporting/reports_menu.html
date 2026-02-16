@@ -1,0 +1,412 @@
+{% extends 'oem_reporting/base_oem.html' %}
+{% load static %}
+{% block title %}OEM Reports & Analytics{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .page-header {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        padding: 2rem;
+        border-radius: 16px;
+        box-shadow: var(--shadow-md);
+        margin-bottom: 2rem;
+    }
+
+    .page-header h1 {
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .page-header p {
+        color: var(--text-muted);
+        margin-bottom: 0;
+    }
+
+    /* Modern Stat Cards */
+    .modern-stat-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 20px;
+        padding: 2rem;
+        box-shadow: var(--shadow-md);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        height: 100%;
+    }
+
+    .modern-stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: var(--card-accent);
+        transition: width 0.3s ease;
+    }
+
+    .modern-stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-lg);
+    }
+
+    .modern-stat-card:hover::before {
+        width: 8px;
+    }
+
+    .stat-icon-wrapper {
+        width: 60px;
+        height: 60px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 1rem;
+        background: var(--icon-bg);
+    }
+
+    .stat-icon-wrapper i {
+        font-size: 1.75rem;
+        color: var(--icon-color);
+    }
+
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 800;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+        line-height: 1;
+    }
+
+    .stat-label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .stat-trend {
+        font-size: 0.75rem;
+        color: var(--accent-success);
+        margin-top: 0.5rem;
+    }
+
+    /* Card color variants */
+    .modern-stat-card.primary {
+        --card-accent: var(--accent-primary);
+        --icon-bg: rgba(102, 126, 234, 0.1);
+        --icon-color: var(--accent-primary);
+    }
+
+    .modern-stat-card.success {
+        --card-accent: var(--accent-success);
+        --icon-bg: rgba(72, 187, 120, 0.1);
+        --icon-color: var(--accent-success);
+    }
+
+    .modern-stat-card.warning {
+        --card-accent: var(--accent-warning);
+        --icon-bg: rgba(246, 194, 62, 0.1);
+        --icon-color: var(--accent-warning);
+    }
+
+    .modern-stat-card.info {
+        --card-accent: var(--accent-info);
+        --icon-bg: rgba(54, 185, 204, 0.1);
+        --icon-color: var(--accent-info);
+    }
+
+    .modern-stat-card.danger {
+        --card-accent: var(--accent-danger);
+        --icon-bg: rgba(245, 101, 101, 0.1);
+        --icon-color: var(--accent-danger);
+    }
+
+    .report-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        box-shadow: var(--shadow-md);
+        transition: all 0.3s ease;
+        height: 100%;
+        cursor: pointer;
+    }
+
+    .report-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-lg);
+        border-color: var(--accent-primary);
+    }
+
+    .report-card .card-body {
+        padding: 2rem;
+        text-align: center;
+    }
+
+    .report-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+
+    .report-icon.primary { color: var(--accent-primary); }
+    .report-icon.success { color: var(--accent-success); }
+    .report-icon.info { color: var(--accent-info); }
+    .report-icon.warning { color: var(--accent-warning); }
+    .report-icon.danger { color: var(--accent-danger); }
+
+    .report-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .report-description {
+        font-size: 0.875rem;
+        color: var(--text-muted);
+        margin-bottom: 0;
+    }
+
+    .sync-status-card {
+        background: linear-gradient(135deg, var(--accent-success), rgba(72, 187, 120, 0.8));
+        border: none;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: var(--shadow-md);
+        color: white;
+        margin-bottom: 2rem;
+    }
+
+    .sync-status-card h6 {
+        color: white;
+        margin-bottom: 0.25rem;
+    }
+
+    .sync-status-card p {
+        color: rgba(255, 255, 255, 0.9);
+        margin-bottom: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- Sync Status (Moved to Top) -->
+    <div class="sync-status-card">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h6 class="mb-1">
+                    <i class="fas fa-sync-alt me-2"></i>
+                    Data Synchronization Status
+                </h6>
+                <p class="small mb-0">Last synced: <span id="last-sync-time">{{ last_sync_time|default:"Never" }}</span></p>
+            </div>
+            <div>
+                <button id="sync-btn" class="btn btn-light btn-sm me-2" onclick="triggerSync()">
+                    <i class="fas fa-sync-alt me-1"></i>
+                    Sync Now
+                </button>
+                <div class="badge bg-white text-success px-3 py-2">
+                    <i class="fas fa-check-circle me-1"></i> <span id="sync-status">Ready</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h1 class="h3">
+                    <i class="fas fa-chart-bar me-2"></i>
+                    OEM Reports & Analytics
+                </h1>
+                <p>Access comprehensive reports and business intelligence</p>
+            </div>
+            <div class="col-md-6 text-md-end">
+                <div style="color: var(--text-muted);">
+                    <i class="fas fa-calendar-alt me-1"></i>
+                    {{ current_date|date:"F d, Y" }}
+                    <span class="mx-2">|</span>
+                    <i class="fas fa-clock me-1"></i>
+                    {{ current_time|time:"H:i" }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modern Stat Cards -->
+    <div class="row g-4 mb-4">
+        <!-- Daily Sales -->
+        <div class="col-xl-3 col-md-6">
+            <div class="modern-stat-card primary">
+                <div class="stat-icon-wrapper">
+                    <i class="fas fa-calendar-day"></i>
+                </div>
+                <div class="stat-value">₦{{ daily_sales|default:0|floatformat:0 }}</div>
+                <div class="stat-label">Today's Net Revenue</div>
+                <div class="stat-trend">
+                    <i class="fas fa-receipt me-1"></i>
+                    {{ daily_transactions|default:0 }} receipts
+                </div>
+            </div>
+        </div>
+
+        <!-- Weekly Sales -->
+        <div class="col-xl-3 col-md-6">
+            <div class="modern-stat-card success">
+                <div class="stat-icon-wrapper">
+                    <i class="fas fa-calendar-week"></i>
+                </div>
+                <div class="stat-value">₦{{ weekly_sales|default:0|floatformat:0 }}</div>
+                <div class="stat-label">This Week's Sales</div>
+                <div class="stat-trend">
+                    <i class="fas fa-chart-line me-1"></i>
+                    Last 7 days
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Revenue (All Time) -->
+        <div class="col-xl-3 col-md-6">
+            <div class="modern-stat-card warning">
+                <div class="stat-icon-wrapper">
+                    <i class="fas fa-money-bill-wave"></i>
+                </div>
+                <div class="stat-value">₦{{ total_revenue|default:0|floatformat:0 }}</div>
+                <div class="stat-label">All Time Sales</div>
+                <div class="stat-trend">
+                    <i class="fas fa-infinity me-1"></i>
+                    {{ total_transactions|default:0 }} transactions
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Products -->
+        <div class="col-xl-3 col-md-6">
+            <div class="modern-stat-card info">
+                <div class="stat-icon-wrapper">
+                    <i class="fas fa-boxes"></i>
+                </div>
+                <div class="stat-value">{{ total_products }}</div>
+                <div class="stat-label">Product Types</div>
+                <div class="stat-trend">
+                    <i class="fas fa-cubes me-1"></i>
+                    {{ total_inventory_units|floatformat:0 }} total units
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Daily Discounts Row -->
+    <div class="row g-4 mb-4">
+        <!-- Today's Discounts -->
+        <div class="col-xl-3 col-md-6">
+            <div class="modern-stat-card success">
+                <div class="stat-icon-wrapper">
+                    <i class="fas fa-percentage"></i>
+                </div>
+                <div class="stat-value">₦{{ daily_discounts|default:0|floatformat:0 }}</div>
+                <div class="stat-label">Today's Discounts Given</div>
+                <div class="stat-trend">
+                    <i class="fas fa-gift me-1"></i>
+                    Money given to customers
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Cards -->
+    <div class="row g-4 mb-4">
+        <!-- Sales Report -->
+        <div class="col-xl-4 col-md-6">
+            <a href="{% url 'oem_reporting:sales_report' %}" class="text-decoration-none">
+                <div class="card report-card">
+                    <div class="card-body">
+                        <i class="fas fa-file-invoice-dollar report-icon success"></i>
+                        <h5 class="report-title">Sales Report</h5>
+                        <p class="report-description">
+                            Detailed sales transactions, revenue analysis, and date filtering
+                        </p>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <!-- Inventory Report -->
+        <div class="col-xl-4 col-md-6">
+            <a href="{% url 'oem_reporting:inventory_report' %}" class="text-decoration-none">
+                <div class="card report-card">
+                    <div class="card-body">
+                        <i class="fas fa-boxes report-icon info"></i>
+                        <h5 class="report-title">Inventory Report</h5>
+                        <p class="report-description">
+                            Stock levels, product search, and inventory management insights
+                        </p>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <!-- Financial Report -->
+        <div class="col-xl-4 col-md-6">
+            <a href="{% url 'oem_reporting:financial_report' %}" class="text-decoration-none">
+                <div class="card report-card">
+                    <div class="card-body">
+                        <i class="fas fa-chart-pie report-icon warning"></i>
+                        <h5 class="report-title">Financial Report</h5>
+                        <p class="report-description">
+                            Revenue analysis, payment methods, and financial performance metrics
+                        </p>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+function triggerSync() {
+    const syncBtn = document.getElementById('sync-btn');
+    const syncStatus = document.getElementById('sync-status');
+    const syncIcon = syncBtn.querySelector('i');
+
+    // Disable button and show loading
+    syncBtn.disabled = true;
+    syncIcon.classList.add('fa-spin');
+    syncStatus.textContent = 'Syncing...';
+
+    // Call sync endpoint
+    fetch('{% url "oem_reporting:trigger_sync" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                syncStatus.textContent = 'Synced';
+                document.getElementById('last-sync-time').textContent = 'Just now';
+
+                // Show success message
+                alert('Data sync completed successfully!');
+
+                // Reload page to show updated data
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            } else {
+                syncStatus.textContent = 'Error';
+                alert('Sync failed: ' + data.message);
+            }
+        })
+        .catch(error => {
+            syncStatus.textContent = 'Error';
+            alert('Sync failed: ' + error);
+        })
+        .finally(() => {
+            syncBtn.disabled = false;
+            syncIcon.classList.remove('fa-spin');
+        });
+}
+</script>
+{% endblock %}

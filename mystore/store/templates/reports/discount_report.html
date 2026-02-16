@@ -1,0 +1,206 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Discount Report{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-lg border-0" style="border-radius: 20px;">
+                <div class="card-header text-white text-center" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px 20px 0 0; padding: 2rem;">
+                    <h2 class="mb-0"><i class="bi bi-percent me-2"></i>Discount Report</h2>
+                </div>
+                <div class="card-body p-4">
+                    <!-- Filters -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <form method="GET" class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Start Date</label>
+                                    <input type="date" name="start_date" class="form-control" value="{{ start_date }}">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">End Date</label>
+                                    <input type="date" name="end_date" class="form-control" value="{{ end_date }}">
+                                </div>
+                                <div class="col-md-4 d-flex align-items-end">
+                                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-funnel me-2"></i>Filter</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Summary Cards -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">Total Discounts</h6>
+                                    <h3 class="mb-0">₦{{ total_discount_amount|floatformat:2 }}</h3>
+                                    <small>Payment: ₦{{ payment_discount_total|floatformat:2 }} | Line: ₦{{ line_discount_total|floatformat:2 }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">Total Transactions</h6>
+                                    <h3 class="mb-0">{{ total_transactions }}</h3>
+                                    <small>Payment: {{ payment_transactions }} | Line: {{ line_transactions }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-dark h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">Payment Discounts</h6>
+                                    <h3 class="mb-0">₦{{ payment_discount_total|floatformat:2 }}</h3>
+                                    <small>{{ payment_transactions }} receipts</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">Line Item Discounts</h6>
+                                    <h3 class="mb-0">₦{{ line_discount_total|floatformat:2 }}</h3>
+                                    <small>{{ line_transactions }} items</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payment-Level Discounts Table -->
+                    <h5 class="mt-4 mb-3"><i class="bi bi-receipt"></i> Payment-Level Discounts</h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Receipt</th>
+                                    <th>Items</th>
+                                    <th>Before Discount</th>
+                                    <th>Discount %</th>
+                                    <th>Discount Amount</th>
+                                    <th>After Discount</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for payment in payments_with_discounts %}
+                                    {% with sales=payment.sale_set.all %}
+                                    <tr>
+                                        <td>{{ payment.payment_date|date:"M d, Y H:i" }}</td>
+                                        <td>
+                                            {% if sales.first.receipt %}
+                                                <a href="{% url 'receipt_detail' sales.first.receipt.pk %}" class="text-decoration-none">
+                                                    #{{ sales.first.receipt.receipt_number }}
+                                                </a>
+                                            {% else %}
+                                                N/A
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% for sale in sales %}
+                                                {{ sale.product.brand }}{% if not forloop.last %}, {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td>₦{{ payment.total_amount|floatformat:2 }}</td>
+                                        <td><span class="badge bg-success">{{ payment.discount_percentage }}%</span></td>
+                                        <td class="text-success fw-bold">-₦{{ payment.discount_amount|floatformat:2 }}</td>
+                                        <td class="fw-bold">₦{{ payment.total_paid|floatformat:2 }}</td>
+                                        <td>
+                                            <span class="badge
+                                                {% if payment.payment_status == 'completed' %}bg-success
+                                                {% elif payment.payment_status == 'partial' %}bg-warning text-dark
+                                                {% elif payment.payment_status == 'pending' %}bg-secondary
+                                                {% else %}bg-danger{% endif %}">
+                                                {{ payment.get_payment_status_display }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endwith %}
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="8" class="text-center text-muted py-4">
+                                            <i class="bi bi-inbox fs-1"></i>
+                                            <p class="mt-2">No payment-level discounts found</p>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Line-Level Discounts Table -->
+                    <h5 class="mt-5 mb-3"><i class="bi bi-tag-fill"></i> Line Item Discounts</h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Receipt</th>
+                                    <th>Product</th>
+                                    <th>Quantity</th>
+                                    <th>Unit Price</th>
+                                    <th>Line Discount</th>
+                                    <th>Total After Discount</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sale in sales_with_line_discounts %}
+                                    <tr>
+                                        <td>{{ sale.sale_date|date:"M d, Y H:i" }}</td>
+                                        <td>
+                                            {% if sale.receipt %}
+                                                <a href="{% url 'receipt_detail' sale.receipt.pk %}" class="text-decoration-none">
+                                                    #{{ sale.receipt.receipt_number }}
+                                                </a>
+                                            {% else %}
+                                                N/A
+                                            {% endif %}
+                                        </td>
+                                        <td><strong>{{ sale.product.brand }}</strong></td>
+                                        <td>{{ sale.quantity }}</td>
+                                        <td>₦{{ sale.product.selling_price|floatformat:2 }}</td>
+                                        <td class="text-success fw-bold">-₦{{ sale.discount_amount|floatformat:2 }}</td>
+                                        <td class="fw-bold">₦{{ sale.total_price|floatformat:2 }}</td>
+                                        <td>
+                                            {% if sale.payment %}
+                                                <span class="badge
+                                                    {% if sale.payment.payment_status == 'completed' %}bg-success
+                                                    {% elif sale.payment.payment_status == 'partial' %}bg-warning text-dark
+                                                    {% elif sale.payment.payment_status == 'pending' %}bg-secondary
+                                                    {% else %}bg-danger{% endif %}">
+                                                    {{ sale.payment.get_payment_status_display }}
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">No Payment</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="8" class="text-center text-muted py-4">
+                                            <i class="bi bi-inbox fs-1"></i>
+                                            <p class="mt-2">No line item discounts found</p>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Back Button -->
+                    <div class="text-center mt-4">
+                        <a href="{% url 'reports_menu' %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left me-2"></i>Back to Reports
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

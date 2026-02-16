@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Add Tax - {{ store_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="mb-4">
+        <h2 class="mb-0">
+            <i class="bi bi-plus-circle text-primary me-2"></i>
+            Add Tax
+        </h2>
+        <p class="text-muted mb-0">Create a new tax configuration</p>
+    </div>
+
+    <!-- Form Card -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Tax Details</h5>
+        </div>
+        <div class="card-body">
+            <form method="post" novalidate>
+                {% csrf_token %}
+
+                {% if form.errors %}
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <strong>Please correct the following errors:</strong>
+                    <ul class="mb-0 mt-2">
+                        {% for field in form %}
+                            {% for error in field.errors %}
+                                <li>{{ field.label }}: {{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                    </ul>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endif %}
+
+                <div class="row">
+                    <!-- Basic Information -->
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.name.id_for_label }}" class="form-label">
+                            Tax Name <span class="text-danger">*</span>
+                        </label>
+                        {{ form.name }}
+                        <small class="form-text text-muted">e.g., Value Added Tax, Sales Tax</small>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.code.id_for_label }}" class="form-label">
+                            Tax Code <span class="text-danger">*</span>
+                        </label>
+                        {{ form.code }}
+                        <small class="form-text text-muted">Short code (e.g., VAT, GST, ST)</small>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-12 mb-3">
+                        <label for="{{ form.description.id_for_label }}" class="form-label">Description</label>
+                        {{ form.description }}
+                    </div>
+                </div>
+
+                <div class="row">
+                    <!-- Tax Configuration -->
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.tax_type.id_for_label }}" class="form-label">
+                            Tax Type <span class="text-danger">*</span>
+                        </label>
+                        {{ form.tax_type }}
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.rate.id_for_label }}" class="form-label">
+                            Rate (%) <span class="text-danger">*</span>
+                        </label>
+                        {{ form.rate }}
+                        <small class="form-text text-muted">Tax rate as a percentage</small>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.calculation_method.id_for_label }}" class="form-label">
+                            Calculation Method <span class="text-danger">*</span>
+                        </label>
+                        {{ form.calculation_method }}
+                    </div>
+                </div>
+
+                <div class="row">
+                    <!-- Display Settings -->
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.sort_order.id_for_label }}" class="form-label">Sort Order</label>
+                        {{ form.sort_order }}
+                        <small class="form-text text-muted">Lower numbers appear first</small>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <div class="form-check mt-4">
+                            {{ form.is_active }}
+                            <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                Active (enable this tax)
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <div class="form-check mt-4">
+                            {{ form.display_on_receipt }}
+                            <label class="form-check-label" for="{{ form.display_on_receipt.id_for_label }}">
+                                Display on Receipt
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save me-2"></i>Save Tax
+                    </button>
+                    <a href="{% url 'tax_configuration' %}" class="btn btn-secondary">
+                        <i class="bi bi-x-circle me-2"></i>Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Help Card -->
+    <div class="card shadow-sm border-0 mt-4">
+        <div class="card-header bg-light">
+            <h6 class="mb-0">
+                <i class="bi bi-question-circle me-2"></i>Understanding Tax Calculation Methods
+            </h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6 class="fw-bold text-success">
+                        <i class="bi bi-arrow-down-circle"></i> Inclusive Tax
+                    </h6>
+                    <p class="small">Tax is already included in your product prices. The system calculates what portion of the price is tax.</p>
+                    <p class="small text-muted mb-0"><strong>Use when:</strong> Your prices already include tax</p>
+                </div>
+                <div class="col-md-6">
+                    <h6 class="fw-bold text-warning">
+                        <i class="bi bi-arrow-up-circle"></i> Exclusive Tax
+                    </h6>
+                    <p class="small">Tax is added on top of your product prices at checkout.</p>
+                    <p class="small text-muted mb-0"><strong>Use when:</strong> Tax should be calculated and added separately</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

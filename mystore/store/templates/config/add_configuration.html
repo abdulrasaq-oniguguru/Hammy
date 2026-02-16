@@ -1,0 +1,350 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block title %}Add New Configuration - {{ store_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">
+                <i class="bi bi-plus-circle text-success me-2"></i>
+                Add New Deployment Configuration
+            </h2>
+            <p class="text-muted mb-0">Create a new store configuration for a different location or deployment</p>
+        </div>
+        <a href="{% url 'store_configuration' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left me-2"></i>Back to Configurations
+        </a>
+    </div>
+
+    <!-- Configuration Form -->
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <!-- Store Identity Section -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-shop me-2"></i>Store Identity</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Store Name *</label>
+                        {{ form.store_name }}
+                        {% if form.store_name.errors %}
+                        <div class="text-danger small">{{ form.store_name.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Tagline</label>
+                        {{ form.tagline }}
+                        {% if form.tagline.errors %}
+                        <div class="text-danger small">{{ form.tagline.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Deployment Name *</label>
+                        {{ form.deployment_name }}
+                        <small class="form-text text-muted">e.g., "Main Store", "Branch 1", "Lagos Office"</small>
+                        {% if form.deployment_name.errors %}
+                        <div class="text-danger small">{{ form.deployment_name.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contact Information Section -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="bi bi-envelope me-2"></i>Contact Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Email *</label>
+                        {{ form.email }}
+                        {% if form.email.errors %}
+                        <div class="text-danger small">{{ form.email.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Phone *</label>
+                        {{ form.phone }}
+                        {% if form.phone.errors %}
+                        <div class="text-danger small">{{ form.phone.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Phone 2 (Optional)</label>
+                        {{ form.phone_2 }}
+                        {% if form.phone_2.errors %}
+                        <div class="text-danger small">{{ form.phone_2.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Address Section -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="bi bi-geo-alt me-2"></i>Address</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Address Line 1</label>
+                        {{ form.address_line_1 }}
+                        {% if form.address_line_1.errors %}
+                        <div class="text-danger small">{{ form.address_line_1.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Address Line 2</label>
+                        {{ form.address_line_2 }}
+                        {% if form.address_line_2.errors %}
+                        <div class="text-danger small">{{ form.address_line_2.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">City</label>
+                        {{ form.city }}
+                        {% if form.city.errors %}
+                        <div class="text-danger small">{{ form.city.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">State</label>
+                        {{ form.state }}
+                        {% if form.state.errors %}
+                        <div class="text-danger small">{{ form.state.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Country</label>
+                        {{ form.country }}
+                        {% if form.country.errors %}
+                        <div class="text-danger small">{{ form.country.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Postal Code</label>
+                        {{ form.postal_code }}
+                        {% if form.postal_code.errors %}
+                        <div class="text-danger small">{{ form.postal_code.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Business Information Section -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="bi bi-briefcase me-2"></i>Business Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Tax ID / Business Registration</label>
+                        {{ form.tax_id }}
+                        {% if form.tax_id.errors %}
+                        <div class="text-danger small">{{ form.tax_id.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Website</label>
+                        {{ form.website }}
+                        {% if form.website.errors %}
+                        <div class="text-danger small">{{ form.website.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Business Hours</label>
+                        {{ form.business_hours }}
+                        {% if form.business_hours.errors %}
+                        <div class="text-danger small">{{ form.business_hours.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Branding Section -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="bi bi-palette me-2"></i>Branding & Images</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Logo</label>
+                        {{ form.logo }}
+                        <small class="form-text text-muted">Upload your store logo</small>
+                        {% if form.logo.errors %}
+                        <div class="text-danger small">{{ form.logo.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Receipt Logo</label>
+                        {{ form.receipt_logo }}
+                        <small class="form-text text-muted">Logo to appear on receipts</small>
+                        {% if form.receipt_logo.errors %}
+                        <div class="text-danger small">{{ form.receipt_logo.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Favicon</label>
+                        {{ form.favicon }}
+                        <small class="form-text text-muted">Browser tab icon</small>
+                        {% if form.favicon.errors %}
+                        <div class="text-danger small">{{ form.favicon.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Currency & Localization Section -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="bi bi-currency-exchange me-2"></i>Currency & Localization</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Currency Symbol</label>
+                        {{ form.currency_symbol }}
+                        {% if form.currency_symbol.errors %}
+                        <div class="text-danger small">{{ form.currency_symbol.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Currency Code</label>
+                        {{ form.currency_code }}
+                        {% if form.currency_code.errors %}
+                        <div class="text-danger small">{{ form.currency_code.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Timezone</label>
+                        {{ form.timezone }}
+                        {% if form.timezone.errors %}
+                        <div class="text-danger small">{{ form.timezone.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Date Format</label>
+                        {{ form.date_format }}
+                        {% if form.date_format.errors %}
+                        <div class="text-danger small">{{ form.date_format.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Receipt Settings Section -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0"><i class="bi bi-receipt me-2"></i>Receipt Settings</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-5 mb-3">
+                        <label class="form-label">Receipt Header Text</label>
+                        {{ form.receipt_header_text }}
+                        {% if form.receipt_header_text.errors %}
+                        <div class="text-danger small">{{ form.receipt_header_text.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-5 mb-3">
+                        <label class="form-label">Receipt Footer Text</label>
+                        {{ form.receipt_footer_text }}
+                        {% if form.receipt_footer_text.errors %}
+                        <div class="text-danger small">{{ form.receipt_footer_text.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-2 mb-3">
+                        <label class="form-label">Show Tax ID on Receipt</label>
+                        <div class="form-check">
+                            {{ form.show_receipt_tax_id }}
+                            <label class="form-check-label" for="id_show_receipt_tax_id">
+                                Display Tax ID
+                            </label>
+                        </div>
+                        {% if form.show_receipt_tax_id.errors %}
+                        <div class="text-danger small">{{ form.show_receipt_tax_id.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Social Media Section -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header" style="background: linear-gradient(90deg, #3b5998, #e1306c, #1da1f2);">
+                <h5 class="mb-0 text-white"><i class="bi bi-share me-2"></i>Social Media</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Facebook URL</label>
+                        {{ form.facebook_url }}
+                        {% if form.facebook_url.errors %}
+                        <div class="text-danger small">{{ form.facebook_url.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Instagram URL</label>
+                        {{ form.instagram_url }}
+                        {% if form.instagram_url.errors %}
+                        <div class="text-danger small">{{ form.instagram_url.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Twitter URL</label>
+                        {{ form.twitter_url }}
+                        {% if form.twitter_url.errors %}
+                        <div class="text-danger small">{{ form.twitter_url.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Settings Section -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-gear me-2"></i>System Settings</h5>
+            </div>
+            <div class="card-body">
+                <div class="form-check">
+                    {{ form.is_active }}
+                    <label class="form-check-label" for="id_is_active">
+                        <strong>Set as Active Configuration</strong>
+                        <small class="text-muted d-block">Make this the active deployment configuration immediately</small>
+                    </label>
+                </div>
+                {% if form.is_active.errors %}
+                <div class="text-danger small">{{ form.is_active.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="d-flex justify-content-end gap-2 mb-4">
+            <a href="{% url 'store_configuration' %}" class="btn btn-secondary">
+                <i class="bi bi-x-circle me-2"></i>Cancel
+            </a>
+            <button type="submit" class="btn btn-success">
+                <i class="bi bi-plus-circle me-2"></i>Create Configuration
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

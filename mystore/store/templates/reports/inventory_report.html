@@ -1,0 +1,195 @@
+<!-- templates/reports/inventory_report.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Inventory Report{% endblock %}
+{% block content %}
+
+<div class="container-fluid py-4">
+    <div class="row">
+
+        <!-- Left Sidebar: Filters -->
+        <div class="col-lg-2 col-md-3 col-sm-4 mb-4">
+            <div class="card shadow-sm" style="background: #2c2c2d; border: none; border-radius: 12px;">
+                <div class="card-header" style="background: #1f1f1f; color: #e0e0e0; border-bottom: 1px solid #444;">
+                    <h6 class="mb-0">Filters</h6>
+                </div>
+                <div class="card-body p-3" style="color: #e0e0e0;">
+                    <form method="get" class="small">
+                        <!-- Category Filter -->
+                        <div class="form-group mb-3">
+                            <label for="category" class="form-label text-white-50">Category</label>
+                            <select class="form-select form-select-sm" id="category" name="category">
+                                <option value="">All Categories</option>
+                                {% for value, name in categories %}
+                                <option value="{{ value }}" {% if selected_category == value %}selected{% endif %}>{{ name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Low Stock Only -->
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="low_stock" name="low_stock"
+                                   {% if show_low_stock %}checked{% endif %}>
+                            <label class="form-check-label text-white-50" for="low_stock">
+                                Show Low Stock Only
+                            </label>
+                        </div>
+
+                        <!-- Actions -->
+                        <button type="submit" class="btn btn-primary btn-sm w-100 mb-2">Apply</button>
+                        <a href="{% url 'inventory_report' %}" class="btn btn-outline-secondary btn-sm w-100">Clear</a>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Export Button -->
+            <div class="mt-3">
+                <button class="btn btn-success btn-sm w-100" onclick="exportTableToExcel('inventoryTable', 'inventory_report')">
+                    <i class="fas fa-file-excel"></i> Export to Excel
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-lg-10 col-md-9 col-sm-8">
+
+            <!-- Page Title -->
+            <h1 class="h3 mb-4 text-white">Inventory Report</h1>
+
+            <!-- Summary Cards -->
+            <div class="row mb-4">
+                <div class="col-xl-3 col-md-6 mb-3">
+                    <div class="card shadow-sm" style="background: #2c2c2d; border-left: 4px solid #4e73df; color: #e0e0e0;">
+                        <div class="card-body">
+                            <h6 class="card-title text-primary">Total Value</h6>
+                            <p class="card-text fs-5 mb-0">{{ currency_symbol }}{{ total_value|floatformat:2 }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-3">
+                    <div class="card shadow-sm" style="background: #2c2c2d; border-left: 4px solid #36b9cc; color: #e0e0e0;">
+                        <div class="card-body">
+                            <h6 class="card-title text-info">Total Products</h6>
+                            <p class="card-text fs-5 mb-0">{{ products.count }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-3">
+                    <div class="card shadow-sm" style="background: #2c2c2d; border-left: 4px solid #f6c23e; color: #e0e0e0;">
+                        <div class="card-body">
+                            <h6 class="card-title text-warning">Low Stock</h6>
+                            <p class="card-text fs-5 mb-0">{{ low_stock_count }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-3">
+                    <div class="card shadow-sm" style="background: #2c2c2d; border-left: 4px solid #1cc88a; color: #e0e0e0;">
+                        <div class="card-body">
+                            <h6 class="card-title text-success">Avg. Markup</h6>
+                            <p class="card-text fs-5 mb-0">{{ avg_markup|floatformat:2 }}%</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inventory Table -->
+            <div class="card shadow-sm" style="background: #2c2c2d; border: none; border-radius: 12px;">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-dark table-bordered table-sm" id="inventoryTable">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Category</th>
+                                    <th>Size</th>
+                                    <th>Cost Price</th>
+                                    <th>Selling Price</th>
+                                    <th>Markup</th>
+                                    <th>Stock</th>
+                                    <th>Status</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for product in products %}
+                                <tr>
+                                    <td>{{ product.brand|default:"Unnamed" }}</td>
+                                    <td>{{ product.get_category_display|default:"Uncategorized" }}</td>
+                                    <td>{{ product.size|default:"N/A" }}</td>
+                                    <td>{{ currency_symbol }}{{ product.price|floatformat:2 }}</td>
+                                    <td>{{ currency_symbol }}{{ product.selling_price|floatformat:2 }}</td>
+                                    <td>
+                                        {% if product.markup_type == 'percentage' %}
+                                            {{ product.markup }}%
+                                        {% else %}
+                                            {{ currency_symbol }}{{ product.markup|floatformat:2 }}
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ product.quantity }}</td>
+                                    <td>
+                                        {% if product.quantity < 5 %}
+                                            <span class="badge bg-danger">Critical</span>
+                                        {% elif product.quantity < 10 %}
+                                            <span class="badge bg-warning text-dark">Low</span>
+                                        {% else %}
+                                            <span class="badge bg-success">Good</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ currency_symbol }}{{ product.total_value|floatformat:2 }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted">No products found.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- Excel Export Script -->
+<script>
+function exportTableToExcel(tableID, filename = '') {
+    const table = document.getElementById(tableID);
+    const html = table.outerHTML
+        .replace(/<thead[^>]*>[\s\S]*?<\/thead>/g, '')
+        .replace(/ style="[^"]*"/g, '')
+        .replace(/ class="[^"]*"/g, '')
+        .replace(/ border="[^"]*"/g, '')
+        .replace(/<img[^>]*>/g, '')
+        .replace(/ /g, '%20');
+
+    const a = document.createElement("a");
+    a.href = 'data:application/vnd.ms-excel,' + html;
+    a.download = (filename || 'inventory_report') + '.xls';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+</script>
+
+<!-- Custom Styles -->
+<style>
+    .form-label, .form-control, .form-select {
+        font-size: 0.8rem;
+    }
+    .table th, .table td {
+        padding: 0.5rem;
+        font-size: 0.85rem;
+        white-space: nowrap;
+    }
+    .card {
+        border-radius: 12px;
+    }
+    .badge {
+        font-size: 0.75rem;
+        padding: 0.35em 0.5em;
+    }
+</style>
+
+{% endblock %}

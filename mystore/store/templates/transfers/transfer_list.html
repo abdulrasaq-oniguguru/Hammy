@@ -1,0 +1,123 @@
+<!-- templates/transfers/transfer_list.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold">🚚 Transfer List</h2>
+        <a href="{% url 'transfer_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i> New Transfer
+        </a>
+    </div>
+
+    <!-- Filters -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label small">Search Reference</label>
+                    <input type="text" name="search" class="form-control" placeholder="Search by reference..." value="{{ search_query }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Status</label>
+                    <select name="status" class="form-select">
+                        <option value="">All Statuses</option>
+                        {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Type</label>
+                    <select name="type" class="form-select">
+                        <option value="">All Types</option>
+                        {% for value, label in type_choices %}
+                        <option value="{{ value }}" {% if type_filter == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Date From</label>
+                    <input type="date" name="date_from" class="form-control" value="{{ date_from }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Date To</label>
+                    <input type="date" name="date_to" class="form-control" value="{{ date_to }}">
+                </div>
+                <div class="col-md-1">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-filter me-1"></i> Filter
+                    </button>
+                </div>
+                <div class="col-md-1">
+                    <a href="{% url 'transfer_list' %}" class="btn btn-outline-secondary w-100">
+                        <i class="fas fa-undo me-1"></i> Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Transfers Table -->
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Reference</th>
+                            <th>From → To</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th>Items</th>
+                            <th>Value</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for transfer in transfers %}
+                        <tr>
+                            <td><strong>{{ transfer.transfer_reference }}</strong></td>
+                            <td>
+                                {{ transfer.get_from_location_display }} →
+                                {{ transfer.get_to_location_display }}
+                            </td>
+                            <td>{{ transfer.transfer_date|date:"M d, Y" }}</td>
+                            <td>
+                                <span class="badge
+                                    {% if transfer.status == 'PENDING' %}bg-warning
+                                    {% elif transfer.status == 'IN_TRANSIT' %}bg-info
+                                    {% elif transfer.status == 'RECEIVED' %}bg-success
+                                    {% elif transfer.status == 'CANCELLED' %}bg-danger
+                                    {% endif %}">
+                                    {{ transfer.get_status_display }}
+                                </span>
+                            </td>
+                            <td>{{ transfer.total_items }}</td>
+                            <td>₦{{ transfer.total_value|floatformat:2 }}</td>
+                            <td class="text-center">
+                                <a href="{% url 'transfer_detail' transfer.id %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-eye me-1"></i> View
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-5">
+                                <i class="fas fa-clipboard-list fa-2x mb-3"></i><br>
+                                No transfers found.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

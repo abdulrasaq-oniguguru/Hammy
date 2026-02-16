@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% block title %}Delete Task Mapping{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Delete Task Mapping</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-danger">
+                        <strong>Warning!</strong> Are you sure you want to delete this task mapping?
+                    </div>
+
+                    <dl class="row">
+                        <dt class="col-sm-4">Task:</dt>
+                        <dd class="col-sm-8">{{ mapping.get_task_name_display }}</dd>
+
+                        <dt class="col-sm-4">Printer:</dt>
+                        <dd class="col-sm-8">
+                            {% if mapping.printer %}
+                                {{ mapping.printer.name }}
+                            {% else %}
+                                <span class="text-muted">Not Assigned</span>
+                            {% endif %}
+                        </dd>
+
+                        <dt class="col-sm-4">Auto Print:</dt>
+                        <dd class="col-sm-8">
+                            {% if mapping.auto_print %}
+                                <span class="badge bg-success">Yes</span>
+                            {% else %}
+                                <span class="badge bg-secondary">No</span>
+                            {% endif %}
+                        </dd>
+
+                        <dt class="col-sm-4">Status:</dt>
+                        <dd class="col-sm-8">
+                            {% if mapping.is_active %}
+                                <span class="badge bg-success">Active</span>
+                            {% else %}
+                                <span class="badge bg-danger">Inactive</span>
+                            {% endif %}
+                        </dd>
+                    </dl>
+
+                    <p class="text-muted mb-0">
+                        <small>This action cannot be undone. The task mapping will be removed from the system.</small>
+                    </p>
+                </div>
+                <div class="card-footer">
+                    <form method="post" class="d-flex justify-content-between">
+                        {% csrf_token %}
+                        <a href="{% url 'task_printer_mapping' %}" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash"></i> Delete Mapping
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

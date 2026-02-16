@@ -1,0 +1,418 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Create New User{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-container {
+        max-width: 680px;
+        margin: 2rem auto;
+    }
+
+    .form-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        box-shadow: var(--shadow-lg);
+        overflow: hidden;
+    }
+
+    .form-header {
+        background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+        color: white;
+        padding: 2.5rem;
+        text-align: center;
+    }
+
+    .form-header h2 {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .form-header p {
+        opacity: 0.95;
+        font-size: 0.95rem;
+    }
+
+    .card-body {
+        padding: 2rem;
+    }
+
+    .section-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 1.2rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-bottom: 2px solid var(--border-color);
+        padding-bottom: 0.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.2rem;
+    }
+
+    label {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .required-field::after {
+        content: " *";
+        color: var(--accent-danger);
+    }
+
+    .form-control, .form-select {
+        background: var(--card-bg);
+        color: var(--text-primary);
+        border: 2px solid var(--border-color);
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus, .form-select:focus {
+        background: var(--card-bg);
+        color: var(--text-primary);
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.15);
+        outline: none;
+    }
+
+    .access-info {
+        background: rgba(102, 126, 234, 0.05);
+        border-left: 4px solid var(--accent-primary);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+        font-size: 0.9rem;
+    }
+
+    .access-info h6 {
+        margin-bottom: 0.5rem;
+        color: var(--text-primary);
+    }
+
+    .access-info small {
+        color: var(--text-secondary);
+    }
+
+    .btn-custom {
+        border-radius: 30px;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        transition: all 0.3s ease;
+        font-size: 0.9rem;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+        border: none;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-secondary {
+        background-color: var(--text-muted);
+        border: none;
+    }
+
+    .btn-secondary:hover {
+        background-color: var(--text-secondary);
+    }
+
+    .alert-info {
+        background: rgba(54, 185, 204, 0.1);
+        border: 1px solid var(--accent-info);
+        color: var(--text-primary);
+        border-radius: 8px;
+        font-size: 0.9rem;
+    }
+
+    .password-strength-bar {
+        height: 6px;
+        background: var(--border-color);
+        border-radius: 3px;
+        margin: 0.5rem 0;
+        overflow: hidden;
+    }
+
+    .password-strength-fill {
+        height: 100%;
+        width: 0%;
+        transition: width 0.3s ease, background 0.3s ease;
+        border-radius: 3px;
+    }
+
+    .breadcrumb {
+        background: transparent;
+        padding: 0;
+        font-size: 0.95rem;
+    }
+
+    .breadcrumb-item a {
+        color: var(--accent-primary);
+        text-decoration: none;
+    }
+
+    .breadcrumb-item a:hover {
+        text-decoration: underline;
+    }
+
+    .breadcrumb-item.active {
+        color: var(--text-muted);
+    }
+
+    .text-muted {
+        color: var(--text-muted) !important;
+    }
+
+    .text-danger {
+        color: var(--accent-danger) !important;
+    }
+
+    @media (max-width: 576px) {
+        .form-container {
+            margin: 1rem;
+        }
+        .card-body {
+            padding: 1.5rem;
+        }
+        .btn-custom {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <div class="form-container">
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a href="{% url 'user_management_dashboard' %}">
+                        <i class="fas fa-users mr-1"></i> User Management
+                    </a>
+                </li>
+                <li class="breadcrumb-item active">Create User</li>
+            </ol>
+        </nav>
+
+        <div class="card form-card">
+            <div class="form-header">
+                <h2><i class="fas fa-user-plus"></i> Create New User</h2>
+                <p>Add a new team member to the system with appropriate access level</p>
+            </div>
+
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+
+                    <!-- Personal Information -->
+                    <h5 class="section-title">
+                        <i class="fas fa-id-card"></i> Personal Information
+                    </h5>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="{{ user_form.first_name.id_for_label }}" class="required-field">First Name</label>
+                                {{ user_form.first_name }}
+                                {% if user_form.first_name.errors %}
+                                    <div class="text-danger small mt-1">{{ user_form.first_name.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="{{ user_form.last_name.id_for_label }}" class="required-field">Last Name</label>
+                                {{ user_form.last_name }}
+                                {% if user_form.last_name.errors %}
+                                    <div class="text-danger small mt-1">{{ user_form.last_name.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="{{ user_form.email.id_for_label }}" class="required-field">Email Address</label>
+                                {{ user_form.email }}
+                                {% if user_form.email.errors %}
+                                    <div class="text-danger small mt-1">{{ user_form.email.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="{{ user_form.phone_number.id_for_label }}">Phone Number</label>
+                                {{ user_form.phone_number }}
+                                {% if user_form.phone_number.errors %}
+                                    <div class="text-danger small mt-1">{{ user_form.phone_number.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Account Information -->
+                    <h5 class="section-title mt-4">
+                        <i class="fas fa-user-cog"></i> Account & Access
+                    </h5>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="{{ user_form.username.id_for_label }}" class="required-field">Username</label>
+                                {{ user_form.username }}
+                                {% if user_form.username.errors %}
+                                    <div class="text-danger small mt-1">{{ user_form.username.errors.0 }}</div>
+                                {% endif %}
+                                <small class="text-muted">Letters, digits, and @/./+/-/_ only.</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="{{ user_form.access_level.id_for_label }}" class="required-field">Access Level</label>
+                                {{ user_form.access_level }}
+                                {% if user_form.access_level.errors %}
+                                    <div class="text-danger small mt-1">{{ user_form.access_level.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="access-info">
+                        <h6><i class="fas fa-info-circle"></i> Access Level & Group Assignment Guide</h6>
+                        <small>
+                            <strong>Managing Director:</strong> Full access including user management. <em>Assigned to "MD" group with staff privileges.</em><br>
+                            <strong>Accountant:</strong> Financial reports, inventory, and sales. <em>Assigned to "Accountant" group.</em><br>
+                            <strong>Cashier:</strong> Sales processing and receipt printing. <em>Assigned to "Cashier" group.</em>
+                        </small>
+                        <div class="mt-2 pt-2" style="border-top: 1px dashed var(--border-color);">
+                            <small><i class="fas fa-users-cog mr-1"></i> <strong>Note:</strong> Django groups are automatically assigned based on the selected access level.</small>
+                        </div>
+                    </div>
+
+                    <!-- Password -->
+                    <h5 class="section-title mt-4">
+                        <i class="fas fa-lock"></i> Security
+                    </h5>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="{{ user_form.password1.id_for_label }}" class="required-field">Password</label>
+                                {{ user_form.password1 }}
+                                {% if user_form.password1.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {% for error in user_form.password1.errors %}
+                                            {{ error }}<br>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                                <div class="password-strength-bar mt-2">
+                                    <div class="password-strength-fill" id="passwordStrength"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="{{ user_form.password2.id_for_label }}" class="required-field">Confirm Password</label>
+                                {{ user_form.password2 }}
+                                {% if user_form.password2.errors %}
+                                    <div class="text-danger small mt-1">{{ user_form.password2.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info small d-flex align-items-center" role="alert">
+                        <i class="fas fa-shield-alt mr-2"></i>
+                        Password must be at least 8 characters and not entirely numeric.
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="d-flex justify-content-center gap-3 pt-3">
+                        <button type="submit" class="btn btn-primary btn-custom">
+                            <i class="fas fa-plus mr-2"></i> Create User
+                        </button>
+                        <a href="{% url 'user_management_dashboard' %}" class="btn btn-secondary btn-custom">
+                            <i class="fas fa-times mr-2"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Messages -->
+{% if messages %}
+    <div class="position-fixed top-0 end-0 p-3" style="z-index: 1100; margin-top: 60px;">
+        {% for message in messages %}
+            <div class="toast align-items-center text-white bg-{% if message.tags == 'error' %}danger{% else %}success{% endif %} show"
+                 role="alert" aria-live="assertive" aria-atomic="true" data-delay="5000">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <i class="fas fa-check-circle"></i> {{ message }}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const passwordInput = document.getElementById('{{ user_form.password1.id_for_label }}');
+        const strengthBar = document.getElementById('passwordStrength');
+
+        if (passwordInput) {
+            passwordInput.addEventListener('input', function () {
+                const password = this.value;
+                const strength = getPasswordStrength(password);
+                strengthBar.style.width = strength.width;
+                strengthBar.style.backgroundColor = strength.color;
+            });
+        }
+
+        function getPasswordStrength(password) {
+            if (password.length === 0) return { width: '0%', color: '#e9ecef' };
+            if (password.length < 6) return { width: '20%', color: '#dc3545' }; // Weak
+            if (password.length < 8) return { width: '40%', color: '#ffc107' }; // Medium
+
+            let score = 0;
+            if (/[a-z]/.test(password)) score++;
+            if (/[A-Z]/.test(password)) score++;
+            if (/\d/.test(password)) score++;
+            if (/[^A-Za-z0-9]/.test(password)) score++;
+
+            if (score >= 3) return { width: '100%', color: '#28a745' };     // Strong
+            if (score >= 2) return { width: '60%', color: '#fd7e14' };     // Good
+            return { width: '30%', color: '#fd7e14' };                     // Fair
+        }
+
+        // Auto-dismiss toasts
+        setTimeout(() => {
+            document.querySelectorAll('.toast').forEach(toast => {
+                new bootstrap.Toast(toast).hide();
+            });
+        }, 5000);
+    });
+</script>
+{% endblock %}

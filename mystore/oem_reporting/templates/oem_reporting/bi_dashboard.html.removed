@@ -1,0 +1,334 @@
+{% extends 'oem_reporting/base_oem.html' %}
+{% load static %}
+{% block title %}BI Dashboard - OEM{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .stat-card {
+        border-radius: 12px;
+        padding: 1.5rem;
+        transition: all 0.3s ease;
+    }
+
+    .border-left-primary {
+        border-left: 4px solid var(--accent-primary) !important;
+    }
+
+    .border-left-success {
+        border-left: 4px solid var(--accent-success) !important;
+    }
+
+    .border-left-info {
+        border-left: 4px solid var(--accent-info) !important;
+    }
+
+    .border-left-warning {
+        border-left: 4px solid var(--accent-warning) !important;
+    }
+
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin-top: 1rem;
+    }
+
+    .chart-container-pie {
+        position: relative;
+        height: 250px;
+        margin-top: 1rem;
+    }
+
+    .text-primary { color: var(--accent-primary) !important; }
+    .text-success { color: var(--accent-success) !important; }
+    .text-info { color: var(--accent-info) !important; }
+    .text-warning { color: var(--accent-warning) !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- Header with Filter -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="h3 mb-1" style="color: var(--text-primary);">Business Intelligence Dashboard</h1>
+            <p class="text-muted">Analyze sales, inventory, and customer trends</p>
+        </div>
+        <div class="col-md-4">
+            <form method="GET" id="filterForm">
+                <div class="input-group">
+                    <select name="filter" class="form-select" id="filterSelect" onchange="toggleCustomDates()">
+                        <option value="today" {% if filter_type == 'today' %}selected{% endif %}>Today</option>
+                        <option value="this_week" {% if filter_type == 'this_week' %}selected{% endif %}>This Week</option>
+                        <option value="this_month" {% if filter_type == 'this_month' %}selected{% endif %}>This Month</option>
+                        <option value="this_year" {% if filter_type == 'this_year' %}selected{% endif %}>This Year</option>
+                        <option value="custom" {% if filter_type == 'custom' %}selected{% endif %}>Custom Range</option>
+                    </select>
+                    <button class="btn btn-oem-primary" type="submit">
+                        <i class="fas fa-filter"></i> Apply
+                    </button>
+                </div>
+                <div id="customDates" class="mt-2" style="display: {% if filter_type == 'custom' %}block{% else %}none{% endif %};">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <input type="date" name="start_date" class="form-control" value="{{ start_date|date:'Y-m-d' }}">
+                        </div>
+                        <div class="col-6">
+                            <input type="date" name="end_date" class="form-control" value="{{ end_date|date:'Y-m-d' }}">
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="oem-card stat-card border-left-primary">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <div class="text-uppercase mb-1" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted);">Revenue (Period)</div>
+                        <div class="h5 mb-0" style="font-weight: 700; color: var(--text-primary);">₦{{ total_revenue|floatformat:2 }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-dollar-sign fa-2x" style="color: var(--accent-primary); opacity: 0.3;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="oem-card stat-card border-left-success">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <div class="text-uppercase mb-1" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted);">Sales Orders</div>
+                        <div class="h5 mb-0" style="font-weight: 700; color: var(--text-primary);">{{ total_sales_count }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-receipt fa-2x" style="color: var(--accent-success); opacity: 0.3;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="oem-card stat-card border-left-info">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <div class="text-uppercase mb-1" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted);">Avg Order Value</div>
+                        <div class="h5 mb-0" style="font-weight: 700; color: var(--text-primary);">₦{{ avg_order_value|floatformat:2 }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-tags fa-2x" style="color: var(--accent-info); opacity: 0.3;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="oem-card stat-card border-left-warning">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <div class="text-uppercase mb-1" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted);">Low Stock Items</div>
+                        <div class="h5 mb-0" style="font-weight: 700; color: var(--text-primary);">{{ low_stock_count }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-exclamation-triangle fa-2x" style="color: var(--accent-warning); opacity: 0.3;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row mb-4">
+        <!-- Revenue Chart -->
+        <div class="col-xl-8 col-lg-7 mb-4">
+            <div class="oem-card">
+                <div class="oem-card-header">
+                    <i class="fas fa-chart-line me-2"></i>Revenue Over Time
+                </div>
+                <div class="oem-card-body">
+                    <div class="chart-container">
+                        <canvas id="revenueChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sales by Category -->
+        <div class="col-xl-4 col-lg-5 mb-4">
+            <div class="oem-card">
+                <div class="oem-card-header">
+                    <i class="fas fa-chart-pie me-2"></i>Sales by Category
+                </div>
+                <div class="oem-card-body">
+                    <div class="chart-container-pie">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tables Row -->
+    <div class="row mb-4">
+        <!-- Top Selling Products -->
+        <div class="col-lg-6 mb-4">
+            <div class="oem-card">
+                <div class="oem-card-header">
+                    <i class="fas fa-trophy me-2"></i>Top Selling Products
+                </div>
+                <div class="oem-card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Brand</th>
+                                    <th>Category</th>
+                                    <th>Units Sold</th>
+                                    <th>Revenue</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for product in top_products %}
+                                <tr>
+                                    <td><strong>#{{ forloop.counter }}</strong></td>
+                                    <td>{{ product.brand }}</td>
+                                    <td>{{ product.category }}</td>
+                                    <td>{{ product.total_units_sold }}</td>
+                                    <td>₦{{ product.total_revenue|floatformat:2 }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">No sales in this period</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Low Stock Alerts -->
+        <div class="col-lg-6 mb-4">
+            <div class="oem-card">
+                <div class="oem-card-header">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Low Stock Alerts
+                </div>
+                <div class="oem-card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Category</th>
+                                    <th>Stock</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in low_stock_alerts %}
+                                <tr>
+                                    <td>{{ item.brand|default:item.product_name|default:"N/A" }}</td>
+                                    <td>{{ item.category|default:item.get_category_display|default:"N/A" }}</td>
+                                    <td>{{ item.quantity|default:item.quantity_available|default:0 }}</td>
+                                    <td>
+                                        {% if item.quantity < 5 or item.quantity_available < 5 %}
+                                        <span class="badge bg-danger">Critical</span>
+                                        {% else %}
+                                        <span class="badge bg-warning">Low</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">No low stock items</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    function toggleCustomDates() {
+        const select = document.getElementById('filterSelect');
+        const customDates = document.getElementById('customDates');
+        customDates.style.display = select.value === 'custom' ? 'block' : 'none';
+    }
+
+    // Revenue Chart
+    const revenueCtx = document.getElementById('revenueChart');
+    if (revenueCtx) {
+        new Chart(revenueCtx, {
+            type: 'line',
+            data: {
+                labels: {{ monthly_labels|safe }},
+                datasets: [{
+                    label: 'Revenue',
+                    data: {{ monthly_revenue|safe }},
+                    borderColor: 'rgb(102, 126, 234)',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    // Category Chart
+    const categoryCtx = document.getElementById('categoryChart');
+    if (categoryCtx) {
+        new Chart(categoryCtx, {
+            type: 'doughnut',
+            data: {
+                labels: {{ category_labels|safe }},
+                datasets: [{
+                    data: {{ category_data|safe }},
+                    backgroundColor: [
+                        'rgba(102, 126, 234, 0.8)',
+                        'rgba(72, 187, 120, 0.8)',
+                        'rgba(246, 194, 62, 0.8)',
+                        'rgba(231, 74, 59, 0.8)',
+                        'rgba(54, 185, 204, 0.8)',
+                        'rgba(133, 135, 150, 0.8)',
+                        'rgba(118, 75, 162, 0.8)'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}

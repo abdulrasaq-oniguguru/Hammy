@@ -1,0 +1,1105 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Barcode Print Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-wrapper {
+        min-height: 100vh;
+        padding: 3rem 0;
+    }
+
+    .page-header {
+        background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        color: white;
+        box-shadow: var(--shadow-lg);
+        text-align: center;
+    }
+
+    .filter-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .filter-card h6 {
+        color: var(--text-primary);
+        font-weight: 600;
+    }
+
+    .filter-card .form-label {
+        color: var(--text-primary);
+        font-size: 0.875rem;
+    }
+
+    .filter-card .form-control,
+    .filter-card .form-select {
+        background-color: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+    }
+
+    .barcode-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        transition: all 0.3s ease;
+    }
+
+    .barcode-card:hover {
+        box-shadow: var(--shadow-lg);
+        transform: translateY(-2px);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+    <div class="container-fluid px-4" style="max-width: 1800px; margin: 0 auto;">
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1 class="display-6 fw-bold mb-0">
+                <i class="bi bi-upc-scan me-2"></i>Barcode Print Manager
+            </h1>
+        </div>
+
+        <div class="row">
+            <!-- Enhanced Sidebar Filters -->
+            <div class="col-lg-3 col-md-4 mb-3">
+                <div class="filter-card">
+                    <div class="card-body p-3">
+                        <h6 class=" mb-3"><i class="bi bi-funnel"></i> Filters & Sorting</h6>
+
+                        <form method="GET" action="{% url 'barcode_print_manager' %}">
+                            <!-- Search -->
+                            <div class="mb-3">
+                                <label class="form-label small mb-1">Search</label>
+                                <input type="text"
+                                       name="search"
+                                       class="form-control form-control-sm "
+                                       placeholder="Search products..."
+                                       value="{{ current_filters.search|default:'' }}">
+                            </div>
+
+                            <!-- Category -->
+                            <div class="mb-3">
+                                <label class="form-label small mb-1">Category</label>
+                                <select name="category" class="form-select form-select-sm ">
+                                    <option value="">All Categories</option>
+                                    {% for category in category_choices %}
+                                        {% if category|length == 2 %}
+                                            <option value="{{ category.0 }}" {% if current_filters.category == category.0 %}selected{% endif %}>
+                                                {{ category.1 }}
+                                            </option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Shop -->
+                            <div class="mb-3">
+                                <label class="form-label small mb-1">Shop</label>
+                                <select name="shop" class="form-select form-select-sm ">
+                                    <option value="">All Shops</option>
+                                    {% for shop in shop_choices %}
+                                        {% if shop|length == 2 %}
+                                            <option value="{{ shop.0 }}" {% if current_filters.shop == shop.0 %}selected{% endif %}>
+                                                {{ shop.1 }}
+                                            </option>
+                                        {% else %}
+                                            <option value="{{ shop }}" {% if current_filters.shop == shop %}selected{% endif %}>
+                                                {{ shop }}
+                                            </option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Design -->
+                            <div class="mb-3">
+                                <label class="form-label small mb-1">Design</label>
+                                <select name="design" class="form-select form-select-sm ">
+                                    <option value="">All Designs</option>
+                                    {% for design in DESIGN_CHOICES %}
+                                        {% if design|length == 2 %}
+                                            <option value="{{ design.0 }}" {% if current_filters.design == design.0 %}selected{% endif %}>
+                                                {{ design.1 }}
+                                            </option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Size -->
+                            <div class="mb-3">
+                                <label class="form-label small mb-1">Size</label>
+                                <input type="text"
+                                       name="size"
+                                       class="form-control form-control-sm "
+                                       placeholder="Enter size"
+                                       value="{{ current_filters.size|default:'' }}">
+                            </div>
+
+                            <!-- Color -->
+                            <div class="mb-3">
+                                <label class="form-label small mb-1">Color</label>
+                                <select name="color" class="form-select form-select-sm ">
+                                    <option value="">All Colors</option>
+                                    {% for color in COLOR_CHOICES %}
+                                        {% if color|length == 2 %}
+                                            <option value="{{ color.0 }}" {% if current_filters.color == color.0 %}selected{% endif %}>
+                                                {{ color.1 }}
+                                            </option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Price Range -->
+                            <div class="mb-3">
+                                <label class="form-label small mb-1">Price Range</label>
+                                <div class="row g-1">
+                                    <div class="col-6">
+                                        <input type="number"
+                                               name="min_price"
+                                               class="form-control form-control-sm "
+                                               placeholder="Min"
+                                               step="0.01"
+                                               value="{{ current_filters.min_price|default:'' }}">
+                                    </div>
+                                    <div class="col-6">
+                                        <input type="number"
+                                               name="max_price"
+                                               class="form-control form-control-sm "
+                                               placeholder="Max"
+                                               step="0.01"
+                                               value="{{ current_filters.max_price|default:'' }}">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Quantity Range -->
+                            <div class="mb-3">
+                                <label class="form-label small mb-1">Quantity Range</label>
+                                <div class="row g-1">
+                                    <div class="col-6">
+                                        <input type="number"
+                                               name="min_quantity"
+                                               class="form-control form-control-sm "
+                                               placeholder="Min"
+                                               value="{{ current_filters.min_quantity|default:'' }}">
+                                    </div>
+                                    <div class="col-6">
+                                        <input type="number"
+                                               name="max_quantity"
+                                               class="form-control form-control-sm "
+                                               placeholder="Max"
+                                               value="{{ current_filters.max_quantity|default:'' }}">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Sorting Options -->
+                            <div class="mb-3">
+                                <label class="form-label small mb-1">Sort Options</label>
+
+                                <!-- Sort by Name -->
+                                <div class="mb-2">
+                                    <label class="form-label small mb-1">By Name</label>
+                                    <select name="sort_by_name" class="form-select form-select-sm ">
+                                        <option value="">Default</option>
+                                        <option value="brand" {% if current_filters.sort_by_name == "brand" %}selected{% endif %}>A-Z</option>
+                                        <option value="-brand" {% if current_filters.sort_by_name == "-brand" %}selected{% endif %}>Z-A</option>
+                                    </select>
+                                </div>
+
+                                <!-- Sort by Price -->
+                                <div class="mb-2">
+                                    <label class="form-label small mb-1">By Price</label>
+                                    <select name="sort_by_price" class="form-select form-select-sm ">
+                                        <option value="">Default</option>
+                                        <option value="price" {% if current_filters.sort_by_price == "price" %}selected{% endif %}>Low to High</option>
+                                        <option value="-price" {% if current_filters.sort_by_price == "-price" %}selected{% endif %}>High to Low</option>
+                                    </select>
+                                </div>
+
+                                <!-- Sort by Quantity -->
+                                <div class="mb-2">
+                                    <label class="form-label small mb-1">By Quantity</label>
+                                    <select name="sort_by_quantity" class="form-select form-select-sm ">
+                                        <option value="">Default</option>
+                                        <option value="quantity" {% if current_filters.sort_by_quantity == "quantity" %}selected{% endif %}>Low to High</option>
+                                        <option value="-quantity" {% if current_filters.sort_by_quantity == "-quantity" %}selected{% endif %}>High to Low</option>
+                                    </select>
+                                </div>
+
+                                <!-- Sort by Creation Order (using ID) -->
+                                <div class="mb-2">
+                                    <label class="form-label small mb-1">By Created</label>
+                                    <select name="sort_by_id" class="form-select form-select-sm ">
+                                        <option value="">Default</option>
+                                        <option value="-id" {% if current_filters.sort_by_id == "-id" %}selected{% endif %}>Newest First</option>
+                                        <option value="id" {% if current_filters.sort_by_id == "id" %}selected{% endif %}>Oldest First</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Filter Buttons -->
+                            <div class="d-grid gap-2 mb-3">
+                                <button type="submit" class="btn btn-danger btn-sm">
+                                    <i class="bi bi-funnel"></i> Apply Filters
+                                </button>
+                                <a href="{% url 'barcode_print_manager' %}" class="btn btn-outline-light btn-sm">
+                                    <i class="bi bi-arrow-counterclockwise"></i> Reset All
+                                </a>
+                            </div>
+                        </form>
+
+                        <!-- Active Filters -->
+                        {% if has_filters %}
+                        <div class="mt-3 pt-3 border-top border-secondary">
+                            <h6 class=" mb-2 small">Active Filters:</h6>
+                            <div class="d-flex flex-wrap gap-1">
+                                {% if current_filters.search %}
+                                <span class="badge bg-secondary small">Search: {{ current_filters.search }}</span>
+                                {% endif %}
+                                {% if current_filters.category %}
+                                <span class="badge bg-secondary small">Category: {{ current_filters.category }}</span>
+                                {% endif %}
+                                {% if current_filters.shop %}
+                                <span class="badge bg-secondary small">Shop: {{ current_filters.shop }}</span>
+                                {% endif %}
+                                {% if current_filters.design %}
+                                <span class="badge bg-secondary small">Design: {{ current_filters.design }}</span>
+                                {% endif %}
+                                {% if current_filters.size %}
+                                <span class="badge bg-secondary small">Size: {{ current_filters.size }}</span>
+                                {% endif %}
+                                {% if current_filters.color %}
+                                <span class="badge bg-secondary small">Color: {{ current_filters.color }}</span>
+                                {% endif %}
+                                {% if current_filters.min_price %}
+                                <span class="badge bg-secondary small">Min Price: ₦{{ current_filters.min_price }}</span>
+                                {% endif %}
+                                {% if current_filters.max_price %}
+                                <span class="badge bg-secondary small">Max Price: ₦{{ current_filters.max_price }}</span>
+                                {% endif %}
+                                {% if current_filters.min_quantity %}
+                                <span class="badge bg-secondary small">Min Qty: {{ current_filters.min_quantity }}</span>
+                                {% endif %}
+                                {% if current_filters.max_quantity %}
+                                <span class="badge bg-secondary small">Max Qty: {{ current_filters.max_quantity }}</span>
+                                {% endif %}
+                                {% if current_filters.sort_by_name %}
+                                <span class="badge bg-info small">
+                                    Sort: Name {% if current_filters.sort_by_name == "-brand" %}(Z-A){% else %}(A-Z){% endif %}
+                                </span>
+                                {% endif %}
+                                {% if current_filters.sort_by_price %}
+                                <span class="badge bg-info small">
+                                    Sort: Price {% if current_filters.sort_by_price == "-price" %}(High-Low){% else %}(Low-High){% endif %}
+                                </span>
+                                {% endif %}
+                                {% if current_filters.sort_by_quantity %}
+                                <span class="badge bg-info small">
+                                    Sort: Quantity {% if current_filters.sort_by_quantity == "-quantity" %}(High-Low){% else %}(Low-High){% endif %}
+                                </span>
+                                {% endif %}
+                                {% if current_filters.sort_by_id %}
+                                <span class="badge bg-info small">
+                                    Sort: Created {% if current_filters.sort_by_id == "-id" %}(Newest){% else %}(Oldest){% endif %}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content Area -->
+            <div class="col-lg-9 col-md-8">
+                <!-- Print Control Section -->
+                <div class="card border-0 shadow mb-3" style="background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px);">
+                    <div class="card-body p-3">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <h6 class=" mb-2">
+                                    <i class="bi bi-printer-fill"></i> Print Controls
+                                </h6>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <button id="select-all-btn" class="btn btn-outline-light btn-sm">
+                                        <i class="bi bi-check2-square"></i> Select All
+                                    </button>
+                                    <button id="clear-selection-btn" class="btn btn-outline-light btn-sm">
+                                        <i class="bi bi-square"></i> Clear All
+                                    </button>
+                                    <button id="print-selected-btn" class="btn btn-success btn-sm" disabled>
+                                        <i class="bi bi-printer"></i> Print Selected (<span id="selected-count">0</span>)
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-6 text-md-end">
+                                <div class="">
+                                    <small class="d-block">Selected Items: <span id="total-selected">0</span></small>
+                                    <small class="d-block">Total Copies: <span id="total-copies">0</span></small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Global Quantity Control -->
+                <div class="card border-0 shadow mb-3" style="background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px);">
+                    <div class="card-body p-3">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <h6 class=" mb-2">
+                                    <i class="bi bi-123"></i> Quick Quantity Actions
+                                </h6>
+                                <div class="d-flex gap-2 align-items-center">
+                                    <input type="number" id="global-quantity" class="form-control form-control-sm " placeholder="Qty" min="1" max="100" style="width: 80px;">
+                                    <button id="apply-global-quantity" class="btn btn-warning btn-sm">
+                                        Apply to Selected
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="d-flex gap-1 justify-content-md-end flex-wrap">
+                                    <button class="btn btn-outline-info btn-sm quick-qty-btn" data-qty="1">1 Copy</button>
+                                    <button class="btn btn-outline-info btn-sm quick-qty-btn" data-qty="2">2 Copies</button>
+                                    <button class="btn btn-outline-info btn-sm quick-qty-btn" data-qty="5">5 Copies</button>
+                                    <button class="btn btn-outline-info btn-sm quick-qty-btn" data-qty="10">10 Copies</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Product Table -->
+                <div class="filter-card">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover table-sm align-middle mb-0">
+                                <thead class="bg-secondary text-white">
+                                    <tr>
+                                        <th style="width: 50px;">
+                                            <input type="checkbox" id="master-checkbox" class="form-check-input">
+                                        </th>
+                                        <th>Brand</th>
+                                        <th>Category</th>
+                                        <th>Design</th>
+                                        <th>Color</th>
+                                        <th>Size</th>
+                                        <th>Price</th>
+                                        <th>Shop</th>
+                                        <th>Stock Qty</th>
+                                        <th style="width: 120px;">Print Copies</th>
+                                        <th style="width: 100px;">Barcode</th>
+                                        <th style="width: 80px;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="products-table-body">
+                                    {% if products %}
+                                        {% for product in products %}
+                                        <tr class="product-row" data-product-id="{{ product.id }}">
+                                            <td>
+                                                {% if product.barcode_image %}
+                                                <input type="checkbox" class="form-check-input product-checkbox"
+                                                       data-product-id="{{ product.id }}"
+                                                       data-product-name="{{ product.brand }}">
+                                                {% else %}
+                                                <i class="bi bi-dash-circle text-muted" title="No barcode available"></i>
+                                                {% endif %}
+                                            </td>
+                                            <td><strong>{{ product.brand }}</strong></td>
+                                            <td>{{ product.get_display_category|default:"-" }}</td>
+                                            <td>{{ product.get_display_design|default:"-" }}</td>
+                                            <td>{{ product.get_display_color|default:"-" }}</td>
+                                            <td>{{ product.size|default:"-" }}</td>
+                                            <td>₦{{ product.price|floatformat:2 }}</td>
+                                            <td>{{ product.shop }}</td>
+                                            <td>
+                                                <span class="badge {% if product.quantity < 5 %}bg-danger{% elif product.quantity < 20 %}bg-warning{% else %}bg-success{% endif %}">
+                                                    {{ product.quantity }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                {% if product.barcode_image %}
+                                                <input type="number"
+                                                       class="form-control form-control-sm  quantity-input"
+                                                       data-product-id="{{ product.id }}"
+                                                       min="1" max="100" value="1"
+                                                       style="width: 80px;" disabled>
+                                                {% else %}
+                                                <small class="text-muted">N/A</small>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if product.barcode_image %}
+                                                <span class="badge bg-success small">
+                                                    <i class="bi bi-check-circle"></i> Ready
+                                                </span>
+                                                {% else %}
+                                                <span class="badge bg-warning small">
+                                                    <i class="bi bi-exclamation-triangle"></i> Missing
+                                                </span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if product.barcode_image %}
+                                                <div class="d-flex flex-column gap-1">
+                                                    <a href="{% url 'print_barcode' product.id %}" target="_blank"
+                                                       class="btn btn-outline-light btn-xs" title="Preview barcode">
+                                                        <i class="bi bi-eye"></i>
+                                                    </a>
+                                                    <button class="btn btn-outline-info btn-xs single-print-btn"
+                                                            data-product-id="{{ product.id }}"
+                                                            title="Print single">
+                                                        <i class="bi bi-printer"></i>
+                                                    </button>
+                                                </div>
+                                                {% else %}
+                                                <a href="{% url 'generate_barcodes' %}" class="btn btn-outline-warning btn-xs" title="Generate barcode">
+                                                    <i class="bi bi-plus-circle"></i>
+                                                </a>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr>
+                                            <td colspan="12" class="text-center py-4 text-muted">
+                                                {% if has_filters %}
+                                                    No products found matching your filters.
+                                                    <div class="mt-2">
+                                                        <a href="{% url 'barcode_print_manager' %}" class="btn btn-sm btn-outline-light">Clear Filters</a>
+                                                    </div>
+                                                {% else %}
+                                                    No products found.
+                                                    <div class="mt-2">
+                                                        <a href="{% url 'product_list' %}" class="btn btn-sm btn-danger">Go to Products</a>
+                                                    </div>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination -->
+                        {% if products.has_other_pages %}
+                        <nav class="mt-3 px-3 pb-3">
+                            <ul class="pagination pagination-sm justify-content-center">
+                                {% if products.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link " href="?page={{ products.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Previous</a>
+                                </li>
+                                {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link ">Previous</span>
+                                </li>
+                                {% endif %}
+
+                                {% for i in products.paginator.page_range %}
+                                    {% if products.number == i %}
+                                    <li class="page-item active">
+                                        <span class="page-link bg-danger border-danger">{{ i }}</span>
+                                    </li>
+                                    {% else %}
+                                    <li class="page-item">
+                                        <a class="page-link " href="?page={{ i }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ i }}</a>
+                                    </li>
+                                    {% endif %}
+                                {% endfor %}
+
+                                {% if products.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link " href="?page={{ products.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Next</a>
+                                </li>
+                                {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link ">Next</span>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Print Progress Modal -->
+<div class="modal fade" id="printProgressModal" tabindex="-1" aria-labelledby="printProgressModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark text-white">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title" id="printProgressModalLabel">
+                    <i class="bi bi-printer"></i> Printing Progress
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <div class="progress" style="height: 25px;">
+                        <div id="print-progress-bar" class="progress-bar bg-success" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                            <span id="progress-text">0%</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="print-status" class="text-muted">
+                    Ready to start printing...
+                </div>
+                <div id="print-log" class="mt-3" style="max-height: 300px; overflow-y: auto; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px;">
+                </div>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" id="cancel-print-btn" class="btn btn-outline-danger">Cancel</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Custom styles for barcode print page */
+    .btn-xs {
+        padding: 0.125rem 0.25rem;
+        font-size: 0.75rem;
+        line-height: 1;
+    }
+
+    .table {
+        --bs-table-bg: transparent;
+        --bs-table-accent-bg: transparent;
+        --bs-table-hover-bg: rgba(255, 255, 255, 0.05);
+        color: #f5f5f5;
+    }
+
+    .table th,
+    .table td {
+        vertical-align: middle;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 0.5rem;
+    }
+
+    .table thead th {
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 0.875rem;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .table tbody tr:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .product-row.selected {
+        background-color: rgba(13, 110, 253, 0.1) !important;
+        border-left: 3px solid #0d6efd;
+    }
+
+    .quantity-input:disabled {
+        opacity: 0.6;
+    }
+
+    .btn-danger {
+        background-color: #c8003e;
+        border: none;
+        transition: background-color 0.3s ease;
+    }
+
+    .btn-danger:hover {
+        background-color: #a50034;
+    }
+
+    .btn-outline-light:hover {
+        background-color: #ffffff22;
+        color: white !important;
+    }
+
+    .card {
+        border-radius: 8px;
+    }
+
+    /* Progress bar styles */
+    .progress-bar {
+        transition: width 0.3s ease;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    /* Print log styles */
+    #print-log {
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+    }
+
+    .log-entry {
+        padding: 2px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .log-success {
+        color: #28a745;
+    }
+
+    .log-error {
+        color: #dc3545;
+    }
+
+    .log-info {
+        color: #17a2b8;
+    }
+
+    .log-warning {
+        color: #ffc107;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let selectedProducts = new Map(); // Map to store product_id -> quantity
+    let printCancelled = false;
+
+    // DOM Elements
+    const masterCheckbox = document.getElementById('master-checkbox');
+    const productCheckboxes = document.querySelectorAll('.product-checkbox');
+    const quantityInputs = document.querySelectorAll('.quantity-input');
+    const selectAllBtn = document.getElementById('select-all-btn');
+    const clearSelectionBtn = document.getElementById('clear-selection-btn');
+    const printSelectedBtn = document.getElementById('print-selected-btn');
+    const selectedCountSpan = document.getElementById('selected-count');
+    const totalSelectedSpan = document.getElementById('total-selected');
+    const totalCopiesSpan = document.getElementById('total-copies');
+    const globalQuantityInput = document.getElementById('global-quantity');
+    const applyGlobalQuantityBtn = document.getElementById('apply-global-quantity');
+    const quickQtyBtns = document.querySelectorAll('.quick-qty-btn');
+    const singlePrintBtns = document.querySelectorAll('.single-print-btn');
+
+    // Modal elements
+    const printProgressModal = new bootstrap.Modal(document.getElementById('printProgressModal'));
+    const printProgressBar = document.getElementById('print-progress-bar');
+    const progressText = document.getElementById('progress-text');
+    const printStatus = document.getElementById('print-status');
+    const printLog = document.getElementById('print-log');
+    const cancelPrintBtn = document.getElementById('cancel-print-btn');
+
+    // Initialize event listeners
+    initializeEventListeners();
+
+    function initializeEventListeners() {
+        // Master checkbox
+        if (masterCheckbox) {
+            masterCheckbox.addEventListener('change', handleMasterCheckboxChange);
+        }
+
+        // Product checkboxes
+        productCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', handleProductCheckboxChange);
+        });
+
+        // Quantity inputs
+        quantityInputs.forEach(input => {
+            input.addEventListener('input', handleQuantityChange);
+            input.addEventListener('change', handleQuantityChange);
+        });
+
+        // Control buttons
+        if (selectAllBtn) selectAllBtn.addEventListener('click', selectAll);
+        if (clearSelectionBtn) clearSelectionBtn.addEventListener('click', clearSelection);
+        if (printSelectedBtn) printSelectedBtn.addEventListener('click', printSelected);
+        if (applyGlobalQuantityBtn) applyGlobalQuantityBtn.addEventListener('click', applyGlobalQuantity);
+
+        // Quick quantity buttons
+        quickQtyBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const qty = parseInt(this.getAttribute('data-qty'));
+                applyQuantityToSelected(qty);
+            });
+        });
+
+        // Single print buttons
+        singlePrintBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const productId = this.getAttribute('data-product-id');
+                const quantityInput = document.querySelector(`input.quantity-input[data-product-id="₦{productId}"]`);
+                const quantity = quantityInput ? parseInt(quantityInput.value) || 1 : 1;
+                printSingleProduct(productId, quantity);
+            });
+        });
+
+        // Cancel print button
+        if (cancelPrintBtn) {
+            cancelPrintBtn.addEventListener('click', function() {
+                printCancelled = true;
+                addLogEntry('Print job cancelled by user', 'warning');
+                this.disabled = true;
+                this.innerHTML = 'Cancelling...';
+            });
+        }
+    }
+
+    function handleMasterCheckboxChange() {
+        const isChecked = masterCheckbox.checked;
+        productCheckboxes.forEach(checkbox => {
+            if (checkbox.checked !== isChecked) {
+                checkbox.checked = isChecked;
+                handleProductCheckboxChange.call(checkbox);
+            }
+        });
+    }
+
+    function handleProductCheckboxChange() {
+        const productId = this.getAttribute('data-product-id');
+        const quantityInput = document.querySelector(`input.quantity-input[data-product-id="₦{productId}"]`);
+        const productRow = document.querySelector(`tr.product-row[data-product-id="₦{productId}"]`);
+
+        if (this.checked) {
+            const quantity = quantityInput ? parseInt(quantityInput.value) || 1 : 1;
+            selectedProducts.set(productId, quantity);
+            if (productRow) productRow.classList.add('selected');
+            if (quantityInput) quantityInput.disabled = false;
+        } else {
+            selectedProducts.delete(productId);
+            if (productRow) productRow.classList.remove('selected');
+            if (quantityInput) quantityInput.disabled = true;
+        }
+
+        updateSelectionCounts();
+        updateMasterCheckbox();
+    }
+
+    function handleQuantityChange() {
+        const productId = this.getAttribute('data-product-id');
+        const quantity = Math.max(1, Math.min(100, parseInt(this.value) || 1));
+
+        // Update the input value to ensure it's within bounds
+        this.value = quantity;
+
+        if (selectedProducts.has(productId)) {
+            selectedProducts.set(productId, quantity);
+            updateSelectionCounts();
+        }
+    }
+
+    function selectAll() {
+        productCheckboxes.forEach(checkbox => {
+            if (!checkbox.checked) {
+                checkbox.checked = true;
+                handleProductCheckboxChange.call(checkbox);
+            }
+        });
+    }
+
+    function clearSelection() {
+        productCheckboxes.forEach(checkbox => {
+            if (checkbox.checked) {
+                checkbox.checked = false;
+                handleProductCheckboxChange.call(checkbox);
+            }
+        });
+    }
+
+    function applyGlobalQuantity() {
+        const globalQty = parseInt(globalQuantityInput.value);
+        if (!globalQty || globalQty < 1 || globalQty > 100) {
+            showNotification('Please enter a valid quantity (1-100)', 'warning');
+            return;
+        }
+
+        applyQuantityToSelected(globalQty);
+        globalQuantityInput.value = '';
+    }
+
+    function applyQuantityToSelected(quantity) {
+        let updatedCount = 0;
+
+        selectedProducts.forEach((currentQty, productId) => {
+            const quantityInput = document.querySelector(`input.quantity-input[data-product-id="₦{productId}"]`);
+            if (quantityInput) {
+                quantityInput.value = quantity;
+                selectedProducts.set(productId, quantity);
+                updatedCount++;
+            }
+        });
+
+        if (updatedCount > 0) {
+            updateSelectionCounts();
+            showNotification(`Updated quantity to ₦{quantity} for ₦{updatedCount} selected items`, 'success');
+        } else {
+            showNotification('No items selected to update', 'warning');
+        }
+    }
+
+    function updateSelectionCounts() {
+        const selectedCount = selectedProducts.size;
+        let totalCopies = 0;
+
+        selectedProducts.forEach(quantity => {
+            totalCopies += quantity;
+        });
+
+        if (selectedCountSpan) selectedCountSpan.textContent = selectedCount;
+        if (totalSelectedSpan) totalSelectedSpan.textContent = selectedCount;
+        if (totalCopiesSpan) totalCopiesSpan.textContent = totalCopies;
+
+        if (printSelectedBtn) {
+            printSelectedBtn.disabled = selectedCount === 0;
+
+            if (selectedCount > 0) {
+                printSelectedBtn.innerHTML = `<i class="bi bi-printer"></i> Print Selected (₦{selectedCount})`;
+            } else {
+                printSelectedBtn.innerHTML = `<i class="bi bi-printer"></i> Print Selected (0)`;
+            }
+        }
+    }
+
+    function updateMasterCheckbox() {
+        if (!masterCheckbox) return;
+
+        const checkedCount = document.querySelectorAll('.product-checkbox:checked').length;
+        const totalCount = productCheckboxes.length;
+
+        if (checkedCount === 0) {
+            masterCheckbox.indeterminate = false;
+            masterCheckbox.checked = false;
+        } else if (checkedCount === totalCount) {
+            masterCheckbox.indeterminate = false;
+            masterCheckbox.checked = true;
+        } else {
+            masterCheckbox.indeterminate = true;
+            masterCheckbox.checked = false;
+        }
+    }
+
+    async function printSelected() {
+        if (selectedProducts.size === 0) {
+            showNotification('No products selected for printing', 'warning');
+            return;
+        }
+
+        // Prepare products data for printing
+        const productsData = [];
+        selectedProducts.forEach((quantity, productId) => {
+            productsData.push({
+                product_id: productId,
+                quantity: quantity
+            });
+        });
+
+        // Show progress modal
+        printCancelled = false;
+        resetPrintProgress();
+        printProgressModal.show();
+
+        // Reset cancel button
+        cancelPrintBtn.disabled = false;
+        cancelPrintBtn.innerHTML = '<i class="bi bi-x-circle"></i> Cancel';
+
+        try {
+            addLogEntry(`Starting print job for ₦{productsData.length} products...`, 'info');
+
+            const response = await fetch('/print_multiple_barcodes_directly/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    products: productsData
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                updatePrintProgress(100);
+                printStatus.textContent = `Print job completed successfully!`;
+                addLogEntry(`✅ Print job completed: ₦{data.message}`, 'success');
+
+                // Show detailed results
+                if (data.results) {
+                    data.results.forEach(result => {
+                        const status = result.success ? '✅' : '❌';
+                        const message = result.success
+                            ? `₦{status} ₦{result.product_name}: ₦{result.printed_quantity}/₦{result.requested_quantity} copies printed`
+                            : `₦{status} ₦{result.product_name}: Failed - ₦{result.error || 'Unknown error'}`;
+
+                        addLogEntry(message, result.success ? 'success' : 'error');
+                    });
+                }
+
+                // Clear selection after successful print
+                setTimeout(() => {
+                    clearSelection();
+                }, 2000);
+
+            } else {
+                addLogEntry(`❌ Print job failed: ₦{data.error}`, 'error');
+                printStatus.textContent = 'Print job failed';
+            }
+
+        } catch (error) {
+            console.error('Print error:', error);
+            addLogEntry(`❌ Network error: ₦{error.message}`, 'error');
+            printStatus.textContent = 'Network error occurred';
+        }
+
+        // Disable cancel button after completion
+        cancelPrintBtn.disabled = true;
+        cancelPrintBtn.innerHTML = 'Completed';
+    }
+
+    async function printSingleProduct(productId, quantity) {
+        if (!confirm(`Print ₦{quantity} copies of this barcode?`)) {
+            return;
+        }
+
+        try {
+            showNotification(`Printing ₦{quantity} copies...`, 'info');
+
+            const response = await fetch(`/print_single_barcode_directly/₦{productId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    quantity: quantity
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showNotification(`✅ ₦{data.message}`, 'success');
+            } else {
+                showNotification(`❌ Print failed: ₦{data.error}`, 'error');
+            }
+
+        } catch (error) {
+            console.error('Single print error:', error);
+            showNotification(`❌ Network error: ₦{error.message}`, 'error');
+        }
+    }
+
+    function resetPrintProgress() {
+        updatePrintProgress(0);
+        printStatus.textContent = 'Preparing to print...';
+        printLog.innerHTML = '';
+    }
+
+    function updatePrintProgress(percentage) {
+        printProgressBar.style.width = `₦{percentage}%`;
+        printProgressBar.setAttribute('aria-valuenow', percentage);
+        progressText.textContent = `₦{Math.round(percentage)}%`;
+    }
+
+    function addLogEntry(message, type = 'info') {
+        const timestamp = new Date().toLocaleTimeString();
+        const logEntry = document.createElement('div');
+        logEntry.className = `log-entry log-₦{type}`;
+        logEntry.innerHTML = `<span class="text-muted">[₦{timestamp}]</span> ₦{message}`;
+
+        printLog.appendChild(logEntry);
+        printLog.scrollTop = printLog.scrollHeight;
+    }
+
+    // Utility functions
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function showNotification(message, type = 'info', duration = 4000) {
+        // Remove any existing notifications
+        const existingNotifications = document.querySelectorAll('.custom-notification');
+        existingNotifications.forEach(notification => {
+            notification.remove();
+        });
+
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `custom-notification alert alert-₦{type} alert-dismissible fade show`;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            min-width: 350px;
+            max-width: 500px;
+        `;
+
+        // Map type to Bootstrap alert classes
+        const alertTypes = {
+            'success': 'success',
+            'error': 'danger',
+            'warning': 'warning',
+            'info': 'info'
+        };
+
+        const alertType = alertTypes[type] || 'info';
+        notification.className = `custom-notification alert alert-₦{alertType} alert-dismissible fade show`;
+
+        notification.innerHTML = `
+            <div class="d-flex align-items-center">
+                <i class="bi bi-₦{getIconForType(type)} me-2"></i>
+                <div>₦{message}</div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+
+        // Add to page
+        document.body.appendChild(notification);
+
+        // Auto remove after duration
+        if (duration > 0) {
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.classList.remove('show');
+                    setTimeout(() => {
+                        if (notification.parentNode) {
+                            notification.parentNode.removeChild(notification);
+                        }
+                    }, 150);
+                }
+            }, duration);
+        }
+    }
+
+    function getIconForType(type) {
+        const icons = {
+            'success': 'check-circle',
+            'error': 'exclamation-triangle',
+            'warning': 'exclamation-triangle',
+            'info': 'info-circle'
+        };
+        return icons[type] || 'info-circle';
+    }
+
+    // Initialize the page
+    updateSelectionCounts();
+    updateMasterCheckbox();
+});
+</script>
+{% endblock %}

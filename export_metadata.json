@@ -1,0 +1,9 @@
+{
+  "export_date": "2026-01-16T10:25:12.948193",
+  "database_engine": "mssql",
+  "database_name": "Store",
+  "django_version": "5.0.14",
+  "backup_file": "data_backup.json",
+  "encoding": "UTF-8",
+  "notes": "Full database export - ALL tables included"
+}

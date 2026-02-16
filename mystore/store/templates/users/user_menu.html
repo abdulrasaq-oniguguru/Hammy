@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% block title %}User Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+        border-radius: 16px;
+        padding: 2.5rem;
+        margin: 2rem 0;
+        color: white;
+        box-shadow: var(--shadow-lg);
+        text-align: center;
+    }
+
+    .page-header h1 {
+        font-weight: 800;
+        font-size: 2.2rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .page-header p {
+        margin: 0;
+        opacity: 0.95;
+        font-size: 1.05rem;
+    }
+
+    .user-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 2rem 1.5rem;
+        text-decoration: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        height: 100%;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: var(--shadow-sm);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .user-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
+    }
+
+    .user-card:hover::before {
+        transform: scaleX(1);
+    }
+
+    .user-card:hover {
+        transform: translateY(-10px) scale(1.02);
+        box-shadow: var(--shadow-lg);
+        border-color: var(--accent-primary);
+    }
+
+    .user-card-icon {
+        width: 80px;
+        height: 80px;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        margin-bottom: 1.25rem;
+        transition: all 0.3s ease;
+        color: white;
+    }
+
+    .user-card:hover .user-card-icon {
+        transform: scale(1.15) rotate(-5deg);
+    }
+
+    .user-card-title {
+        color: var(--text-primary);
+        font-weight: 700;
+        font-size: 1.15rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .user-card-desc {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        margin: 0;
+    }
+
+    .icon-gradient-1 { background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); }
+    .icon-gradient-2 { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+    .icon-gradient-3 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .icon-gradient-4 { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+
+    @media (max-width: 768px) {
+        .page-header h1 {
+            font-size: 1.7rem;
+        }
+
+        .user-card-icon {
+            width: 65px;
+            height: 65px;
+            font-size: 2rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- Page Header -->
+    <div class="page-header">
+        <h1><i class="bi bi-people me-2"></i>User Management</h1>
+        <p>Create and manage team members</p>
+    </div>
+
+    <!-- User Management Grid -->
+    <div class="row g-4 justify-content-center mb-4">
+        <!-- User Dashboard -->
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+            <a href="{% url 'user_management_dashboard' %}" class="user-card">
+                <div class="user-card-icon icon-gradient-1">
+                    <i class="bi bi-speedometer2"></i>
+                </div>
+                <div class="user-card-title">User Dashboard</div>
+                <p class="user-card-desc">View all users & stats</p>
+            </a>
+        </div>
+
+        <!-- Create New User -->
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+            <a href="{% url 'create_user' %}" class="user-card">
+                <div class="user-card-icon icon-gradient-2">
+                    <i class="bi bi-person-plus-fill"></i>
+                </div>
+                <div class="user-card-title">Create New User</div>
+                <p class="user-card-desc">Add a new team member</p>
+            </a>
+        </div>
+
+        <!-- User List -->
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+            <a href="{% url 'user_management_dashboard' %}" class="user-card">
+                <div class="user-card-icon icon-gradient-3">
+                    <i class="bi bi-person-lines-fill"></i>
+                </div>
+                <div class="user-card-title">User List</div>
+                <p class="user-card-desc">View all users</p>
+            </a>
+        </div>
+
+        <!-- My Profile -->
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+            <a href="{% url 'user_profile' %}" class="user-card">
+                <div class="user-card-icon icon-gradient-4">
+                    <i class="bi bi-person-circle"></i>
+                </div>
+                <div class="user-card-title">My Profile</div>
+                <p class="user-card-desc">View & edit your profile</p>
+            </a>
+        </div>
+    </div>
+
+    <!-- Back Button -->
+    <div class="mt-4 mb-4">
+        <a href="{% url 'homepage' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left me-2"></i>Back to Homepage
+        </a>
+    </div>
+</div>
+{% endblock %}

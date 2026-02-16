@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block title %}Transfer Details{% endblock %}
+
+{% block content %}
+<h2>Transfer Details - {{ transfer.transfer_reference }}</h2>
+
+<p><strong>Transfer Type:</strong> {{ transfer.get_transfer_type_display }}</p>
+<p><strong>Transfer Date:</strong> {{ transfer.transfer_date|date:"Y-m-d H:i" }}</p>
+<p><strong>Created by:</strong> {{ transfer.user.username }}</p>  <!-- Display the user who created the transfer -->
+
+<h3>Products in this Transfer:</h3>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Product</th>
+            <th>Quantity</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for product_transfer in product_transfers %}
+        <tr>
+            <td>{{ product_transfer.product.brand }}</td>  <!-- Display the product name -->
+            <td>{{ product_transfer.quantity }}</td>  <!-- Display the quantity transferred -->
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<a href="{% url 'transfer_history' %}" class="btn btn-secondary">Back to Transfer History</a>
+{% endblock %}

@@ -1,0 +1,370 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Select Items for Return - {{ receipt.receipt_number }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-wrapper {
+        min-height: 100vh;
+        padding: 3rem 0;
+    }
+
+    .page-header {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        border-radius: 16px;
+        padding: 2.5rem;
+        margin-bottom: 2rem;
+        color: white;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .info-card, .items-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        box-shadow: var(--shadow-md);
+        margin-bottom: 2rem;
+    }
+
+    .info-card .form-label {
+        color: var(--text-primary);
+        font-weight: 500;
+    }
+
+    .items-table {
+        background: var(--card-bg);
+        color: var(--text-primary);
+    }
+
+    .items-table th {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border-color: var(--border-color);
+    }
+
+    .items-table td {
+        border-color: var(--border-color);
+        color: var(--text-primary);
+        vertical-align: middle;
+    }
+
+    .items-table .form-control,
+    .items-table .form-select {
+        background-color: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+    }
+
+    .refund-summary {
+        background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+        border-radius: 12px;
+        padding: 1.5rem;
+        color: white;
+    }
+
+    .refund-amount {
+        font-size: 2rem;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+    <div class="container-fluid px-4" style="max-width: 1800px; margin: 0 auto;">
+        <!-- Page Header -->
+        <div class="page-header text-center">
+            <h1 class="display-5 fw-bold mb-2">
+                <i class="bi bi-arrow-return-left me-2"></i>Select Items to Return
+            </h1>
+            <p class="mb-0 opacity-95">Receipt: {{ receipt.receipt_number }} | {{ days_remaining }} day{{ days_remaining|pluralize }} remaining</p>
+        </div>
+
+        <form method="post" action="{% url 'return_create' receipt.id %}" id="returnForm">
+            {% csrf_token %}
+
+            <!-- Receipt Information -->
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="info-card">
+                        <div class="card-body p-4">
+                            <h5 class="mb-3">
+                                <i class="bi bi-receipt me-2"></i>Receipt Information
+                            </h5>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <p><strong>Receipt #:</strong> {{ receipt.receipt_number }}</p>
+                                    <p><strong>Date:</strong> {{ receipt.date|date:"Y-m-d H:i" }}</p>
+                                </div>
+                                <div class="col-md-4">
+                                    <p><strong>Customer:</strong>
+                                        {% if receipt.customer %}
+                                            {{ receipt.customer.name }}<br>
+                                            {{ receipt.customer.phone }}
+                                        {% else %}
+                                            Walk-in Customer
+                                        {% endif %}
+                                    </p>
+                                </div>
+                                <div class="col-md-4">
+                                    <p><strong>Total:</strong> ₦{{ receipt.total_with_delivery|floatformat:2 }}</p>
+                                    <p><strong>Cashier:</strong> {{ receipt.user.username }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="refund-summary text-center">
+                        <p class="mb-2 opacity-90">Estimated Refund</p>
+                        <div class="refund-amount" id="refundTotal">₦0.00</div>
+                        <p class="mb-0 mt-2 opacity-90">
+                            <span id="itemCount">0</span> item(s) selected
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Items Selection -->
+            <div class="items-card">
+                <div class="card-body p-4">
+                    <h5 class="mb-4">
+                        <i class="bi bi-box-seam me-2"></i>Select Items to Return
+                    </h5>
+
+                    <div class="table-responsive">
+                        <table class="table items-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50px;">Select</th>
+                                    <th>Product</th>
+                                    <th>Qty Sold</th>
+                                    <th>Already Returned</th>
+                                    <th>Return Qty</th>
+                                    <th>Price</th>
+                                    <th>New Price (Optional)</th>
+                                    <th>Condition</th>
+                                    <th>Restock</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sale in sales %}
+                                <tr class="item-row" data-price="{{ sale.product.selling_price }}" data-sale-id="{{ sale.id }}">
+                                    <td>
+                                        {% if sale.has_returnable %}
+                                        <input type="checkbox" class="form-check-input item-checkbox" name="selected_items" value="{{ sale.id }}">
+                                        {% else %}
+                                        <input type="checkbox" class="form-check-input" disabled>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <strong>{{ sale.product.brand }}</strong><br>
+                                        <small class="text-muted">
+                                            Size: {{ sale.product.size }} | Color: {{ sale.product.color }}
+                                        </small>
+                                    </td>
+                                    <td>{{ sale.quantity }}</td>
+                                    <td>
+                                        {% if sale.already_returned > 0 %}
+                                            <span class="badge bg-warning text-dark">{{ sale.already_returned }}</span>
+                                        {% else %}
+                                            <span class="text-muted">0</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if sale.has_returnable %}
+                                        <input type="number" class="form-control return-qty" name="return_quantity_{{ sale.id }}"
+                                               min="1" max="{{ sale.max_returnable }}" value="1" style="width: 80px;" disabled>
+                                        {% else %}
+                                        <span class="badge bg-secondary">All Returned</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>₦{{ sale.product.selling_price|floatformat:2 }}</td>
+                                    <td>
+                                        <input type="number" class="form-control" name="new_price_{{ sale.id }}"
+                                               step="0.01" min="0" placeholder="Optional" style="width: 100px;" {% if not sale.has_returnable %}disabled{% endif %}>
+                                    </td>
+                                    <td>
+                                        <select class="form-select" name="item_condition_{{ sale.id }}" style="width: 130px;" {% if not sale.has_returnable %}disabled{% endif %}>
+                                            <option value="new" selected>Like New</option>
+                                            <option value="good">Good</option>
+                                            <option value="fair">Fair</option>
+                                            <option value="damaged">Damaged</option>
+                                            <option value="defective">Defective</option>
+                                        </select>
+                                    </td>
+                                    <td class="text-center">
+                                        <input type="checkbox" class="form-check-input" name="restock_{{ sale.id }}" checked {% if not sale.has_returnable %}disabled{% endif %}>
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control" name="item_notes_{{ sale.id }}"
+                                               placeholder="Optional notes" style="width: 150px;" {% if not sale.has_returnable %}disabled{% endif %}>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Return Reason -->
+            <div class="info-card">
+                <div class="card-body p-4">
+                    <h5 class="mb-3">
+                        <i class="bi bi-clipboard-check me-2"></i>Return Reason
+                    </h5>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label for="return_reason" class="form-label">Reason *</label>
+                            <select class="form-select" id="return_reason" name="return_reason" required>
+                                <option value="defective">Defective/Damaged</option>
+                                <option value="wrong_item">Wrong Item</option>
+                                <option value="wrong_size">Wrong Size</option>
+                                <option value="changed_mind">Changed Mind</option>
+                                <option value="not_as_described">Not as Described</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="col-md-8">
+                            <label for="reason_notes" class="form-label">Additional Notes</label>
+                            <textarea class="form-control" id="reason_notes" name="reason_notes" rows="3"
+                                      placeholder="Enter any additional details about the return..."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="text-end">
+                <a href="{% url 'return_search' %}" class="btn btn-secondary btn-lg">
+                    <i class="bi bi-x-circle me-2"></i>Cancel
+                </a>
+                <button type="submit" class="btn btn-primary btn-lg" id="submitBtn" disabled>
+                    <i class="bi bi-check-circle me-2"></i>Submit Return Request
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.querySelectorAll('.item-checkbox');
+    const submitBtn = document.getElementById('submitBtn');
+    const refundTotalEl = document.getElementById('refundTotal');
+    const itemCountEl = document.getElementById('itemCount');
+
+    // Enable/disable quantity input based on checkbox
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            console.log('Checkbox changed:', this.value, 'Checked:', this.checked);
+            const row = this.closest('.item-row');
+            const qtyInput = row.querySelector('.return-qty');
+
+            if (this.checked) {
+                qtyInput.disabled = false;
+                console.log('Enabled quantity input for item:', this.value);
+            } else {
+                qtyInput.disabled = true;
+                console.log('Disabled quantity input for item:', this.value);
+            }
+
+            updateRefundCalculation();
+        });
+    });
+
+    // Update refund calculation when quantity changes
+    document.querySelectorAll('.return-qty').forEach(input => {
+        input.addEventListener('input', updateRefundCalculation);
+    });
+
+    function updateRefundCalculation() {
+        let total = 0;
+        let itemCount = 0;
+
+        checkboxes.forEach(checkbox => {
+            if (checkbox.checked) {
+                const row = checkbox.closest('.item-row');
+                const price = parseFloat(row.dataset.price);
+                const qtyInput = row.querySelector('.return-qty');
+                const qty = parseInt(qtyInput.value) || 0;
+
+                total += price * qty;
+                itemCount++;
+                console.log('Item selected - Price:', price, 'Qty:', qty, 'Subtotal:', price * qty);
+            }
+        });
+
+        refundTotalEl.textContent = '₦' + total.toFixed(2);
+        itemCountEl.textContent = itemCount;
+
+        // Enable submit button if at least one item selected
+        submitBtn.disabled = itemCount === 0;
+        console.log('Refund calculation updated - Total:', total, 'Items:', itemCount, 'Submit button disabled:', submitBtn.disabled);
+    }
+
+    // Validate form before submission
+    document.getElementById('returnForm').addEventListener('submit', function(e) {
+        console.log('Form submit triggered');
+        const checkedCount = document.querySelectorAll('.item-checkbox:checked').length;
+        console.log('Checked items count:', checkedCount);
+
+        if (checkedCount === 0) {
+            e.preventDefault();
+            alert('Please select at least one item to return.');
+            console.log('Form submission prevented - no items selected');
+            return false;
+        }
+
+        // Validate quantities
+        let valid = true;
+        checkboxes.forEach(checkbox => {
+            if (checkbox.checked) {
+                const row = checkbox.closest('.item-row');
+                const qtyInput = row.querySelector('.return-qty');
+                const qty = parseInt(qtyInput.value);
+
+                if (!qty || qty <= 0) {
+                    valid = false;
+                    qtyInput.classList.add('is-invalid');
+                } else {
+                    qtyInput.classList.remove('is-invalid');
+                }
+            }
+        });
+
+        if (!valid) {
+            e.preventDefault();
+            alert('Please enter valid quantities for all selected items.');
+            return false;
+        }
+
+        console.log('Form validation passed - submitting form');
+        console.log('Form action:', this.action);
+        console.log('Form method:', this.method);
+
+        // Log all form data
+        const formData = new FormData(this);
+        console.log('Form data:');
+        for (let [key, value] of formData.entries()) {
+            console.log(`  ₦{key}: ₦{value}`);
+        }
+
+        return true; // Allow form submission
+    });
+
+    // Add debug to submit button click
+    const submitButton = document.getElementById('submitBtn');
+    if (submitButton) {
+        submitButton.addEventListener('click', function(e) {
+            console.log('Submit button clicked!');
+            console.log('Button disabled state:', this.disabled);
+        });
+    }
+});
+</script>
+{% endblock %}

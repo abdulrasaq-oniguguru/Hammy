@@ -1,0 +1,470 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Return Details - {{ return_obj.return_number }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-wrapper {
+        min-height: 100vh;
+        padding: 3rem 0;
+    }
+
+    .page-header {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        border-radius: 16px;
+        padding: 2.5rem;
+        margin-bottom: 2rem;
+        color: white;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .info-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        box-shadow: var(--shadow-md);
+        margin-bottom: 2rem;
+    }
+
+    .info-card .form-label {
+        color: var(--text-primary);
+        font-weight: 500;
+    }
+
+    .items-table {
+        background: var(--card-bg);
+        color: var(--text-primary);
+    }
+
+    .items-table th {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border-color: var(--border-color);
+    }
+
+    .items-table td {
+        border-color: var(--border-color);
+        color: var(--text-primary);
+    }
+
+    .status-badge-pending {
+        background-color: #ffc107;
+        color: #000;
+    }
+
+    .status-badge-approved {
+        background-color: #17a2b8;
+    }
+
+    .status-badge-completed {
+        background-color: #28a745;
+    }
+
+    .status-badge-rejected {
+        background-color: #dc3545;
+    }
+
+    .status-badge-cancelled {
+        background-color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+    <div class="container-fluid px-4" style="max-width: 1600px; margin: 0 auto;">
+        <!-- Page Header -->
+        <div class="page-header text-center">
+            <h1 class="display-5 fw-bold mb-2">
+                <i class="bi bi-arrow-return-left me-2"></i>Return Details
+            </h1>
+            <p class="mb-0 opacity-95">{{ return_obj.return_number }}</p>
+        </div>
+
+        <!-- Status and Actions -->
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <h3>
+                    Status:
+                    <span class="badge status-badge-{{ return_obj.status }}">
+                        {{ return_obj.get_status_display }}
+                    </span>
+                </h3>
+            </div>
+            <div class="col-md-6 text-end">
+                {% if return_obj.status == 'pending' %}
+                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#approveModal">
+                        <i class="bi bi-check-circle me-2"></i>Approve
+                    </button>
+                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal">
+                        <i class="bi bi-x-circle me-2"></i>Reject
+                    </button>
+                {% elif return_obj.status == 'approved' %}
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#completeModal">
+                        <i class="bi bi-check-square me-2"></i>Complete Return
+                    </button>
+                {% endif %}
+
+                {% if return_obj.status != 'completed' and return_obj.status != 'cancelled' %}
+                    <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#cancelModal">
+                        <i class="bi bi-slash-circle me-2"></i>Cancel
+                    </button>
+                {% endif %}
+
+                <a href="{% url 'return_list' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-2"></i>Back to List
+                </a>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Return Information -->
+            <div class="col-md-6">
+                <div class="info-card">
+                    <div class="card-body p-4">
+                        <h5 class="mb-3">
+                            <i class="bi bi-info-circle me-2"></i>Return Information
+                        </h5>
+                        <table class="table table-borderless">
+                            <tr>
+                                <td><strong>Return Number:</strong></td>
+                                <td>{{ return_obj.return_number }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Return Date:</strong></td>
+                                <td>{{ return_obj.return_date|date:"Y-m-d H:i" }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Receipt:</strong></td>
+                                <td>
+                                    <a href="{% url 'receipt_detail' return_obj.receipt.id %}" target="_blank">
+                                        {{ return_obj.receipt.receipt_number }}
+                                        <i class="bi bi-box-arrow-up-right ms-1"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Customer:</strong></td>
+                                <td>
+                                    {% if return_obj.customer %}
+                                        {{ return_obj.customer.name }}<br>
+                                        <small class="text-muted">{{ return_obj.customer.phone }}</small>
+                                    {% else %}
+                                        <span class="text-muted">Walk-in Customer</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Processed By:</strong></td>
+                                <td>{{ return_obj.processed_by.username }}</td>
+                            </tr>
+                            {% if return_obj.approved_by %}
+                            <tr>
+                                <td><strong>Approved By:</strong></td>
+                                <td>
+                                    {{ return_obj.approved_by.username }}<br>
+                                    <small class="text-muted">{{ return_obj.approved_date|date:"Y-m-d H:i" }}</small>
+                                </td>
+                            </tr>
+                            {% endif %}
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Financial Summary -->
+            <div class="col-md-6">
+                <div class="info-card">
+                    <div class="card-body p-4">
+                        <h5 class="mb-3">
+                            <i class="bi bi-cash-stack me-2"></i>Financial Summary
+                        </h5>
+                        <table class="table table-borderless">
+                            <tr>
+                                <td><strong>Subtotal:</strong></td>
+                                <td class="text-end">₦{{ return_obj.subtotal|floatformat:2 }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Restocking Fee:</strong></td>
+                                <td class="text-end">₦{{ return_obj.restocking_fee|floatformat:2 }}</td>
+                            </tr>
+                            <tr class="border-top">
+                                <td><strong>Refund Amount:</strong></td>
+                                <td class="text-end"><h4>₦{{ return_obj.refund_amount|floatformat:2 }}</h4></td>
+                            </tr>
+                            {% if return_obj.refund_type %}
+                            <tr class="border-top">
+                                <td><strong>Refund Type:</strong></td>
+                                <td class="text-end">
+                                    <span class="badge bg-info">{{ return_obj.get_refund_type_display }}</span>
+                                </td>
+                            </tr>
+                            {% if return_obj.refund_type == 'cash' and return_obj.refund_method %}
+                            <tr>
+                                <td><strong>Method:</strong></td>
+                                <td class="text-end">{{ return_obj.refund_method }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Reference:</strong></td>
+                                <td class="text-end">{{ return_obj.refund_reference }}</td>
+                            </tr>
+                            {% endif %}
+                            <tr>
+                                <td><strong>Refunded Date:</strong></td>
+                                <td class="text-end">{{ return_obj.refunded_date|date:"Y-m-d H:i" }}</td>
+                            </tr>
+                            {% endif %}
+                        </table>
+
+                        {% if store_credit %}
+                        <div class="alert alert-info mt-3">
+                            <i class="bi bi-wallet2 me-2"></i>
+                            <strong>Store Credit Issued:</strong> {{ store_credit.credit_number }}<br>
+                            <small>Balance: ₦{{ store_credit.remaining_balance|floatformat:2 }}</small>
+                            <a href="{% url 'store_credit_detail' store_credit.id %}" class="btn btn-sm btn-outline-info mt-2">
+                                View Credit
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Return Reason -->
+        <div class="info-card">
+            <div class="card-body p-4">
+                <h5 class="mb-3">
+                    <i class="bi bi-clipboard-check me-2"></i>Return Reason
+                </h5>
+                <p><strong>Reason:</strong> {{ return_obj.get_return_reason_display }}</p>
+                {% if return_obj.reason_notes %}
+                <p><strong>Notes:</strong></p>
+                <p class="text-muted">{{ return_obj.reason_notes|linebreaks }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Return Items -->
+        <div class="info-card">
+            <div class="card-body p-4">
+                <h5 class="mb-3">
+                    <i class="bi bi-box-seam me-2"></i>Returned Items
+                </h5>
+                <div class="table-responsive">
+                    <table class="table items-table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Qty Sold</th>
+                                <th>Qty Returned</th>
+                                <th>Original Price</th>
+                                <th>New Price</th>
+                                <th>Refund Amount</th>
+                                <th>Condition</th>
+                                <th>Restocked</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in return_items %}
+                            <tr>
+                                <td>
+                                    <strong>{{ item.product.brand }}</strong><br>
+                                    <small class="text-muted">
+                                        Size: {{ item.product.size }} | Color: {{ item.product.color }}
+                                    </small>
+                                    {% if item.notes %}
+                                    <br><small class="text-info"><i class="bi bi-info-circle"></i> {{ item.notes }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>{{ item.quantity_sold }}</td>
+                                <td><strong>{{ item.quantity_returned }}</strong></td>
+                                <td>₦{{ item.original_selling_price|floatformat:2 }}</td>
+                                <td>
+                                    {% if item.new_selling_price %}
+                                        <span class="badge bg-warning text-dark">₦{{ item.new_selling_price|floatformat:2 }}</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td><strong>₦{{ item.refund_amount|floatformat:2 }}</strong></td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ item.get_item_condition_display }}</span>
+                                </td>
+                                <td>
+                                    {% if item.restock_to_inventory %}
+                                        {% if item.restocked %}
+                                            <span class="badge bg-success">
+                                                <i class="bi bi-check-circle"></i> Yes
+                                            </span>
+                                            <br><small class="text-muted">{{ item.restocked_date|date:"Y-m-d H:i" }}</small>
+                                        {% else %}
+                                            <span class="badge bg-warning text-dark">Pending</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-secondary">No</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Approve Modal -->
+<div class="modal fade" id="approveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Approve Return</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'return_approve' return_obj.id %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>Are you sure you want to approve return <strong>{{ return_obj.return_number }}</strong>?</p>
+                    <p class="text-muted">This will allow the return to be completed and inventory to be restocked.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Approve Return</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Reject Modal -->
+<div class="modal fade" id="rejectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Reject Return</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'return_reject' return_obj.id %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>Are you sure you want to reject return <strong>{{ return_obj.return_number }}</strong>?</p>
+                    <div class="mb-3">
+                        <label for="reject_reason" class="form-label">Rejection Reason *</label>
+                        <textarea class="form-control" id="reject_reason" name="reject_reason" rows="3" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Reject Return</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Complete Modal -->
+<div class="modal fade" id="completeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Complete Return</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'return_complete_form' return_obj.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="complete">
+                <div class="modal-body">
+                    <p>Complete return <strong>{{ return_obj.return_number }}</strong> for <strong>₦{{ return_obj.refund_amount|floatformat:2 }}</strong>?</p>
+
+                    <div class="mb-3">
+                        <label for="refund_type" class="form-label">Refund Type *</label>
+                        <select class="form-select" id="refund_type" name="refund_type" required>
+                            <option value="">-- Select Refund Type --</option>
+                            <option value="store_credit" selected>Store Credit</option>
+                            <option value="cash">Cash/Transfer</option>
+                        </select>
+                        <small class="text-muted">Store credit will be issued to customer's account</small>
+                    </div>
+
+                    <div id="cashRefundFields" style="display: none;">
+                        <div class="mb-3">
+                            <label for="refund_method" class="form-label">Refund Method</label>
+                            <select class="form-select" id="refund_method" name="refund_method">
+                                <option value="cash">Cash</option>
+                                <option value="transfer">Bank Transfer</option>
+                                <option value="pos">POS</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="refund_reference" class="form-label">Reference Number</label>
+                            <input type="text" class="form-control" id="refund_reference" name="refund_reference" placeholder="Optional">
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>This will:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>Restore {{ return_items|length }} item(s) to inventory</li>
+                            <li>Issue refund of ₦{{ return_obj.refund_amount|floatformat:2 }}</li>
+                            {% if return_obj.customer %}
+                            <li>Credit customer: {{ return_obj.customer.name }}</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle me-2"></i>Complete Return
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Cancel Modal -->
+<div class="modal fade" id="cancelModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Cancel Return</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'return_cancel' return_obj.id %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>Are you sure you want to cancel return <strong>{{ return_obj.return_number }}</strong>?</p>
+                    <p class="text-warning">This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-warning">Cancel Return</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Show/hide cash refund fields based on refund type selection
+document.addEventListener('DOMContentLoaded', function() {
+    const refundTypeSelect = document.getElementById('refund_type');
+    const cashRefundFields = document.getElementById('cashRefundFields');
+
+    if (refundTypeSelect) {
+        refundTypeSelect.addEventListener('change', function() {
+            if (this.value === 'cash') {
+                cashRefundFields.style.display = 'block';
+            } else {
+                cashRefundFields.style.display = 'none';
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

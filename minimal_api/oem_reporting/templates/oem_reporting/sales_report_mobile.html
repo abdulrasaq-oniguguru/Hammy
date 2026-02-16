@@ -1,0 +1,539 @@
+{% extends 'oem_reporting/base_oem.html' %}
+{% load static %}
+{% block title %}Sales Report{% endblock %}
+
+{% block content %}
+<style>
+    /* ========================================================================
+       MOBILE-FIRST SALES REPORT
+       Simple, clean, and responsive design
+    ======================================================================== */
+
+    :root {
+        --primary: #667eea;
+        --secondary: #764ba2;
+        --success: #06d6a0;
+        --warning: #ffd166;
+        --danger: #ef476f;
+        --light: #f8f9fa;
+        --dark: #2d3748;
+        --border: #e2e8f0;
+        --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    body {
+        background: var(--light);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        color: var(--dark);
+        font-size: 16px;
+        line-height: 1.6;
+    }
+
+    /* Page Header */
+    .page-header {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: white;
+        padding: 2rem 1rem;
+        text-align: center;
+        margin-bottom: 1.5rem;
+        box-shadow: var(--shadow);
+    }
+
+    .page-header h1 {
+        font-size: 1.75rem;
+        margin: 0;
+        font-weight: 700;
+    }
+
+    .page-header .subtitle {
+        font-size: 0.95rem;
+        opacity: 0.9;
+        margin-top: 0.5rem;
+    }
+
+    /* Container */
+    .report-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 1rem 2rem;
+    }
+
+    /* Summary Cards */
+    .summary-cards {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .summary-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.25rem;
+        box-shadow: var(--shadow);
+        border-left: 4px solid var(--primary);
+    }
+
+    .summary-card.revenue {
+        border-left-color: var(--success);
+    }
+
+    .summary-card.transactions {
+        border-left-color: var(--primary);
+    }
+
+    .summary-card.units {
+        border-left-color: var(--warning);
+    }
+
+    .summary-card .label {
+        font-size: 0.875rem;
+        color: #718096;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+    }
+
+    .summary-card .value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--dark);
+    }
+
+    .summary-card .icon {
+        float: right;
+        font-size: 2.5rem;
+        opacity: 0.2;
+        margin-top: -0.5rem;
+    }
+
+    /* Filters */
+    .filters-section {
+        background: white;
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+        box-shadow: var(--shadow);
+    }
+
+    .filters-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        cursor: pointer;
+    }
+
+    .filters-header h3 {
+        font-size: 1.1rem;
+        margin: 0;
+        font-weight: 600;
+    }
+
+    .filters-header .toggle-icon {
+        font-size: 1.25rem;
+        transition: transform 0.3s;
+    }
+
+    .filters-header.collapsed .toggle-icon {
+        transform: rotate(180deg);
+    }
+
+    .filters-content {
+        display: none;
+    }
+
+    .filters-content.show {
+        display: block;
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .form-label {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #4a5568;
+        margin-bottom: 0.5rem;
+    }
+
+    .form-control, .form-select {
+        width: 100%;
+        padding: 0.75rem;
+        font-size: 1rem;
+        border: 2px solid var(--border);
+        border-radius: 8px;
+        background: white;
+        transition: border-color 0.2s;
+    }
+
+    .form-control:focus, .form-select:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .btn {
+        display: block;
+        width: 100%;
+        padding: 0.875rem 1.5rem;
+        font-size: 1rem;
+        font-weight: 600;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        text-align: center;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: white;
+        box-shadow: var(--shadow);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+    }
+
+    .btn-secondary {
+        background: white;
+        color: var(--dark);
+        border: 2px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+        background: var(--light);
+    }
+
+    /* Sales Cards (Mobile-First) */
+    .sales-list {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .sale-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.25rem;
+        box-shadow: var(--shadow);
+        border-top: 3px solid var(--primary);
+    }
+
+    .sale-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .sale-date {
+        font-size: 0.875rem;
+        color: #718096;
+        font-weight: 600;
+    }
+
+    .sale-location {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        background: var(--light);
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--dark);
+    }
+
+    .sale-details {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+
+    .detail-item {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .detail-label {
+        font-size: 0.75rem;
+        color: #718096;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.25rem;
+    }
+
+    .detail-value {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--dark);
+    }
+
+    .sale-card-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border);
+    }
+
+    .category-badge {
+        display: inline-block;
+        padding: 0.375rem 0.875rem;
+        background: rgba(102, 126, 234, 0.1);
+        color: var(--primary);
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    .revenue-amount {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--success);
+    }
+
+    /* Empty State */
+    .empty-state {
+        background: white;
+        border-radius: 12px;
+        padding: 3rem 1.5rem;
+        text-align: center;
+        box-shadow: var(--shadow);
+    }
+
+    .empty-state-icon {
+        font-size: 4rem;
+        color: var(--border);
+        margin-bottom: 1rem;
+    }
+
+    .empty-state h3 {
+        font-size: 1.25rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .empty-state p {
+        color: #718096;
+        margin-bottom: 1.5rem;
+    }
+
+    /* Loading State */
+    .loading {
+        text-align: center;
+        padding: 3rem 1rem;
+    }
+
+    .spinner {
+        border: 3px solid var(--border);
+        border-top: 3px solid var(--primary);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 1rem;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    /* Tablet and Up */
+    @media (min-width: 640px) {
+        .summary-cards {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .filters-content {
+            display: block;
+        }
+
+        .filters-header .toggle-icon {
+            display: none;
+        }
+
+        .sale-details {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+
+    /* Desktop */
+    @media (min-width: 1024px) {
+        .page-header h1 {
+            font-size: 2.5rem;
+        }
+
+        .filters-section {
+            padding: 1.5rem;
+        }
+
+        .btn {
+            display: inline-block;
+            width: auto;
+        }
+    }
+</style>
+
+<div class="page-header">
+    <h1>📊 Sales Summary Report</h1>
+    <div class="subtitle">Aggregated Business Intelligence</div>
+</div>
+
+<div class="report-container">
+    <!-- Summary Cards -->
+    <div class="summary-cards">
+        <div class="summary-card revenue">
+            <div class="icon">💰</div>
+            <div class="label">Total Revenue</div>
+            <div class="value">₦{{ total_revenue|floatformat:0|default:"0" }}</div>
+        </div>
+        <div class="summary-card transactions">
+            <div class="icon">📈</div>
+            <div class="label">Transactions</div>
+            <div class="value">{{ total_transactions|default:"0" }}</div>
+        </div>
+        <div class="summary-card units">
+            <div class="icon">📦</div>
+            <div class="label">Units Sold</div>
+            <div class="value">{{ total_units|default:"0" }}</div>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="filters-section">
+        <div class="filters-header" onclick="toggleFilters()">
+            <h3>🔍 Filters</h3>
+            <span class="toggle-icon">▼</span>
+        </div>
+        <div class="filters-content" id="filtersContent">
+            <form method="get" action="">
+                <div class="form-group">
+                    <label class="form-label">Date Range</label>
+                    <select name="period" class="form-select">
+                        <option value="7" {% if period == '7' %}selected{% endif %}>Last 7 Days</option>
+                        <option value="30" {% if period == '30' %}selected{% endif %}>Last 30 Days</option>
+                        <option value="60" {% if period == '60' %}selected{% endif %}>Last 60 Days</option>
+                        <option value="90" {% if period == '90' %}selected{% endif %}>Last 90 Days</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Location</label>
+                    <select name="location" class="form-select">
+                        <option value="">All Locations</option>
+                        <option value="ABUJA" {% if location == 'ABUJA' %}selected{% endif %}>Abuja</option>
+                        <option value="LAGOS" {% if location == 'LAGOS' %}selected{% endif %}>Lagos</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select name="category" class="form-select">
+                        <option value="">All Categories</option>
+                        {% for cat in categories %}
+                            <option value="{{ cat }}" {% if category == cat %}selected{% endif %}>{{ cat }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 1.5rem;">
+                    <button type="submit" class="btn btn-primary">Apply</button>
+                    <a href="{% url 'oem_reporting:sales_report' %}" class="btn btn-secondary">Clear</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Sales Data -->
+    <div class="sales-list">
+        {% if sales_data %}
+            {% for sale in sales_data %}
+                <div class="sale-card">
+                    <div class="sale-card-header">
+                        <div class="sale-date">{{ sale.summary_date|date:"M d, Y" }}</div>
+                        <div class="sale-location">{{ sale.location|default:"All" }}</div>
+                    </div>
+
+                    <div class="sale-details">
+                        <div class="detail-item">
+                            <span class="detail-label">Shop</span>
+                            <span class="detail-value">{{ sale.shop|default:"All Shops" }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Category</span>
+                            <span class="detail-value">{{ sale.category|default:"All" }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Units</span>
+                            <span class="detail-value">{{ sale.total_units_sold }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Transactions</span>
+                            <span class="detail-value">{{ sale.total_transactions }}</span>
+                        </div>
+                    </div>
+
+                    <div class="sale-card-footer">
+                        {% if sale.category %}
+                            <span class="category-badge">{{ sale.category }}</span>
+                        {% else %}
+                            <span></span>
+                        {% endif %}
+                        <span class="revenue-amount">₦{{ sale.total_revenue|floatformat:0 }}</span>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon">📭</div>
+                <h3>No Sales Data</h3>
+                <p>No sales found for the selected filters. Try adjusting your filter criteria.</p>
+                <a href="{% url 'oem_reporting:sales_report' %}" class="btn btn-primary" style="max-width: 200px; margin: 0 auto;">Reset Filters</a>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Back Button -->
+    <div style="margin-top: 2rem; text-align: center;">
+        <a href="{% url 'oem_reporting:reports_menu' %}" class="btn btn-secondary" style="max-width: 300px; margin: 0 auto;">
+            ← Back to Reports
+        </a>
+    </div>
+</div>
+
+<script>
+function toggleFilters() {
+    const content = document.getElementById('filtersContent');
+    const header = document.querySelector('.filters-header');
+
+    if (window.innerWidth < 640) {
+        content.classList.toggle('show');
+        header.classList.toggle('collapsed');
+    }
+}
+
+// Show filters by default on larger screens
+window.addEventListener('resize', function() {
+    const content = document.getElementById('filtersContent');
+    if (window.innerWidth >= 640) {
+        content.classList.add('show');
+    }
+});
+
+// Initialize on load
+if (window.innerWidth >= 640) {
+    document.getElementById('filtersContent').classList.add('show');
+}
+</script>
+
+{% endblock %}
