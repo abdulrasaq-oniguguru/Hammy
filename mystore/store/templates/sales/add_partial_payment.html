@@ -1,0 +1,365 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Settle Balance - {{ receipt.receipt_number }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-1">
+                        <i class="bi bi-cash-coin"></i> Settle Balance Payment
+                    </h2>
+                    <p class="text-muted mb-0">Receipt: {{ receipt.receipt_number }}</p>
+                </div>
+                <div>
+                    <a href="{% url 'customer_debt_dashboard' %}" class="btn btn-outline-secondary me-2">
+                        <i class="bi bi-arrow-left"></i> Back to Outstanding Balances
+                    </a>
+                    <a href="{% url 'receipt_detail' receipt.id %}" class="btn btn-outline-primary">
+                        <i class="bi bi-receipt"></i> View Receipt
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Left Column: Receipt Summary -->
+        <div class="col-md-6">
+            <!-- Customer Info Card -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-person-circle"></i> Customer Information</h5>
+                </div>
+                <div class="card-body">
+                    <h4 class="mb-3">{{ receipt.customer.name }}</h4>
+                    {% if receipt.customer.phone_number %}
+                    <p class="mb-2"><i class="bi bi-telephone"></i> {{ receipt.customer.phone_number }}</p>
+                    {% endif %}
+                    {% if receipt.customer.email %}
+                    <p class="mb-0"><i class="bi bi-envelope"></i> {{ receipt.customer.email }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Receipt Summary Card -->
+            <div class="card mb-4">
+                <div class="card-header" style="background: linear-gradient(135deg, #ff6b00 0%, #ff8c00 100%); color: white;">
+                    <h5 class="mb-0"><i class="bi bi-receipt"></i> Receipt Summary</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <small class="text-muted d-block">Receipt Number</small>
+                            <strong>{{ receipt.receipt_number }}</strong>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block">Date</small>
+                            <strong>{{ receipt.date|date:"M d, Y" }}</strong>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Subtotal:</span>
+                        <strong>₦{{ receipt.subtotal|floatformat:2 }}</strong>
+                    </div>
+
+                    {% if receipt.discount_amount %}
+                    <div class="d-flex justify-content-between mb-2 text-danger">
+                        <span>Discount:</span>
+                        <strong>-₦{{ receipt.discount_amount|floatformat:2 }}</strong>
+                    </div>
+                    {% endif %}
+
+                    {% if receipt.tax_amount %}
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Tax:</span>
+                        <strong>₦{{ receipt.tax_amount|floatformat:2 }}</strong>
+                    </div>
+                    {% endif %}
+
+                    {% if receipt.delivery_cost %}
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Delivery:</span>
+                        <strong>₦{{ receipt.delivery_cost|floatformat:2 }}</strong>
+                    </div>
+                    {% endif %}
+
+                    <hr>
+
+                    <div class="d-flex justify-content-between mb-3">
+                        <strong>Total Amount:</strong>
+                        <h5 class="mb-0">₦{{ receipt.total_with_delivery|floatformat:2 }}</h5>
+                    </div>
+
+                    <div class="alert alert-success mb-0">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span><i class="bi bi-check-circle"></i> Amount Paid:</span>
+                            <strong>₦{{ receipt.amount_paid|floatformat:2 }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span><i class="bi bi-exclamation-circle"></i> Balance Remaining:</span>
+                            <h4 class="mb-0 text-danger">₦{{ receipt.balance_remaining|floatformat:2 }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment History -->
+            {% if payment_history %}
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-clock-history"></i> Payment History</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Method</th>
+                                    <th>Amount</th>
+                                    <th>By</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for payment in payment_history %}
+                                <tr>
+                                    <td>
+                                        <small>{{ payment.payment_date|date:"M d, Y" }}</small><br>
+                                        <small class="text-muted">{{ payment.payment_date|date:"h:i A" }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ payment.payment_method }}</span>
+                                    </td>
+                                    <td><strong class="text-success">₦{{ payment.amount|floatformat:2 }}</strong></td>
+                                    <td><small>{{ payment.received_by.username }}</small></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr class="table-active">
+                                    <th colspan="2">Total Paid:</th>
+                                    <th>₦{{ receipt.amount_paid|floatformat:2 }}</th>
+                                    <th></th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Right Column: Payment Form -->
+        <div class="col-md-6">
+            <div class="card" style="border-left: 4px solid #28a745;">
+                <div class="card-header" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white;">
+                    <h5 class="mb-0"><i class="bi bi-cash-stack"></i> Add Payment</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Outstanding Balance Display -->
+                    <div class="alert alert-warning mb-4">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-0">Outstanding Balance:</h6>
+                                <small class="text-muted">Amount to be paid</small>
+                            </div>
+                            <h3 class="mb-0 text-danger">₦{{ receipt.balance_remaining|floatformat:2 }}</h3>
+                        </div>
+                    </div>
+
+                    <form method="POST">
+                        {% csrf_token %}
+
+                        <!-- Payment Amount -->
+                        <div class="mb-3">
+                            <label for="amount" class="form-label">
+                                <strong>Payment Amount</strong>
+                                <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text">₦</span>
+                                <input type="number"
+                                       class="form-control"
+                                       id="amount"
+                                       name="amount"
+                                       step="0.01"
+                                       min="0.01"
+                                       max="{{ receipt.balance_remaining }}"
+                                       value="{{ receipt.balance_remaining }}"
+                                       required
+                                       autofocus>
+                            </div>
+                            <small class="text-muted">
+                                Maximum: ₦{{ receipt.balance_remaining|floatformat:2 }}
+                            </small>
+                        </div>
+
+                        <!-- Payment Method -->
+                        <div class="mb-3">
+                            <label for="payment_method" class="form-label">
+                                <strong>Payment Method</strong>
+                                <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select form-select-lg" id="payment_method" name="payment_method" required>
+                                <option value="">-- Select Payment Method --</option>
+                                {% for method in payment_method_choices %}
+                                    <option value="{{ method.code }}">{{ method.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Notes -->
+                        <div class="mb-4">
+                            <label for="notes" class="form-label"><strong>Notes</strong> (optional)</label>
+                            <textarea class="form-control"
+                                      id="notes"
+                                      name="notes"
+                                      rows="3"
+                                      placeholder="Additional payment notes..."></textarea>
+                        </div>
+
+                        <!-- Quick Amount Buttons -->
+                        <div class="mb-4">
+                            <label class="form-label d-block"><strong>Quick Amount:</strong></label>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-outline-secondary quick-amount" data-amount="{{ receipt.balance_remaining }}">
+                                    Full (₦{{ receipt.balance_remaining|floatformat:2 }})
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary quick-amount" id="half-amount-btn">
+                                    Half (<span id="half-amount-display">₦0.00</span>)
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="bi bi-check-circle"></i> Record Payment
+                            </button>
+                            <a href="{% url 'customer_debt_dashboard' %}?customer_id={{ receipt.customer.id }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Help Card -->
+            <div class="card mt-4 border-info">
+                <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-info-circle text-info"></i> How to Use:</h6>
+                    <ol class="mb-0 small">
+                        <li>Enter the amount customer is paying now</li>
+                        <li>Select payment method (Cash, POS, Transfer, etc.)</li>
+                        <li>Add optional notes if needed</li>
+                        <li>Click "Record Payment" to process</li>
+                    </ol>
+                    <hr>
+                    <p class="mb-0 small text-muted">
+                        <strong>Note:</strong> If paying the full balance, the receipt will be marked as "Fully Paid" and removed from outstanding balances.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let customerStoreCredit = null;
+
+    // Calculate and set half amount on page load
+    const maxAmount = parseFloat('{{ receipt.balance_remaining }}');
+    const halfAmount = maxAmount / 2;
+    const halfBtn = document.getElementById('half-amount-btn');
+    halfBtn.setAttribute('data-amount', halfAmount.toFixed(2));
+    document.getElementById('half-amount-display').textContent = `₦${halfAmount.toFixed(2)}`;
+
+    // Fetch customer store credit on page load
+    fetch(`/api/store-credit/customer/{{ receipt.customer.id }}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.total_balance > 0) {
+                customerStoreCredit = data;
+            }
+        })
+        .catch(error => console.error('Error fetching store credit:', error));
+
+    // Quick amount buttons
+    document.querySelectorAll('.quick-amount').forEach(button => {
+        button.addEventListener('click', function() {
+            const amount = parseFloat(this.dataset.amount);
+            document.getElementById('amount').value = amount.toFixed(2);
+        });
+    });
+
+    // Auto-calculate remaining when amount changes
+    const amountInput = document.getElementById('amount');
+
+    amountInput.addEventListener('input', function() {
+        const amount = parseFloat(this.value) || 0;
+
+        if (amount > maxAmount) {
+            this.value = maxAmount.toFixed(2);
+            alert(`Amount cannot exceed ₦${maxAmount.toFixed(2)}`);
+        }
+    });
+
+    // Store credit validation
+    const paymentMethodSelect = document.getElementById('payment_method');
+    paymentMethodSelect.addEventListener('change', function() {
+        if (this.value === 'store_credit') {
+            if (!customerStoreCredit || customerStoreCredit.total_balance <= 0) {
+                alert('This customer has no available store credit');
+                this.value = '';
+                return;
+            }
+
+            // Set max amount to available credit or balance (whichever is lower)
+            const maxCredit = Math.min(customerStoreCredit.total_balance, maxAmount);
+            amountInput.max = maxCredit;
+            amountInput.value = maxCredit.toFixed(2);
+
+            alert(`Store credit available: ₦${customerStoreCredit.total_balance.toFixed(2)}\nMax usable: ₦${maxCredit.toFixed(2)}`);
+        } else {
+            amountInput.max = maxAmount;
+        }
+    });
+
+    // Validate store credit amount on submit
+    document.querySelector('form').addEventListener('submit', function(e) {
+        const paymentMethod = paymentMethodSelect.value;
+        const amount = parseFloat(amountInput.value) || 0;
+
+        if (paymentMethod === 'store_credit') {
+            if (!customerStoreCredit || amount > customerStoreCredit.total_balance) {
+                e.preventDefault();
+                alert(`Insufficient store credit. Available: ₦${customerStoreCredit ? customerStoreCredit.total_balance.toFixed(2) : '0.00'}`);
+                return false;
+            }
+        }
+    });
+</script>
+
+<style>
+    .table th {
+        background-color: #f8f9fa;
+    }
+
+    .quick-amount {
+        font-size: 0.9rem;
+    }
+
+    .input-group-lg .form-control {
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}

@@ -2090,6 +2090,14 @@ class LoyaltyConfiguration(models.Model):
         ('per_transaction', 'Points per Transaction'),
         ('per_amount', 'Points per Amount Spent'),
         ('combined', 'Combined (Transaction + Amount)'),
+        ('transaction_count_discount', 'Transaction Count Discount'),
+        ('item_count_discount', 'Item Count Discount'),
+    ]
+
+    CUSTOMER_TYPE_CHOICES = [
+        ('all', 'All Customers'),
+        ('regular', 'Regular Customers'),
+        ('vip', 'VIP Customers'),
     ]
 
     # Basic Configuration
@@ -2105,10 +2113,18 @@ class LoyaltyConfiguration(models.Model):
 
     # Point Earning Rules
     calculation_type = models.CharField(
-        max_length=20,
+        max_length=30,
         choices=POINT_CALCULATION_TYPES,
         default='combined',
         help_text="How points are calculated"
+    )
+
+    # Customer Type
+    customer_type = models.CharField(
+        max_length=20,
+        choices=CUSTOMER_TYPE_CHOICES,
+        default='all',
+        help_text="Apply this loyalty configuration to specific customer types"
     )
 
     # Per Transaction Points
@@ -2147,6 +2163,28 @@ class LoyaltyConfiguration(models.Model):
         decimal_places=2,
         default=Decimal('50.00'),
         help_text="Maximum percentage of transaction that can be paid with points"
+    )
+
+    # Transaction/Item Count Discount Rules
+    required_transaction_count = models.IntegerField(
+        default=0,
+        help_text="Number of transactions required for discount (for transaction_count_discount type)"
+    )
+    transaction_discount_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Discount percentage on next transaction after reaching count"
+    )
+    required_item_count = models.IntegerField(
+        default=0,
+        help_text="Number of items purchased required for discount (for item_count_discount type)"
+    )
+    item_discount_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Discount percentage per item threshold reached"
     )
 
     # Point Expiration
@@ -2226,7 +2264,8 @@ class LoyaltyConfiguration(models.Model):
             # Create default config if none exists
             return cls.objects.create(
                 program_name="Loyalty Rewards Program",
-                is_active=True
+                is_active=True,
+                customer_type='all'
             )
         except cls.MultipleObjectsReturned:
             return cls.objects.filter(is_active=True).first()
@@ -2321,6 +2360,24 @@ class CustomerLoyaltyAccount(models.Model):
         max_length=50,
         default='Bronze',
         help_text="Membership tier (Bronze, Silver, Gold, Platinum)"
+    )
+
+    # Transaction and Item Tracking
+    transaction_count = models.IntegerField(
+        default=0,
+        help_text="Total number of transactions made"
+    )
+    item_count = models.IntegerField(
+        default=0,
+        help_text="Total number of items purchased"
+    )
+    discount_count = models.IntegerField(
+        default=0,
+        help_text="Number of times discount has been applied"
+    )
+    discount_eligible = models.BooleanField(
+        default=False,
+        help_text="Whether customer is currently eligible for transaction count discount"
     )
 
     # Metadata

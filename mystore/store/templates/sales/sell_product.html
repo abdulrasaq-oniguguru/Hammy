@@ -413,6 +413,7 @@
         </div>
 
         <!-- Barcode Scanner Section -->
+        {% if not debt_info %}
         <div class="barcode-scanner">
             <div class="row align-items-center">
                 <div class="col-auto">
@@ -423,6 +424,7 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
         <!-- Main Sales Form -->
         <form id="sale-form" method="POST">
@@ -515,7 +517,84 @@
                 </div>
             </div>
 
+            <!-- Outstanding Debt Information (if applicable) -->
+            {% if debt_info %}
+            <div class="card border-danger" id="debt-info-card">
+                <div class="card-header bg-danger text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-exclamation-triangle me-2"></i>Outstanding Balance Payment
+                        </div>
+                        <span class="badge bg-light text-danger">{{ debt_info.receipt_number }}</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <div class="text-center p-3 bg-light rounded">
+                                <small class="text-muted d-block">Original Sale Date</small>
+                                <strong>{{ debt_info.original_date|date:"M d, Y" }}</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 bg-light rounded">
+                                <small class="text-muted d-block">Total Amount</small>
+                                <strong class="text-primary">₦{{ debt_info.total_amount|floatformat:2 }}</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 bg-warning bg-opacity-25 rounded">
+                                <small class="text-muted d-block">Already Paid</small>
+                                <strong class="text-success">₦{{ debt_info.amount_paid|floatformat:2 }}</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 bg-danger bg-opacity-25 rounded">
+                                <small class="text-muted d-block">Balance Due</small>
+                                <strong class="text-danger" style="font-size: 1.2rem;">₦{{ debt_info.balance_remaining|floatformat:2 }}</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payment History -->
+                    {% if debt_info.payment_history %}
+                    <div class="mt-3">
+                        <h6 class="mb-2"><i class="fas fa-history me-2"></i>Payment History</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Amount</th>
+                                        <th>Method</th>
+                                        <th>Received By</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for payment in debt_info.payment_history %}
+                                    <tr>
+                                        <td>{{ payment.payment_date|date:"M d, Y g:i A" }}</td>
+                                        <td class="text-success">₦{{ payment.amount|floatformat:2 }}</td>
+                                        <td>{{ payment.payment_method }}</td>
+                                        <td>{{ payment.received_by__username }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="alert alert-info mt-3 mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Payment Mode:</strong> This is an outstanding balance payment. Enter the payment amount and method below to settle this customer's debt.
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Products Table -->
+            {% if not debt_info %}
             <div class="card">
                 <div class="card-header">
                     <i class="fas fa-shopping-cart me-2"></i>Products
@@ -607,10 +686,12 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
 
             <!-- Summary Section -->
             <div class="summary-section">
                 <!-- Discount Controls -->
+                {% if not debt_info %}
                 <div class="discount-card">
                     <h4 class="section-title">
                         <i class="fas fa-percentage me-2"></i>Bill Discount
@@ -620,6 +701,7 @@
                         {{ payment_form.discount_percentage }}
                     </div>
                 </div>
+                {% endif %}
 
                 <!-- Order Summary -->
                 <div class="summary-card">
@@ -738,24 +820,31 @@
                         <small class="text-muted d-block mt-1">Payment methods total will be recorded as deposit. Balance will be tracked for later payment.</small>
                     </div>
 
-                    <!-- Payment Summary -->
-                    <div id="payment-summary" style="margin-top: 15px; background-color: #d1ecf1; border: 1px solid #bee5eb; border-radius: 8px; padding: 15px; display: none;">
-                        <div class="d-flex align-items-center">
-                            <i class="fas fa-info-circle me-2" style="color: #0c5460;"></i>
-                            <div>
-                                <strong>Payment Summary:</strong><br>
-                                <span id="payment-summary-text">
-                                    Payments total: <span id="payments-total-display">{{ currency_symbol }}0.00</span> |
-                                    Sale total: <span id="sale-total-display">{{ currency_symbol }}0.00</span>
-                                    <span id="deposit-info" style="display: none;">
-                                         - <span style="color: #ff8c00; font-weight: bold;">Deposit payment. Balance: <span id="balance-display">{{ currency_symbol }}0.00</span></span>
+                    <!-- Payment Summary (Always Visible) -->
+                    <div id="payment-summary" style="margin-top: 15px; background-color: #d1ecf1; border: 1px solid #bee5eb; border-radius: 8px; padding: 15px;">
+                        <div style="display: flex; align-items-start;">
+                            <i class="fas fa-info-circle me-2" style="color: #0c5460; margin-top: 3px;"></i>
+                            <div style="flex: 1;">
+                                <strong>Payment Summary:</strong>
+                                <div style="margin-top: 8px; font-size: 14px;">
+                                    <span style="color: #0c5460;">Payments total: </span>
+                                    <strong id="payments-total-display">{{ currency_symbol }}0.00</strong>
+                                    <span style="color: #0c5460;"> | Sale total: </span>
+                                    <strong id="sale-total-display">{{ currency_symbol }}0.00</strong>
+                                    <span id="payment-status-message" style="font-weight: bold;"></span>
+                                </div>
+                                <!-- Deposit Info (Only for Partial Payment) -->
+                                <div id="deposit-info" style="display: none; margin-top: 8px; padding: 8px; background-color: #fff3cd; border-left: 4px solid #ff8c00; border-radius: 4px;">
+                                    <span style="color: #856404; font-weight: bold;">
+                                        💰 Deposit payment. Balance: <span id="balance-display" style="color: #ff8c00; font-size: 16px;">{{ currency_symbol }}0.00</span>
                                     </span>
-                                </span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
+                {% if not debt_info %}
                 <!-- Delivery Options -->
                 <div class="section-card">
                     <h4 class="section-title">
@@ -782,6 +871,7 @@
                         {{ delivery_form.delivery_status }}
                     </div>
                 </div>
+                {% endif %}
             </div>
 
             <!-- Complete Sale Button -->
@@ -805,6 +895,53 @@
             let paymentMethodIndex = 1; // Start at 1 since we already have index 0
             let saleTotal = 0;
             let paymentTotal = 0;
+
+            // DEBT PAYMENT MODE - Handle outstanding balance payment
+            const isDebtPayment = {{ is_debt_payment|yesno:"true,false" }};
+            {% if debt_info %}
+            const debtInfo = {
+                receipt_id: {{ debt_info.receipt.id }},
+                receipt_number: '{{ debt_info.receipt_number }}',
+                balance_remaining: parseFloat('{{ debt_info.balance_remaining }}'),
+                amount_paid: parseFloat('{{ debt_info.amount_paid }}'),
+                total_amount: parseFloat('{{ debt_info.total_amount }}'),
+                customer_id: {{ debt_info.customer.id }}
+            };
+
+            console.log('Debt Payment Mode - debtInfo:', debtInfo);
+
+            if (isDebtPayment && debtInfo && debtInfo.balance_remaining > 0) {
+                // Auto-select the customer
+                $('#customer').val(debtInfo.customer_id).trigger('change');
+
+                // Set the payment amount to the balance remaining
+                setTimeout(function() {
+                    // Update order summary with debt balance
+                    $('#subtotal-amount').text(debtInfo.balance_remaining.toFixed(2));
+                    $('#total-amount').text(debtInfo.balance_remaining.toFixed(2));
+                    $('#total-price').val(debtInfo.balance_remaining.toFixed(2));
+                    saleTotal = debtInfo.balance_remaining;
+
+                    // Set the payment amount
+                    $('#payment_method-0-amount').val(debtInfo.balance_remaining.toFixed(2));
+
+                    // Add a hidden input to indicate this is a debt payment
+                    $('<input>').attr({
+                        type: 'hidden',
+                        name: 'debt_payment_receipt_id',
+                        value: debtInfo.receipt_id
+                    }).appendTo('form');
+
+                    // Update the submit button text
+                    $('button[type="submit"]').html('<i class="fas fa-check-circle me-2"></i>Record Balance Payment');
+
+                    // Validate payments
+                    validatePaymentMethods(debtInfo.balance_remaining);
+
+                    console.log('Debt payment mode initialized - Balance: ' + debtInfo.balance_remaining);
+                }, 500);
+            }
+            {% endif %}
 
             // Dynamic payment method choices from backend
             const paymentMethodChoices = [
@@ -890,7 +1027,8 @@
                         const quantity = parseFloat(row.find('.quantity-input').val()) || 1;
                         const unitPrice = parseFloat(selectedOption.data('price')) || 0;
                         const discount = parseFloat(row.find('.discount-input').val()) || 0;
-                        const itemTotal = (unitPrice * quantity) - discount;
+                        const isGiftItem = row.data('is-gift') === true;
+                        const itemTotal = isGiftItem ? 0 : (unitPrice * quantity) - discount;
                         subtotal += itemTotal;
                         items.push({
                             id: selectedOption.val(),
@@ -923,7 +1061,7 @@
                     };
                 }
 
-                saleTotal = subtotal - discountAmount - loyaltyDiscount + deliveryCost;
+                const displayTotal = subtotal - discountAmount - loyaltyDiscount + deliveryCost;
                 const saleData = {
                     items: items,
                     subtotal: subtotal,
@@ -933,7 +1071,7 @@
                     loyaltyDiscount: loyaltyDiscount,
                     pointsEarned: pointsEarned,
                     customer: customerData,
-                    total: saleTotal,
+                    total: displayTotal,
                     timestamp: Date.now()
                 };
                 // Send to customer display
@@ -1000,6 +1138,16 @@
             }
 
             function updateTotalAmount() {
+                // If in debt payment mode, don't recalculate - use the debt balance
+                if (isDebtPayment && typeof debtInfo !== 'undefined' && debtInfo.balance_remaining > 0) {
+                    saleTotal = debtInfo.balance_remaining;
+                    $('#subtotal-amount').text(debtInfo.balance_remaining.toFixed(2));
+                    $('#total-amount').text(debtInfo.balance_remaining.toFixed(2));
+                    $('#total-price').val(debtInfo.balance_remaining.toFixed(2));
+                    validatePaymentMethods(debtInfo.balance_remaining);
+                    return;
+                }
+
                 let subtotal = 0;
                 let totalItemDiscounts = 0;
                 $('#form-body .product-row').each(function() {
@@ -1095,7 +1243,12 @@
                     submitBtn.removeClass('btn-success').addClass('btn-warning');
                 } else {
                     submitBtn.prop('disabled', false);
-                    submitBtn.html('<i class="fas fa-check-circle me-2"></i>Complete Sale');
+                    // Use appropriate button text based on mode
+                    if (isDebtPayment && typeof debtInfo !== 'undefined') {
+                        submitBtn.html('<i class="fas fa-check-circle me-2"></i>Record Balance Payment');
+                    } else {
+                        submitBtn.html('<i class="fas fa-check-circle me-2"></i>Complete Sale');
+                    }
                     submitBtn.removeClass('btn-warning').addClass('btn-success');
                 }
                 if (total > 1000) {
@@ -1108,6 +1261,21 @@
             }
 
             function validatePaymentMethods(saleTotal) {
+                // When all items are gifts (total is 0), no payment is required
+                if (saleTotal <= 0) {
+                    const validationDiv = $('#payment-validation');
+                    if (validationDiv.length) validationDiv.hide();
+                    $('#complete-sale-btn').prop('disabled', false);
+                    // Remove HTML5 validation requirements from payment fields
+                    $('.payment-method-select').removeAttr('required');
+                    $('.payment-amount').removeAttr('required').attr('min', '0');
+                    return;
+                } else {
+                    // Restore HTML5 validation requirements
+                    $('.payment-method-select').attr('required', 'required');
+                    $('.payment-amount').attr('required', 'required').attr('min', '0.01');
+                }
+
                 paymentTotal = 0;
                 let hasEmptyMethods = false;
                 $('.payment-method-row').each(function() {
@@ -1136,6 +1304,11 @@
                         validationText.html(`Payments total: ${CURRENCY_SYMBOL}${paymentTotal.toFixed(2)} | Sale total: ${CURRENCY_SYMBOL}${saleTotal.toFixed(2)} - <span class="text-success">Perfect match!</span>`);
                         validationDiv.show();
                         $('#complete-sale-btn').prop('disabled', false);
+
+                        // Update button text for debt payment mode
+                        if (isDebtPayment && typeof debtInfo !== 'undefined') {
+                            $('#complete-sale-btn').html('<i class="fas fa-check-circle me-2"></i>Record Balance Payment');
+                        }
                     } else if (paymentTotal > saleTotal) {
                         validationDiv.removeClass('payment-validation-success').addClass('payment-validation-error');
                         validationText.html(`Payments total: ${CURRENCY_SYMBOL}${paymentTotal.toFixed(2)} | Sale total: ${CURRENCY_SYMBOL}${saleTotal.toFixed(2)} - <span class="text-danger">Overpayment of ${CURRENCY_SYMBOL}${(paymentTotal - saleTotal).toFixed(2)}</span>`);
@@ -1178,6 +1351,36 @@
                     }
                 });
                 $('#id_payment_method-TOTAL_FORMS').val($('#payment-methods-container .payment-method-row').length);
+            }
+
+            // ==================== STORE CREDIT FUNCTIONS ====================
+            let currentStoreCreditData = null;
+
+            function fetchCustomerStoreCredit(customerId) {
+                $.ajax({
+                    url: `/api/store-credit/customer/${customerId}/`,
+                    type: 'GET',
+                    success: function(data) {
+                        if (data.success && data.total_balance > 0) {
+                            currentStoreCreditData = data;
+                            displayStoreCreditInfo(data);
+                        } else {
+                            $('#store-credit-quick-info').hide();
+                            currentStoreCreditData = null;
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error fetching store credit info:', error);
+                        $('#store-credit-quick-info').hide();
+                        currentStoreCreditData = null;
+                    }
+                });
+            }
+
+            function displayStoreCreditInfo(data) {
+                // Show quick info badge
+                $('#store-credit-badge').text(CURRENCY_SYMBOL + data.total_balance.toFixed(2));
+                $('#store-credit-quick-info').fadeIn();
             }
 
             // ==================== LOYALTY PROGRAM FUNCTIONS ====================
@@ -1342,14 +1545,16 @@
                         customerName: selectedCustomer
                     });
 
-                    // Fetch loyalty information for the selected customer
+                    // Fetch loyalty and store credit information for the selected customer
                     if (customerId) {
                         fetchCustomerLoyaltyInfo(customerId);
+                        fetchCustomerStoreCredit(customerId);
                     }
                 } else {
-                    // Hide loyalty info if no customer selected
+                    // Hide loyalty and store credit info if no customer selected
                     $('#loyalty-quick-info').hide();
                     $('#loyalty-detail-card').hide();
+                    $('#store-credit-quick-info').hide();
                     resetLoyaltyDiscount();
                 }
             });
@@ -1411,6 +1616,47 @@
             // Payment method event handlers
             $(document).on('change input', '.payment-method-select, .payment-amount', function() {
                 updateTotalAmount();
+            });
+
+            // Store credit validation when payment method changes
+            $(document).on('change', '.payment-method-select', function() {
+                const selectedMethod = $(this).val();
+                const amountInput = $(this).closest('.payment-method-row').find('.payment-amount');
+
+                if (selectedMethod === 'store_credit') {
+                    const customerId = $('#customer').val();
+
+                    if (!customerId) {
+                        showAlert('Please select a customer first to use store credit', 'warning');
+                        $(this).val('');
+                        return;
+                    }
+
+                    if (!currentStoreCreditData || currentStoreCreditData.total_balance <= 0) {
+                        showAlert('Selected customer has no available store credit', 'warning');
+                        $(this).val('');
+                        return;
+                    }
+
+                    // Set max amount to available balance
+                    amountInput.attr('max', currentStoreCreditData.total_balance);
+                    showAlert(`Store credit available: ${CURRENCY_SYMBOL}${currentStoreCreditData.total_balance.toFixed(2)}`, 'info');
+                }
+            });
+
+            // Validate store credit amount on input
+            $(document).on('input', '.payment-amount', function() {
+                const row = $(this).closest('.payment-method-row');
+                const selectedMethod = row.find('.payment-method-select').val();
+
+                if (selectedMethod === 'store_credit') {
+                    const amount = parseFloat($(this).val()) || 0;
+
+                    if (currentStoreCreditData && amount > currentStoreCreditData.total_balance) {
+                        showAlert(`Amount exceeds available store credit (${CURRENCY_SYMBOL}${currentStoreCreditData.total_balance.toFixed(2)})`, 'warning');
+                        $(this).val(currentStoreCreditData.total_balance.toFixed(2));
+                    }
+                }
             });
 
             // Remove product with event delegation
@@ -1727,6 +1973,10 @@
             // UPDATED FORM SUBMISSION WITH AJAX REDIRECT FIX
             $('#sale-form').on('submit', function(e) {
                 e.preventDefault();
+
+                // Skip product validation if this is a debt payment
+                const isDebtPaymentSubmission = $('input[name="debt_payment_receipt_id"]').length > 0;
+
                 const hasProducts = $('#form-body .product-row').length > 0 &&
                                   $('#form-body .product-select').filter(function() {
                                       return $(this).val() !== '';
@@ -1738,7 +1988,8 @@
                     return methodSelect.val() && parseFloat(amountInput.val()) > 0;
                 }).length > 0;
 
-                if (!hasProducts) {
+                // Only require products if NOT a debt payment
+                if (!isDebtPaymentSubmission && !hasProducts) {
                     showAlert('Please add at least one product to the sale.', 'warning');
                     return false;
                 }
@@ -1747,7 +1998,8 @@
                     $('#customer').focus();
                     return false;
                 }
-                if (!hasPaymentMethods) {
+                const currentSaleTotal = parseFloat($('#total-price').val()) || 0;
+                if (!hasPaymentMethods && currentSaleTotal > 0) {
                     showAlert('Please add at least one payment method.', 'warning');
                     return false;
                 }
@@ -1767,12 +2019,18 @@
                     }
                 });
 
+                // Only validate exact payment match if NOT accepting partial payment
+                const isPartialPayment = $('#enable-partial-payment').is(':checked');
                 const difference = Math.abs(paymentTotal - saleTotal);
                 const tolerance = 0.01;
-                if (difference > tolerance) {
-                    showAlert(`Payment total (${CURRENCY_SYMBOL}${paymentTotal.toFixed(2)}) does not match sale total (${CURRENCY_SYMBOL}${saleTotal.toFixed(2)}). Please adjust payment amounts.`, 'danger');
+
+                if (!isPartialPayment && difference > tolerance) {
+                    // Full payment mode - must match exactly
+                    showAlert(`Payment total (${CURRENCY_SYMBOL}${paymentTotal.toFixed(2)}) does not match sale total (${CURRENCY_SYMBOL}${saleTotal.toFixed(2)}). Please adjust payment amounts or enable partial payment.`, 'danger');
                     return false;
                 }
+
+                // For partial payment mode, any amount is acceptable (including 0)
 
                 const submitBtn = $(this).find('button[type="submit"]');
                 submitBtn.html('<i class="fas fa-spinner fa-spin me-2"></i>Processing Sale...');
@@ -1940,7 +2198,8 @@
 
             // Function to calculate and update payment summary
             function updatePaymentSummary() {
-                const grandTotal = parseFloat($('#grand-total').text().replace(/[^\d.]/g, '')) || 0;
+                // Use the global saleTotal variable which is set by updateTotalAmount()
+                const grandTotal = saleTotal || 0;
                 let paymentsTotal = 0;
 
                 // Calculate total from all payment method amounts
@@ -1953,20 +2212,48 @@
                 $('#payments-total-display').text('₦' + paymentsTotal.toFixed(2));
                 $('#sale-total-display').text('₦' + grandTotal.toFixed(2));
 
-                // Show/hide payment summary based on partial payment checkbox
-                if ($('#enable-partial-payment').is(':checked')) {
-                    $('#payment-summary').show();
+                // Calculate difference
+                const difference = grandTotal - paymentsTotal;
 
-                    // Calculate and show deposit info
-                    const balance = grandTotal - paymentsTotal;
-                    if (balance > 0) {
-                        $('#deposit-info').show();
-                        $('#balance-display').text('₦' + balance.toFixed(2));
+                // Update payment status message
+                let statusMessage = '';
+                let statusColor = '';
+
+                if (grandTotal <= 0) {
+                    // All items are gifts – no payment required
+                    statusMessage = ' - All items are gifts (no payment required)';
+                    statusColor = '#28a745'; // Green
+                } else if (Math.abs(difference) < 0.01) {
+                    // Perfect match (accounting for floating point precision)
+                    statusMessage = ' - Perfect match!';
+                    statusColor = '#28a745'; // Green
+                } else if (difference > 0) {
+                    // Shortfall (underpayment)
+                    statusMessage = ' - Shortfall of ₦' + difference.toFixed(2);
+                    statusColor = '#dc3545'; // Red
+                } else {
+                    // Overpayment
+                    statusMessage = ' - Overpayment of ₦' + Math.abs(difference).toFixed(2);
+                    statusColor = '#ff8c00'; // Orange
+                }
+
+                $('#payment-status-message').text(statusMessage).css('color', statusColor);
+
+                // Show deposit info ONLY when partial payment checkbox is checked
+                if ($('#enable-partial-payment').is(':checked')) {
+                    $('#deposit-info').show();
+                    $('#balance-display').text('₦' + difference.toFixed(2));
+
+                    // Change color based on balance
+                    if (difference > 0) {
+                        $('#balance-display').css('color', '#ff8c00'); // Orange for positive balance
+                    } else if (difference < 0) {
+                        $('#balance-display').css('color', '#dc3545'); // Red for overpayment
                     } else {
-                        $('#deposit-info').hide();
+                        $('#balance-display').css('color', '#28a745'); // Green for exact payment
                     }
                 } else {
-                    $('#payment-summary').hide();
+                    $('#deposit-info').hide();
                 }
             }
 

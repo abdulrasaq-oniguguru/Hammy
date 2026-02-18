@@ -206,10 +206,12 @@ class LoyaltyConfigurationForm(ModelForm):
         model = LoyaltyConfiguration
         fields = [
             'program_name', 'is_active',
-            'calculation_type', 'points_per_transaction',
+            'calculation_type', 'customer_type', 'points_per_transaction',
             'points_per_currency_unit', 'currency_unit_value',
             'points_to_currency_rate', 'minimum_points_for_redemption',
             'maximum_discount_percentage',
+            'required_transaction_count', 'transaction_discount_percentage',
+            'required_item_count', 'item_discount_percentage',
             'points_expire', 'points_expiry_days',
             'send_welcome_email', 'send_points_earned_email',
             'send_points_redeemed_email', 'send_expiry_reminder_email',
@@ -222,6 +224,7 @@ class LoyaltyConfigurationForm(ModelForm):
             }),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'calculation_type': forms.Select(attrs={'class': 'form-select'}),
+            'customer_type': forms.Select(attrs={'class': 'form-select'}),
             'points_per_transaction': forms.NumberInput(attrs={
                 'class': 'form-control',
                 'min': '0',
@@ -256,6 +259,30 @@ class LoyaltyConfigurationForm(ModelForm):
                 'min': '0',
                 'max': '100',
                 'placeholder': '50.00'
+            }),
+            'required_transaction_count': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': '0',
+                'placeholder': '0'
+            }),
+            'transaction_discount_percentage': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.01',
+                'min': '0',
+                'max': '100',
+                'placeholder': '0.00'
+            }),
+            'required_item_count': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': '0',
+                'placeholder': '0'
+            }),
+            'item_discount_percentage': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.01',
+                'min': '0',
+                'max': '100',
+                'placeholder': '0.00'
             }),
             'points_expire': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'points_expiry_days': forms.NumberInput(attrs={

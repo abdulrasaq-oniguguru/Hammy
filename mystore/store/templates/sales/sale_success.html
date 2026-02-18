@@ -100,6 +100,15 @@
                                 <i class="bi bi-receipt"></i> View and Print Receipt
                             </a>
 
+                            <!-- Print to POS Printer -->
+                            <button id="posPrintBtn"
+                                    onclick="posPrint('{% url 'print_pos_receipt' receipt.id %}')"
+                                    class="btn btn-primary d-flex align-items-center justify-content-center gap-2 mb-3 w-100"
+                                    style="background-color:#1e40af; border:none; font-weight:bold;">
+                                <i class="bi bi-printer-fill"></i> Print to POS Printer
+                            </button>
+                            <div id="pos-print-status" class="mb-3" style="display:none; font-size:14px; font-weight:600;"></div>
+
                             <!-- Email Receipt to Customer -->
                             <a href="{% url 'send_receipt_email' receipt.id %}" class="btn btn-outline-light d-flex align-items-center justify-content-center gap-2 mb-3 w-100">
                                 <i class="bi bi-envelope-fill"></i> Email Receipt to Customer
@@ -163,4 +172,44 @@
         gap: 0.75rem;
     }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function posPrint(url) {
+    const btn    = document.getElementById('posPrintBtn');
+    const status = document.getElementById('pos-print-status');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Printing…';
+    status.style.display = 'block';
+    status.style.color   = '#aaa';
+    status.textContent   = 'Sending to POS printer…';
+
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            status.style.color = '#86efac';
+            status.textContent = '✅ ' + data.message;
+        } else {
+            status.style.color = '#fca5a5';
+            status.textContent = '❌ ' + data.message;
+        }
+    })
+    .catch(err => {
+        status.style.color = '#fca5a5';
+        status.textContent = '❌ Network error: ' + err;
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-printer-fill"></i> Print to POS Printer';
+    });
+}
+</script>
 {% endblock %}

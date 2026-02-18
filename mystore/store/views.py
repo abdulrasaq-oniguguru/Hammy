@@ -78,7 +78,7 @@ from .models import (
     Product, PreOrder, Invoice, GoodsReceived, Delivery, Customer, Sale,
     InvoiceProduct, Receipt, Payment, PaymentMethod, LocationTransfer,
     ProductHistory, TransferItem, UserProfile, ActivityLog, StoreConfiguration,
-    LoyaltyConfiguration, LoyaltyTransaction, TaxConfiguration
+    LoyaltyConfiguration, LoyaltyTransaction, TaxConfiguration, PartialPayment
 )
 from .utils import (
     get_cached_choices,
@@ -1829,17 +1829,21 @@ def send_receipt_email_background(receipt_id, domain, protocol='https', max_retr
                     if hasattr(first_sale, 'payment') and first_sale.payment:
                         payment = first_sale.payment
 
-                # Calculate totals (same as your existing logic)
+                # Calculate totals (gift items count as ₦0)
+                has_gifts = any(sale.is_gift for sale in sales)
                 total_item_discount = sum(
                     (sale.discount_amount or Decimal('0.00')) * sale.quantity
-                    for sale in sales
+                    for sale in sales if not sale.is_gift
                 )
                 total_price_before_discount = sum(
                     sale.product.selling_price * sale.quantity
-                    for sale in sales
+                    for sale in sales if not sale.is_gift
                 )
                 total_bill_discount = payment.discount_amount if payment else Decimal('0.00')
                 final_subtotal = total_price_before_discount - total_item_discount - total_bill_discount
+                subtotal_amount = sum(
+                    Decimal('0') if sale.is_gift else sale.total_price for sale in sales
+                )
 
                 # Get delivery info
                 delivery_cost = Decimal('0.00')
@@ -1854,6 +1858,10 @@ def send_receipt_email_background(receipt_id, domain, protocol='https', max_retr
 
                 final_total_with_delivery = final_subtotal + delivery_cost
                 logo_url = f'{protocol}://{domain}{static("img/Wlogo.png")}'
+
+                # Payment methods and partial payment history for PDF template
+                payments = payment.payment_methods.all() if payment else []
+                partial_payments = list(PartialPayment.objects.filter(receipt=receipt).order_by('payment_date'))
 
                 # Get loyalty points information if customer has loyalty account
                 loyalty_info = None
@@ -1876,6 +1884,8 @@ def send_receipt_email_background(receipt_id, domain, protocol='https', max_retr
                                     'previous_balance': loyalty_transaction.balance_after - loyalty_transaction.points,
                                     'new_balance': loyalty_transaction.balance_after,
                                     'redeemable_value': receipt.customer.loyalty_account.get_redeemable_value(),
+                                    'points_threshold': config.minimum_points_for_redemption,
+                                    'discount_percentage': config.maximum_discount_percentage,
                                 }
                 except Exception as e:
                     logger.error(f"Error fetching loyalty info for receipt email: {e}")
@@ -1888,14 +1898,19 @@ def send_receipt_email_background(receipt_id, domain, protocol='https', max_retr
                     'receipt': receipt,
                     'sales': sales,
                     'payment': payment,
+                    'payments': payments,
                     'customer_name': receipt.customer.name,
                     'user': receipt.user,
+                    'has_gifts': has_gifts,
                     'total_item_discount': total_item_discount,
                     'total_bill_discount': total_bill_discount,
                     'total_price_before_discount': total_price_before_discount,
+                    'subtotal_amount': subtotal_amount,
                     'final_total': final_subtotal,
                     'final_total_with_delivery': final_total_with_delivery,
                     'delivery': delivery,
+                    'delivery_cost': delivery_cost,
+                    'partial_payments': partial_payments,
                     'logo_url': logo_url,
                     'loyalty_info': loyalty_info,
                     'store_config': store_config,
@@ -1981,6 +1996,143 @@ def sell_product(request):
     active_taxes = TaxConfiguration.get_active_taxes()
 
     if request.method == 'POST':
+        # Check if this is a debt payment (outstanding balance payment)
+        debt_payment_receipt_id = request.POST.get('debt_payment_receipt_id')
+
+        if debt_payment_receipt_id:
+            # Handle debt payment separately
+            logger.info("=" * 80)
+            logger.info("DEBT PAYMENT PROCESSING STARTED")
+            logger.info(f"Receipt ID: {debt_payment_receipt_id}")
+            logger.info(f"POST data: {dict(request.POST)}")
+            logger.info("=" * 80)
+
+            try:
+                outstanding_receipt = Receipt.objects.get(id=debt_payment_receipt_id)
+                logger.info(f"Found receipt: {outstanding_receipt.receipt_number}")
+                logger.info(f"Current balance: ₦{outstanding_receipt.balance_remaining}")
+                logger.info(f"Amount paid so far: ₦{outstanding_receipt.amount_paid}")
+
+                payment_methods_formset = PaymentMethodFormSet(request.POST, prefix='payment_method')
+                logger.info(f"Payment formset is_valid: {payment_methods_formset.is_valid()}")
+
+                if not payment_methods_formset.is_valid():
+                    logger.error(f"Formset errors: {payment_methods_formset.errors}")
+                    logger.error(f"Formset non_form_errors: {payment_methods_formset.non_form_errors()}")
+
+                if payment_methods_formset.is_valid():
+                    # Calculate total payment amount
+                    total_payment_amount = Decimal('0')
+                    logger.info(f"Processing {len(payment_methods_formset)} payment forms")
+
+                    for i, form in enumerate(payment_methods_formset):
+                        logger.info(f"Form {i} - cleaned_data: {form.cleaned_data}")
+                        if form.cleaned_data and not form.cleaned_data.get('DELETE', False):
+                            if form.cleaned_data.get('amount'):
+                                amount = Decimal(str(form.cleaned_data['amount']))
+                                payment_method = form.cleaned_data.get('payment_method', 'N/A')
+                                logger.info(f"Form {i} - Method: {payment_method}, Amount: ₦{amount}")
+                                total_payment_amount += amount
+
+                    logger.info(f"Total payment amount: ₦{total_payment_amount}")
+
+                    if total_payment_amount <= 0:
+                        messages.error(request, 'Payment amount must be greater than zero.')
+                        return redirect('customer_debt_dashboard')
+
+                    # Allow small overpayments (tolerance of ₦100 for rounding)
+                    overpayment_tolerance = Decimal('100.00')
+                    if total_payment_amount > (outstanding_receipt.balance_remaining + overpayment_tolerance):
+                        messages.error(request, f'Payment amount (₦{total_payment_amount:,.2f}) significantly exceeds balance due (₦{outstanding_receipt.balance_remaining:,.2f})')
+                        return redirect('customer_debt_dashboard')
+
+                    # Create partial payment records
+                    for form in payment_methods_formset:
+                        if form.cleaned_data and not form.cleaned_data.get('DELETE', False):
+                            if form.cleaned_data.get('payment_method') and form.cleaned_data.get('amount'):
+                                PartialPayment.objects.create(
+                                    receipt=outstanding_receipt,
+                                    amount=form.cleaned_data['amount'],
+                                    payment_method=form.cleaned_data['payment_method'],
+                                    received_by=request.user,
+                                )
+
+                    # Update receipt
+                    outstanding_receipt.amount_paid += total_payment_amount
+                    outstanding_receipt.balance_remaining -= total_payment_amount
+
+                    # Ensure balance doesn't go negative
+                    if outstanding_receipt.balance_remaining < Decimal('0'):
+                        outstanding_receipt.balance_remaining = Decimal('0')
+                        outstanding_receipt.payment_status = 'paid'
+
+                    # Use a small tolerance for floating point comparison
+                    if outstanding_receipt.balance_remaining <= Decimal('0.01'):
+                        outstanding_receipt.payment_status = 'paid'
+                        outstanding_receipt.balance_remaining = Decimal('0')
+                    else:
+                        outstanding_receipt.payment_status = 'partial'
+
+                    outstanding_receipt.save()
+
+                    logger.info("=" * 80)
+                    logger.info("DEBT PAYMENT COMPLETED SUCCESSFULLY")
+                    logger.info(f"Receipt: {outstanding_receipt.receipt_number}")
+                    logger.info(f"Payment recorded: ₦{total_payment_amount}")
+                    logger.info(f"New amount paid: ₦{outstanding_receipt.amount_paid}")
+                    logger.info(f"New balance: ₦{outstanding_receipt.balance_remaining}")
+                    logger.info(f"Payment status: {outstanding_receipt.payment_status}")
+                    logger.info("=" * 80)
+
+                    if outstanding_receipt.payment_status == 'paid':
+                        success_msg = f'✅ Balance FULLY PAID! Payment of ₦{total_payment_amount:,.2f} recorded for receipt {outstanding_receipt.receipt_number}. Receipt is now settled.'
+                    else:
+                        success_msg = f'✅ Payment of ₦{total_payment_amount:,.2f} recorded successfully for receipt {outstanding_receipt.receipt_number}. Remaining balance: ₦{outstanding_receipt.balance_remaining:,.2f}'
+
+                    messages.success(request, success_msg)
+
+                    # Return JSON for AJAX submissions, redirect for normal form submissions
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return JsonResponse({
+                            'success': True,
+                            'message': success_msg,
+                            'redirect_url': reverse('sale_success', kwargs={'receipt_id': outstanding_receipt.id}),
+                            'receipt_id': outstanding_receipt.id,
+                        })
+                    return redirect('sale_success', receipt_id=outstanding_receipt.id)
+                else:
+                    logger.error("=" * 80)
+                    logger.error("DEBT PAYMENT FAILED - Invalid formset")
+                    logger.error(f"Formset errors: {payment_methods_formset.errors}")
+                    logger.error("=" * 80)
+                    error_msg = 'Invalid payment information. Please check the form and try again.'
+                    messages.error(request, error_msg)
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return JsonResponse({'success': False, 'message': error_msg})
+                    return redirect('customer_debt_dashboard')
+
+            except Receipt.DoesNotExist:
+                logger.error(f"Receipt not found with ID: {debt_payment_receipt_id}")
+                error_msg = 'Receipt not found.'
+                messages.error(request, error_msg)
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({'success': False, 'message': error_msg})
+                return redirect('customer_debt_dashboard')
+            except Exception as e:
+                logger.error("=" * 80)
+                logger.error("DEBT PAYMENT EXCEPTION")
+                logger.error(f"Error: {str(e)}")
+                logger.error(f"Error type: {type(e).__name__}")
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
+                logger.error("=" * 80)
+                error_msg = f'Error processing payment: {str(e)}'
+                messages.error(request, error_msg)
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({'success': False, 'message': error_msg})
+                return redirect('customer_debt_dashboard')
+
+        # Normal POS sale processing
         formset = SaleFormSet(request.POST, prefix='form')
         payment_form = PaymentForm(request.POST)
         delivery_form = DeliveryForm(request.POST)
@@ -2003,15 +2155,32 @@ def sell_product(request):
                 except (ValueError, TypeError):
                     pass
 
-        # Validation form to ensure payment amounts match
+        # Check if partial payment is enabled
+        enable_partial_payment = request.POST.get('enable_partial_payment') == 'true'
+
+        # Validation form to ensure payment amounts match (skip if partial payment enabled)
         validation_form = PaymentValidationForm({
             'total_sale_amount': total_sale_amount,
             'payment_methods_total': payment_methods_total
         })
 
+        # Detect all-gift sale (total is 0 – no payment required)
+        all_gifts_sale = total_sale_amount == Decimal('0')
+
+        # Skip payment validation if partial payment is enabled or all items are gifts
+        if enable_partial_payment or all_gifts_sale:
+            payment_validation_passed = True
+        else:
+            payment_validation_passed = validation_form.is_valid()
+
+        # Always call is_valid() so Django populates cleaned_data on every form.
+        # For all-gift sales the formset may be empty, so we override the result.
+        payment_formset_is_valid = payment_methods_formset.is_valid()
+        payment_formset_valid = all_gifts_sale or payment_formset_is_valid
+
         if (formset.is_valid() and payment_form.is_valid() and
-                delivery_form.is_valid() and payment_methods_formset.is_valid() and
-                validation_form.is_valid()):
+                delivery_form.is_valid() and payment_formset_valid and
+                payment_validation_passed):
 
             try:
                 customer = get_object_or_404(Customer, id=customer_id) if customer_id else None
@@ -2060,7 +2229,7 @@ def sell_product(request):
                             valid_payment_methods.append(form.cleaned_data)
                             total_payment_amount += Decimal(str(form.cleaned_data['amount']))
 
-                if not valid_payment_methods:
+                if not valid_payment_methods and not all_gifts_sale:
                     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                         return JsonResponse({
                             'success': False,
@@ -2271,12 +2440,13 @@ def sell_product(request):
                     # PARTIAL PAYMENT HANDLING
                     # ============================================
                     enable_partial_payment = request.POST.get('enable_partial_payment') == 'true'
+
+                    # Calculate total amount from all payment methods
+                    payment_methods_total = sum([Decimal(str(method['amount'])) for method in valid_payment_methods])
+
                     if enable_partial_payment:
-                        partial_amount_str = request.POST.get('partial_amount_paying', '0')
-                        try:
-                            amount_paying = Decimal(partial_amount_str)
-                        except (ValueError, TypeError):
-                            amount_paying = Decimal('0')
+                        # Partial payment mode - use payment methods total as deposit
+                        amount_paying = payment_methods_total
 
                         # Validate partial payment amount
                         if amount_paying >= final_total:
@@ -2292,26 +2462,25 @@ def sell_product(request):
                             receipt.balance_remaining = final_total
                             logger.info(f"No initial payment - receipt marked as pending")
                         else:
-                            # Actual partial payment
+                            # Actual partial payment (deposit)
                             receipt.payment_status = 'partial'
                             receipt.amount_paid = amount_paying
                             receipt.balance_remaining = final_total - amount_paying
 
-                            # Create initial partial payment record
-                            from .models import PartialPayment
-                            first_payment_method = valid_payment_methods[0]['payment_method'] if valid_payment_methods else 'Cash'
-                            PartialPayment.objects.create(
-                                receipt=receipt,
-                                amount=amount_paying,
-                                payment_method=first_payment_method,
-                                notes=f"Initial partial payment - Balance: ₦{receipt.balance_remaining}",
-                                received_by=request.user
-                            )
-                            logger.info(f"Partial payment created: Paid ₦{amount_paying}, Remaining ₦{receipt.balance_remaining}")
+                            # Create initial partial payment record for each payment method
+                            for method_data in valid_payment_methods:
+                                PartialPayment.objects.create(
+                                    receipt=receipt,
+                                    amount=Decimal(str(method_data['amount'])),
+                                    payment_method=method_data['payment_method'],
+                                    notes=f"Initial deposit payment - Total deposit: ₦{amount_paying}, Balance: ₦{receipt.balance_remaining}",
+                                    received_by=request.user
+                                )
+                            logger.info(f"Partial payment (deposit) created: Paid ₦{amount_paying}, Remaining ₦{receipt.balance_remaining}")
 
                         receipt.save()
                     else:
-                        # Full payment
+                        # Full payment mode - payment methods total should match final total
                         receipt.payment_status = 'paid'
                         receipt.amount_paid = final_total
                         receipt.balance_remaining = Decimal('0')
@@ -2353,6 +2522,61 @@ def sell_product(request):
                             'amount': payment_method.amount,
                             'reference': payment_method.reference_number or 'N/A'
                         })
+
+                        # ============================================
+                        # STORE CREDIT PAYMENT HANDLING
+                        # ============================================
+                        if method_data['payment_method'] == 'store_credit':
+                            from .models import StoreCredit, StoreCreditUsage
+
+                            if not customer:
+                                raise ValidationError("Customer must be selected to use store credit")
+
+                            # Get customer's active store credits
+                            available_credits = StoreCredit.objects.filter(
+                                customer=customer,
+                                is_active=True,
+                                remaining_balance__gt=0
+                            ).order_by('issued_date')  # Use oldest credits first (FIFO)
+
+                            # Calculate total available balance
+                            total_available = sum([credit.remaining_balance for credit in available_credits])
+
+                            # Validate sufficient balance
+                            credit_amount = Decimal(str(method_data['amount']))
+                            if credit_amount > total_available:
+                                raise ValidationError(
+                                    f"Insufficient store credit. Available: ₦{total_available:.2f}, "
+                                    f"Requested: ₦{credit_amount:.2f}"
+                                )
+
+                            # Deduct from store credits (FIFO - oldest first)
+                            remaining_to_deduct = credit_amount
+                            for credit in available_credits:
+                                if remaining_to_deduct <= 0:
+                                    break
+
+                                # Calculate how much to deduct from this credit
+                                deduct_amount = min(credit.remaining_balance, remaining_to_deduct)
+
+                                # Create usage record
+                                StoreCreditUsage.objects.create(
+                                    store_credit=credit,
+                                    receipt=receipt,
+                                    amount_used=deduct_amount,
+                                    used_by=request.user
+                                )
+
+                                # Deduct from remaining amount
+                                remaining_to_deduct -= deduct_amount
+
+                                logger.info(
+                                    f"Store credit used: {credit.credit_number} - "
+                                    f"Amount: ₦{deduct_amount:.2f}, "
+                                    f"Remaining in credit: ₦{credit.remaining_balance - deduct_amount:.2f}"
+                                )
+
+                            logger.info(f"Total store credit applied: ₦{credit_amount:.2f}")
 
                     # Finalize payment status
                     payment.refresh_from_db()
@@ -2495,7 +2719,8 @@ def sell_product(request):
                         form_errors.append(f"{field}: {', '.join(error_strings)}")
                     error_messages.append(f"Delivery errors: {', '.join(form_errors)}")
 
-                if not validation_form.is_valid():
+                # Only show validation errors if not in partial payment mode
+                if not enable_partial_payment and not validation_form.is_valid():
                     validation_errors = []
                     for field, errors in validation_form.errors.items():
                         error_strings = [str(error) for error in errors]
@@ -2551,7 +2776,8 @@ def sell_product(request):
                         form_errors.append(f"{field}: {', '.join(error_strings)}")
                     error_messages.append(f"Delivery errors: {', '.join(form_errors)}")
 
-                if not validation_form.is_valid():
+                # Only show validation errors if not in partial payment mode
+                if not enable_partial_payment and not validation_form.is_valid():
                     validation_errors = []
                     for field, errors in validation_form.errors.items():
                         error_strings = [str(error) for error in errors]
@@ -2567,6 +2793,35 @@ def sell_product(request):
         payment_methods_formset = PaymentMethodFormSet(prefix='payment_method')
         delivery_form = DeliveryForm()
 
+    # Check if this is a debt payment from customer debt dashboard
+    customer_id_for_debt = request.GET.get('customer_id', '')
+    receipt_id_for_debt = request.GET.get('receipt_id', '')
+
+    # Fetch debt information if receipt_id is provided
+    debt_info = None
+    if receipt_id_for_debt:
+        try:
+            outstanding_receipt = Receipt.objects.get(id=receipt_id_for_debt)
+            # Get partial payment history
+            payment_history = PartialPayment.objects.filter(
+                receipt=outstanding_receipt
+            ).order_by('payment_date')
+
+            debt_info = {
+                'receipt': outstanding_receipt,
+                'receipt_number': outstanding_receipt.receipt_number,
+                'total_amount': outstanding_receipt.amount_paid + outstanding_receipt.balance_remaining,
+                'amount_paid': outstanding_receipt.amount_paid,
+                'balance_remaining': outstanding_receipt.balance_remaining,
+                'customer': outstanding_receipt.customer,
+                'payment_history': list(payment_history.values(
+                    'amount', 'payment_method', 'payment_date', 'received_by__username'
+                )),
+                'original_date': outstanding_receipt.date,
+            }
+        except Receipt.DoesNotExist:
+            debt_info = None
+
     return render(request, 'sales/sell_product.html', {
         'formset': formset,
         'payment_form': payment_form,
@@ -2575,7 +2830,11 @@ def sell_product(request):
         'products': products,
         'customers': customers,
         'payment_method_choices': payment_method_choices,
-        'active_taxes': active_taxes
+        'active_taxes': active_taxes,
+        # Debt payment information
+        'preselect_customer_id': customer_id_for_debt,
+        'debt_info': debt_info,
+        'is_debt_payment': bool(receipt_id_for_debt),
     })
 
 
@@ -2583,9 +2842,13 @@ def sell_product(request):
 @login_required(login_url='login')
 def sale_success(request, receipt_id):
     receipt = get_object_or_404(Receipt, id=receipt_id)
+    payment_history = PartialPayment.objects.filter(receipt=receipt).order_by('payment_date')
+    store_config = StoreConfiguration.get_active_config()
 
     return render(request, 'sales/sale_success.html', {
         'receipt': receipt,
+        'payment_history': payment_history,
+        'currency_symbol': store_config.currency_symbol,
     })
 
 
@@ -2691,6 +2954,7 @@ def receipt_list(request):
     # Get all filter parameters from GET request
     search_query = request.GET.get('search', '')
     customer_filter = request.GET.get('customer', '')
+    payment_status_filter = request.GET.get('payment_status', '')
     date_from = request.GET.get('date_from', '')
     date_to = request.GET.get('date_to', '')
     amount_min = request.GET.get('amount_min', '')
@@ -2698,7 +2962,11 @@ def receipt_list(request):
     sort_by = request.GET.get('sort_by', '-date')  # Default sort by date descending
 
     # Start with all receipts, prefetch related data for efficiency
-    receipts = Receipt.objects.prefetch_related('sales', 'customer').order_by('-date')
+    receipts = Receipt.objects.prefetch_related('sales', 'customer', 'partial_payments').order_by('-date')
+
+    # Filter by payment status
+    if payment_status_filter:
+        receipts = receipts.filter(payment_status=payment_status_filter)
 
     # Apply filters
     if search_query:
@@ -2755,7 +3023,11 @@ def receipt_list(request):
         receipt_info = {
             'receipt': receipt,
             'total_amount': total_amount.quantize(Decimal('0.00')),
-            'customer_name': customer_name
+            'customer_name': customer_name,
+            'payment_status': receipt.payment_status,
+            'partial_payment_count': receipt.partial_payments.count(),
+            'amount_paid': receipt.amount_paid,
+            'balance_remaining': receipt.balance_remaining,
         }
 
         receipt_data.append(receipt_info)
@@ -2809,6 +3081,7 @@ def receipt_list(request):
         'receipt_data': receipt_data,
         'search_query': search_query,
         'customer_filter': customer_filter,
+        'payment_status_filter': payment_status_filter,
         'date_from': date_from,
         'date_to': date_to,
         'amount_min': amount_min,
@@ -2849,14 +3122,17 @@ def receipt_detail(request, pk):
     customer_name = receipt.customer.name if receipt.customer else "No customer"
     user = receipt.user
 
-    # Total item-level discounts
+    # Flag: does this receipt contain any gifted items?
+    has_gifts = any(sale.is_gift for sale in sales)
+
+    # Total item-level discounts (gift items have no discount — they're free)
     total_item_discount = sum(
-        (sale.discount_amount or Decimal('0.00')) for sale in sales
+        (sale.discount_amount or Decimal('0.00')) for sale in sales if not sale.is_gift
     )
 
-    # Total before any discount
+    # Total before any discount (exclude gift items — they're worth ₦0 on this receipt)
     total_price_before_discount = sum(
-        sale.product.selling_price * sale.quantity for sale in sales
+        sale.product.selling_price * sale.quantity for sale in sales if not sale.is_gift
     )
 
     # Bill-level discount
@@ -2896,6 +3172,9 @@ def receipt_detail(request, pk):
         if first_sale_delivery:
             delivery = first_sale_delivery
 
+    # Get partial payments for balance settlements
+    partial_payments = list(PartialPayment.objects.filter(receipt=receipt).order_by('payment_date'))
+
     # Get loyalty info
     loyalty_info = None
     if receipt.customer and hasattr(receipt.customer, 'loyalty_account'):
@@ -2903,7 +3182,7 @@ def receipt_detail(request, pk):
             config = LoyaltyConfiguration.get_active_config()
             if config and config.is_active:
                 loyalty_transaction = LoyaltyTransaction.objects.filter(
-                    customer=receipt.customer,
+                    loyalty_account__customer=receipt.customer,
                     receipt=receipt
                 ).order_by('-created_at').first()
 
@@ -2914,9 +3193,16 @@ def receipt_detail(request, pk):
                         'previous_balance': loyalty_transaction.balance_after - loyalty_transaction.points,
                         'new_balance': loyalty_transaction.balance_after,
                         'redeemable_value': receipt.customer.loyalty_account.get_redeemable_value(),
+                        'points_threshold': config.minimum_points_for_redemption,
+                        'discount_percentage': config.maximum_discount_percentage,
                     }
         except Exception as e:
             logger.error(f"Error fetching loyalty info: {e}")
+
+    # Subtotal from sales (gift items count as ₦0)
+    subtotal_amount = sum(
+        Decimal('0') if sale.is_gift else sale.total_price for sale in sales
+    )
 
     return render(request, 'receipt/receipt_detail.html', {
         'receipt': receipt,
@@ -2927,6 +3213,7 @@ def receipt_detail(request, pk):
         'total_item_discount': total_item_discount,
         'total_bill_discount': total_bill_discount,
         'total_price_before_discount': total_price_before_discount,
+        'subtotal_amount': subtotal_amount,
         'delivery_cost': delivery_cost,
         'final_total': final_total,
         'total_paid': total_paid,
@@ -2939,7 +3226,187 @@ def receipt_detail(request, pk):
         'currency_symbol': store_config.currency_symbol,
         'delivery': delivery,
         'loyalty_info': loyalty_info,
+        'partial_payments': partial_payments,
+        'has_gifts': has_gifts,
     })
+
+
+@login_required(login_url='login')
+def print_pos_receipt(request, pk):
+    """Print a receipt directly to the default Windows ESC/POS thermal printer."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Method not allowed'}, status=405)
+
+    receipt = get_object_or_404(Receipt, pk=pk)
+
+    try:
+        from escpos.printer import Win32Raw
+        import win32print
+        import json as _json
+
+        sales = receipt.sales.select_related('product', 'payment').prefetch_related(
+            'payment__payment_methods'
+        ).all()
+        payment = sales.first().payment if sales.exists() else None
+        customer_name = receipt.customer.name if receipt.customer else None
+        store_config = StoreConfiguration.get_active_config()
+        partial_payments = list(PartialPayment.objects.filter(receipt=receipt).order_by('payment_date'))
+
+        printer_name = win32print.GetDefaultPrinter()
+        p = Win32Raw(printer_name)
+        cs = store_config.currency_symbol or '₦'
+        W = 42  # receipt width in chars
+
+        def line(text=''):
+            p.text(text + '\n')
+
+        def divider(char='-'):
+            p.text(char * W + '\n')
+
+        def row(left, right, width=W):
+            gap = width - len(left) - len(right)
+            p.text(left + ' ' * max(1, gap) + right + '\n')
+
+        # ── Timestamp (right-aligned) ──
+        p.set(align='right', bold=False, width=1, height=1)
+        line(receipt.date.strftime('%m/%d/%Y, %I:%M %p'))
+
+        # ── Store name ──
+        p.set(align='center', bold=True, width=2, height=2)
+        line(store_config.store_name)
+
+        # ── Store details ──
+        p.set(align='center', bold=False, width=1, height=1)
+        line(store_config.address_line_1)
+        if store_config.address_line_2:
+            line(store_config.address_line_2)
+        line(f'Tel: {store_config.phone}')
+        line(store_config.email)
+
+        # ── Title ──
+        p.set(align='center', bold=True, width=1, height=1)
+        divider('-')
+        title = 'DEPOSIT RECEIPT' if receipt.payment_status == 'partial' else 'SALES RECEIPT'
+        line(title)
+        divider('-')
+
+        # ── Receipt info ──
+        p.set(align='left', bold=False, width=1, height=1)
+        line(f'Date: {receipt.date.strftime("%m/%d/%Y %I:%M %p")}')
+        line(f'Sale ID: {receipt.receipt_number}')
+        line(f'Employee: {receipt.user.username if receipt.user else "N/A"}')
+        if customer_name:
+            line(f'Customer: {customer_name}')
+            if receipt.customer and receipt.customer.phone_number:
+                line(f'Phone: {receipt.customer.phone_number}')
+
+        # ── Items header ──
+        p.set(align='left', bold=True, width=1, height=1)
+        divider('-')
+        # Columns: Item(20) Price(10) Qty(4) Total(8)
+        hdr = f'{"Item Name":<20}{"Price":>9} {"Qty":>3} {"Total":>7}'
+        line(hdr)
+        divider('-')
+
+        # ── Items ──
+        p.set(align='left', bold=False, width=1, height=1)
+        for sale in sales:
+            name  = str(sale.product.brand or '')[:20]
+            price = f'{cs}{float(sale.product.selling_price):.2f}'
+            qty   = str(sale.quantity)
+            total = f'{cs}{float(sale.total_price):.2f}'
+            line(f'{name:<20}{price:>9} {qty:>3} {total:>7}')
+
+        divider('-')
+
+        # ── Summary ──
+        subtotal = sum(float(s.total_price) for s in sales)
+        row('Subtotal:', f'{cs}{subtotal:.2f}')
+
+        if receipt.tax_amount and receipt.tax_amount > 0:
+            try:
+                tax_data = _json.loads(receipt.tax_details)
+                for code, ti in tax_data.items():
+                    label = f'{ti["name"]} ({ti["rate"]}% {ti["method"].capitalize()}):'
+                    row(label[:W - 12], f'{cs}{float(ti["amount"]):.2f}')
+            except Exception:
+                pass
+
+        if receipt.delivery_cost and receipt.delivery_cost > 0:
+            row('Delivery:', f'+{cs}{float(receipt.delivery_cost):.2f}')
+
+        divider('=')
+        p.set(align='left', bold=True, width=1, height=1)
+        final_total = float(payment.total_amount) if payment else subtotal
+        row('Total:', f'{cs}{final_total:.2f}')
+        divider('=')
+
+        # ── Payment type ──
+        p.set(align='left', bold=False, width=1, height=1)
+        if payment:
+            for pm in payment.payment_methods.all():
+                row('Payment Type:', pm.get_payment_method_display())
+
+        if receipt.payment_status == 'partial':
+            row('Deposit Paid:', f'{cs}{float(receipt.amount_paid):.2f}')
+            p.set(align='left', bold=True, width=1, height=1)
+            row('Balance Due:', f'{cs}{float(receipt.balance_remaining):.2f}')
+            p.set(align='left', bold=False, width=1, height=1)
+
+        # ── Payment History ──
+        if partial_payments:
+            divider('-')
+            p.set(align='center', bold=True, width=1, height=1)
+            if receipt.payment_status == 'paid' and len(partial_payments) > 1:
+                line('BALANCE SETTLEMENT - PAYMENT HISTORY')
+            else:
+                line('PAYMENT HISTORY')
+            p.set(align='left', bold=False, width=1, height=1)
+            for i, pp in enumerate(partial_payments):
+                is_last = (i == len(partial_payments) - 1)
+                if is_last and receipt.payment_status == 'paid' and len(partial_payments) > 1:
+                    label = f'Balance Payment ({pp.payment_date.strftime("%m/%d/%Y")}):'
+                else:
+                    label = f'Deposit #{i + 1} ({pp.payment_date.strftime("%m/%d/%Y")}):'
+                row(label, f'{cs}{float(pp.amount):.2f}')
+            if receipt.payment_status == 'paid':
+                p.set(align='left', bold=True, width=1, height=1)
+                row('Total Paid:', f'{cs}{float(receipt.amount_paid):.2f}')
+                p.set(align='left', bold=False, width=1, height=1)
+
+        # ── Loyalty Status ──
+        if receipt.customer and hasattr(receipt.customer, 'loyalty_account'):
+            try:
+                lc = LoyaltyConfiguration.get_active_config()
+                if lc and lc.is_active:
+                    acc = receipt.customer.loyalty_account
+                    divider('-')
+                    p.set(align='center', bold=True, width=1, height=1)
+                    line('LOYALTY STATUS')
+                    p.set(align='center', bold=False, width=1, height=1)
+                    line(f'Progress: {acc.current_balance}/{lc.minimum_points_for_redemption} to {lc.maximum_discount_percentage:.2f}% OFF')
+            except Exception:
+                pass
+
+        # ── Footer ──
+        divider('-')
+        p.set(align='center', bold=False, width=1, height=1)
+        if store_config.receipt_footer_text:
+            line(store_config.receipt_footer_text)
+        else:
+            line('Change/Return Only - No Cash Refunds')
+            line('Thank you for shopping with us!')
+
+        p.ln(4)
+        p.cut()
+        p.close()
+
+        return JsonResponse({'success': True, 'message': f'Printed to: {printer_name}'})
+
+    except Exception as exc:
+        import traceback
+        logger.error(f'ESC/POS print error: {traceback.format_exc()}')
+        return JsonResponse({'success': False, 'message': str(exc)}, status=500)
 
 
 @login_required(login_url='login')
@@ -2958,13 +3425,17 @@ def send_receipt_email(request, pk):
 
     payment = sales.first().payment if sales.exists() and hasattr(sales.first(), 'payment') else None
 
+    has_gifts = any(sale.is_gift for sale in sales)
     total_item_discount = sum(
         (sale.discount_amount or Decimal('0.00')) * sale.quantity
-        for sale in sales
+        for sale in sales if not sale.is_gift
     )
     total_price_before_discount = sum(
         sale.product.selling_price * sale.quantity
-        for sale in sales
+        for sale in sales if not sale.is_gift
+    )
+    subtotal_amount = sum(
+        Decimal('0') if sale.is_gift else sale.total_price for sale in sales
     )
     total_bill_discount = payment.discount_amount if payment else Decimal('0.00')
     final_total = payment.total_amount if payment else Decimal('0.00')
@@ -2995,9 +3466,14 @@ def send_receipt_email(request, pk):
                         'previous_balance': loyalty_transaction.balance_after - loyalty_transaction.points,
                         'new_balance': loyalty_transaction.balance_after,
                         'redeemable_value': receipt.customer.loyalty_account.get_redeemable_value(),
+                        'points_threshold': config.minimum_points_for_redemption,
+                        'discount_percentage': config.maximum_discount_percentage,
                     }
     except Exception as e:
         logger.error(f"Error fetching loyalty info for receipt email: {e}")
+
+    # Get partial payment history
+    partial_payments = list(PartialPayment.objects.filter(receipt=receipt).order_by('payment_date'))
 
     # Get store configuration
     store_config = StoreConfiguration.get_active_config()
@@ -3049,12 +3525,16 @@ def send_receipt_email(request, pk):
         'payments': payments,
         'customer_name': receipt.customer.name,
         'user': receipt.user,
+        'has_gifts': has_gifts,
         'total_item_discount': total_item_discount,
         'total_bill_discount': total_bill_discount,
         'total_price_before_discount': total_price_before_discount,
+        'subtotal_amount': subtotal_amount,
         'final_total': final_total,
         'final_total_with_delivery': receipt.total_with_delivery or final_total,
-        'delivery': None,  # Can be added if needed
+        'delivery': None,
+        'delivery_cost': Decimal('0.00'),
+        'partial_payments': partial_payments,
         'logo_url': logo_url,
         'location_qr_code_url': location_qr_code_url,
         'loyalty_info': loyalty_info,
@@ -3143,17 +3623,18 @@ def download_receipt_pdf(request, pk):
     customer = receipt.customer
     customer_name = customer.name if customer else "Walk-in Customer"
 
-    # === Calculate Financials ===
-    # Subtotal: sum of (selling_price * quantity) for all items
+    # Flag: any gifted items on this receipt?
+    has_gifts = any(sale.is_gift for sale in sales)
+
+    # === Calculate Financials (gift items excluded — they are ₦0) ===
     total_price_before_discount = sum(
         (sale.product.selling_price * sale.quantity)
-        for sale in sales
+        for sale in sales if not sale.is_gift
     )
 
-    # Total item-level discounts: sum of (discount_amount * quantity)
     total_item_discount = sum(
         (sale.discount_amount or Decimal('0.00')) * sale.quantity
-        for sale in sales
+        for sale in sales if not sale.is_gift
     )
 
     # Bill-level discount (from payment)
@@ -3234,7 +3715,7 @@ def download_receipt_pdf(request, pk):
             config = LoyaltyConfiguration.get_active_config()
             if config and config.is_active:
                 loyalty_transaction = LoyaltyTransaction.objects.filter(
-                    customer=receipt.customer,
+                    loyalty_account__customer=receipt.customer,
                     receipt=receipt
                 ).order_by('-created_at').first()
 
@@ -3245,9 +3726,17 @@ def download_receipt_pdf(request, pk):
                         'previous_balance': loyalty_transaction.balance_after - loyalty_transaction.points,
                         'new_balance': loyalty_transaction.balance_after,
                         'redeemable_value': receipt.customer.loyalty_account.get_redeemable_value(),
+                        'points_threshold': config.minimum_points_for_redemption,
+                        'discount_percentage': config.maximum_discount_percentage,
                     }
         except Exception as e:
             logger.error(f"Error fetching loyalty info: {e}")
+
+    # === Additional context vars for new thermal-style PDF template ===
+    partial_payments = list(PartialPayment.objects.filter(receipt=receipt).order_by('payment_date'))
+    subtotal_amount = sum(
+        Decimal('0') if sale.is_gift else sale.total_price for sale in sales
+    )
 
     # === Context for Template ===
     context = {
@@ -3260,9 +3749,11 @@ def download_receipt_pdf(request, pk):
         'total_price_before_discount': total_price_before_discount,
         'total_item_discount': total_item_discount,
         'total_bill_discount': total_bill_discount,
+        'subtotal_amount': subtotal_amount,
         'final_total': final_subtotal,  # Final amount before delivery
         'final_total_with_delivery': final_total_with_delivery,
         'delivery': delivery,
+        'delivery_cost': delivery_cost,
         'logo_url': logo_url,
         'location_qr_code_url': location_qr_code_url,
         'store_config': store_config,
@@ -3271,6 +3762,8 @@ def download_receipt_pdf(request, pk):
         'store_email': store_config.email,
         'currency_symbol': store_config.currency_symbol,
         'loyalty_info': loyalty_info,
+        'has_gifts': has_gifts,
+        'partial_payments': partial_payments,
     }
 
     # === Render HTML & Generate PDF ===
@@ -3296,18 +3789,85 @@ def download_receipt_pdf(request, pk):
 
 
 @login_required(login_url='login')
-def print_receipt(request, sale_id):
-    sale = get_object_or_404(Sale, id=sale_id)
-    receipt = sale.receipt
-    payment = sale.payment
-    customer = sale.customer
+def print_receipt(request, receipt_id):
+    """Standalone print-ready receipt page (matches POS thermal template)."""
+    receipt = get_object_or_404(Receipt, pk=receipt_id)
+    sales = receipt.sales.select_related('product', 'payment', 'delivery').all()
 
-    # Pass details to the template
-    return render(request, 'sales/print_receipt.html', {
-        'sale': sale,
+    payment = sales.first().payment if sales.exists() else None
+    customer_name = receipt.customer.name if receipt.customer else "No customer"
+
+    has_gifts = any(sale.is_gift for sale in sales)
+
+    total_item_discount = sum(
+        (sale.discount_amount or Decimal('0.00')) for sale in sales if not sale.is_gift
+    )
+    total_price_before_discount = sum(
+        sale.product.selling_price * sale.quantity for sale in sales if not sale.is_gift
+    )
+    total_bill_discount = payment.discount_amount if payment else Decimal('0.00')
+    delivery_cost = receipt.delivery_cost or Decimal('0.00')
+    final_total = payment.total_amount if payment else Decimal('0.00')
+
+    payment_methods = payment.payment_methods.all() if payment else []
+    partial_payments = list(PartialPayment.objects.filter(receipt=receipt).order_by('payment_date'))
+
+    delivery = None
+    if sales.exists():
+        first_sale_delivery = sales.first().delivery
+        if first_sale_delivery:
+            delivery = first_sale_delivery
+
+    subtotal_amount = sum(
+        Decimal('0') if sale.is_gift else sale.total_price for sale in sales
+    )
+
+    loyalty_info = None
+    if receipt.customer and hasattr(receipt.customer, 'loyalty_account'):
+        try:
+            config = LoyaltyConfiguration.get_active_config()
+            if config and config.is_active:
+                loyalty_transaction = LoyaltyTransaction.objects.filter(
+                    loyalty_account__customer=receipt.customer,
+                    receipt=receipt
+                ).order_by('-created_at').first()
+                if loyalty_transaction:
+                    loyalty_info = {
+                        'program_name': config.program_name,
+                        'points_earned': loyalty_transaction.points,
+                        'previous_balance': loyalty_transaction.balance_after - loyalty_transaction.points,
+                        'new_balance': loyalty_transaction.balance_after,
+                        'redeemable_value': receipt.customer.loyalty_account.get_redeemable_value(),
+                        'points_threshold': config.minimum_points_for_redemption,
+                        'discount_percentage': config.maximum_discount_percentage,
+                    }
+        except Exception:
+            pass
+
+    store_config = StoreConfiguration.get_active_config()
+
+    return render(request, 'Receipt/print_receipt.html', {
         'receipt': receipt,
+        'sales': sales,
         'payment': payment,
-        'customer': customer,
+        'customer_name': customer_name,
+        'user': receipt.user,
+        'total_item_discount': total_item_discount,
+        'total_bill_discount': total_bill_discount,
+        'total_price_before_discount': total_price_before_discount,
+        'subtotal_amount': subtotal_amount,
+        'delivery_cost': delivery_cost,
+        'final_total': final_total,
+        'payment_methods': payment_methods,
+        'partial_payments': partial_payments,
+        'delivery': delivery,
+        'loyalty_info': loyalty_info,
+        'has_gifts': has_gifts,
+        'store_config': store_config,
+        'store_name': store_config.store_name,
+        'store_phone': store_config.phone,
+        'store_email': store_config.email,
+        'currency_symbol': store_config.currency_symbol,
     })
 
 
@@ -7721,7 +8281,7 @@ def get_customer_store_credit(request, customer_id):
 @login_required
 def add_partial_payment(request, receipt_id):
     """Add a partial payment to a receipt"""
-    from .models import Receipt, PartialPayment
+    from .models import Receipt, PartialPayment, PaymentMethod
     from decimal import Decimal
 
     receipt = get_object_or_404(Receipt, id=receipt_id)
@@ -7733,11 +8293,51 @@ def add_partial_payment(request, receipt_id):
 
         if amount <= 0:
             messages.error(request, "Payment amount must be greater than 0")
-            return redirect('receipt_detail', pk=receipt_id)
+            return redirect('add_partial_payment', receipt_id=receipt_id)
 
         if amount > receipt.balance_remaining:
-            messages.error(request, "Payment amount cannot exceed remaining balance")
-            return redirect('receipt_detail', pk=receipt_id)
+            messages.error(request, f"Payment amount (₦{amount}) cannot exceed remaining balance (₦{receipt.balance_remaining})")
+            return redirect('add_partial_payment', receipt_id=receipt_id)
+
+        # Handle store credit payment
+        if payment_method == 'store_credit':
+            from .models import StoreCredit, StoreCreditUsage
+
+            # Get customer's active store credits
+            available_credits = StoreCredit.objects.filter(
+                customer=receipt.customer,
+                is_active=True,
+                remaining_balance__gt=0
+            ).order_by('issued_date')  # Use oldest credits first (FIFO)
+
+            # Calculate total available balance
+            total_available = sum([credit.remaining_balance for credit in available_credits])
+
+            if amount > total_available:
+                messages.error(request, f"Insufficient store credit. Available: ₦{total_available:.2f}, Requested: ₦{amount:.2f}")
+                return redirect('add_partial_payment', receipt_id=receipt_id)
+
+            # Deduct from store credits (FIFO - oldest first)
+            remaining_to_deduct = amount
+            for credit in available_credits:
+                if remaining_to_deduct <= 0:
+                    break
+
+                # Calculate how much to deduct from this credit
+                deduct_amount = min(credit.remaining_balance, remaining_to_deduct)
+
+                # Create usage record
+                StoreCreditUsage.objects.create(
+                    store_credit=credit,
+                    receipt=receipt,
+                    amount_used=deduct_amount,
+                    used_by=request.user
+                )
+
+                # Deduct from remaining amount
+                remaining_to_deduct -= deduct_amount
+
+            logger.info(f"Store credit used for balance payment: ₦{amount:.2f} on receipt {receipt.receipt_number}")
 
         # Create the partial payment
         PartialPayment.objects.create(
@@ -7754,38 +8354,111 @@ def add_partial_payment(request, receipt_id):
 
         if receipt.balance_remaining <= 0:
             receipt.payment_status = 'paid'
+            receipt.balance_remaining = Decimal('0')  # Ensure it's exactly 0
         else:
             receipt.payment_status = 'partial'
 
         receipt.save()
 
-        messages.success(request, f"Payment of {amount} recorded successfully")
-        return redirect('receipt_detail', pk=receipt_id)
+        messages.success(request, f"Payment of ₦{amount} recorded successfully")
 
-    return redirect('receipt_detail', pk=receipt_id)
+        # If fully paid, redirect to receipt detail, otherwise stay on payment page
+        if receipt.payment_status == 'paid':
+            return redirect('receipt_detail', pk=receipt_id)
+        else:
+            return redirect('add_partial_payment', receipt_id=receipt_id)
+
+    # GET request - show payment form
+    # Get payment history
+    payment_history = receipt.partial_payments.all().order_by('-payment_date')
+
+    # Get payment method choices
+    payment_method_choices = PaymentMethod.get_payment_method_choices()
+
+    context = {
+        'receipt': receipt,
+        'payment_history': payment_history,
+        'payment_method_choices': payment_method_choices,
+    }
+    return render(request, 'sales/add_partial_payment.html', context)
 
 
 @login_required
 def customer_debt_dashboard(request):
     """View all customers with outstanding balances"""
-    from .models import Receipt
-    from django.db.models import Sum, Q
+    from .models import Receipt, Customer
+    from django.db.models import Sum, Q, Count, Min
+    from collections import defaultdict
 
-    # Get all receipts with outstanding balances
-    outstanding_receipts = Receipt.objects.filter(
-        payment_status__in=['partial', 'pending'],
-        balance_remaining__gt=0
-    ).select_related('customer').order_by('-date')
+    # Check if viewing a specific customer
+    customer_id = request.GET.get('customer_id')
 
-    # Calculate totals
-    total_outstanding = outstanding_receipts.aggregate(
-        total=Sum('balance_remaining')
-    )['total'] or 0
+    if customer_id:
+        # DETAIL VIEW: Show all receipts for a specific customer
+        customer = get_object_or_404(Customer, id=customer_id)
+        customer_receipts = Receipt.objects.filter(
+            customer=customer,
+            payment_status__in=['partial', 'pending'],
+            balance_remaining__gt=0
+        ).select_related('customer').prefetch_related('partial_payments').order_by('-date')
 
-    context = {
-        'outstanding_receipts': outstanding_receipts,
-        'total_outstanding': total_outstanding,
-    }
+        total_debt = customer_receipts.aggregate(
+            total=Sum('balance_remaining')
+        )['total'] or 0
+
+        context = {
+            'selected_customer_id': customer_id,
+            'selected_customer_data': {
+                'customer': customer,
+                'receipts': customer_receipts,
+                'total_debt': total_debt,
+                'debt_count': customer_receipts.count(),
+            }
+        }
+    else:
+        # LIST VIEW: Show all customers with outstanding balances
+        outstanding_receipts = Receipt.objects.filter(
+            payment_status__in=['partial', 'pending'],
+            balance_remaining__gt=0
+        ).select_related('customer').order_by('-date')
+
+        # Group receipts by customer
+        customer_debts_dict = defaultdict(lambda: {
+            'customer': None,
+            'total_debt': 0,
+            'debt_count': 0,
+            'oldest_debt_date': None
+        })
+
+        for receipt in outstanding_receipts:
+            if receipt.customer:
+                customer_id = receipt.customer.id
+                customer_debts_dict[customer_id]['customer'] = receipt.customer
+                customer_debts_dict[customer_id]['total_debt'] += receipt.balance_remaining
+                customer_debts_dict[customer_id]['debt_count'] += 1
+
+                # Track oldest debt date
+                if (customer_debts_dict[customer_id]['oldest_debt_date'] is None or
+                    receipt.date < customer_debts_dict[customer_id]['oldest_debt_date']):
+                    customer_debts_dict[customer_id]['oldest_debt_date'] = receipt.date
+
+        # Convert to list and sort by total debt (highest first)
+        customer_debts = sorted(
+            customer_debts_dict.values(),
+            key=lambda x: x['total_debt'],
+            reverse=True
+        )
+
+        # Calculate totals
+        total_outstanding = sum([debt['total_debt'] for debt in customer_debts])
+        total_customers = len(customer_debts)
+
+        context = {
+            'customer_debts': customer_debts,
+            'total_outstanding': total_outstanding,
+            'total_customers': total_customers,
+        }
+
     return render(request, 'sales/customer_debt_dashboard.html', context)
 
 

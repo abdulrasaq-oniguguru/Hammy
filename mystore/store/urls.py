@@ -53,6 +53,7 @@ urlpatterns = [
     path('receipt/<int:pk>/send-email/', views.send_receipt_email, name='send_receipt_email'),
     path('receipt/<int:pk>/download-pdf/', views.download_receipt_pdf, name='download_receipt_pdf'),
     path('print-receipt/<int:receipt_id>/', views.print_receipt, name='print_receipt'),
+    path('receipt/<int:pk>/print-pos/', views.print_pos_receipt, name='print_pos_receipt'),
 
 
 

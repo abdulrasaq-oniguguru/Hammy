@@ -108,17 +108,17 @@ class ActivityLogAdmin(admin.ModelAdmin):
 
 class LoyaltyConfigurationAdmin(admin.ModelAdmin):
     list_display = [
-        'program_name', 'is_active', 'calculation_type',
+        'program_name', 'is_active', 'calculation_type', 'customer_type',
         'points_per_transaction', 'display_per_amount_rule',
         'minimum_points_for_redemption', 'updated_at'
     ]
-    list_filter = ['is_active', 'calculation_type', 'points_expire', 'send_points_earned_email']
+    list_filter = ['is_active', 'calculation_type', 'customer_type', 'points_expire', 'send_points_earned_email']
     search_fields = ['program_name']
     readonly_fields = ['created_at', 'updated_at', 'created_by']
 
     fieldsets = (
         ('Program Settings', {
-            'fields': ('program_name', 'is_active')
+            'fields': ('program_name', 'is_active', 'customer_type')
         }),
         ('Point Earning Rules', {
             'fields': (
@@ -128,6 +128,16 @@ class LoyaltyConfigurationAdmin(admin.ModelAdmin):
                 'currency_unit_value'
             ),
             'description': 'Configure how customers earn points'
+        }),
+        ('Transaction/Item Count Discounts', {
+            'fields': (
+                'required_transaction_count',
+                'transaction_discount_percentage',
+                'required_item_count',
+                'item_discount_percentage'
+            ),
+            'description': 'Configure discounts based on transaction or item counts',
+            'classes': ('collapse',)
         }),
         ('Point Redemption Rules', {
             'fields': (
@@ -211,6 +221,15 @@ class CustomerLoyaltyAccountAdmin(admin.ModelAdmin):
         }),
         ('Status', {
             'fields': ('is_active', 'tier')
+        }),
+        ('Activity Tracking', {
+            'fields': (
+                'transaction_count',
+                'item_count',
+                'discount_count',
+                'discount_eligible'
+            ),
+            'description': 'Track customer purchase activity and discount eligibility'
         }),
         ('Dates', {
             'fields': ('enrollment_date', 'last_transaction_date', 'updated_at')

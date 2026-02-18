@@ -88,6 +88,13 @@ backups/
 .doc/
 
 # =====================================
+# PDF & RECEIPT TEMPLATES
+# =====================================
+*.pdf
+"Receipt Template/"
+Receipt Template/
+
+# =====================================
 # COVERAGE & TESTING
 # =====================================
 htmlcov/

@@ -1,608 +1,421 @@
 <!-- receipt_detail.html -->
 {% extends 'base.html' %}
 {% load static %}
+{% load custom_filters %}
 
 {% block content %}
 <style>
-    /* === PRINT SETTINGS: Force Maximum Darkness & Boldness === */
+    /* ===== PRINT ===== */
     @media print {
-        @page {
-            size: 80mm auto;
-            margin: 0;
-        }
-
-        body, html {
-            width: 80mm;
-            margin: 0;
-            padding: 0;
-            background: #fff !important;
-            color: #000 !important;
-        }
-
-        /* 🔥 FORCE EVERY ELEMENT TO BE BOLD AND BLACK */
-        *,
-        *::before,
-        *::after {
+        @page { size: 80mm auto; margin: 0; }
+        body, html { width: 80mm; margin: 0; padding: 0; background: #fff !important; }
+        *, *::before, *::after {
             color: #000 !important;
             background: transparent !important;
             text-shadow: none !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
-            font-weight: 900 !important; /* MAXIMUM BOLD */
-            font-size: 11px !important; /* Slightly larger for readability */
+            font-weight: bold !important;
         }
-
-        /* Ensure no element overrides boldness */
-        body * {
-            font-weight: 900 !important;
-        }
-
-        /* Hide non-receipt elements */
-        nav, footer, .no-print, button, a {
-            display: none !important;
-        }
-
-        .receipt-container {
-            padding: 0 !important;
-            margin: 0 !important;
-            border: none !important;
-            box-shadow: none !important;
-        }
-
-        /* Force all borders to be solid black */
-        .divider,
-        th,
-        td,
-        .payment-summary .fw-bold {
-            border-color: #000 !important;
-        }
+        nav, footer, .no-print { display: none !important; }
+        .receipt-container { padding: 0 !important; margin: 0 !important; border: none !important; box-shadow: none !important; }
     }
 
-    /* === GENERAL RECEIPT STYLING (Screen & Print) === */
+    /* ===== CONTAINER ===== */
     .receipt-container {
         width: 80mm;
         max-width: 100%;
         margin: 10px auto;
-        padding: 5px 5px 25px;
+        padding: 6px 6px 20px;
         font-family: 'Courier New', monospace;
-        font-size: 11.5px;
-        line-height: 1.3;
+        font-size: 11px;
+        line-height: 1.4;
         background: #fff;
         color: #000;
         box-sizing: border-box;
-        border: 1px solid #ddd;
+        border: 1px solid #ccc;
     }
+    .receipt-container * { color: #000; }
 
-    /* 🔥 Make all text EXTRA BOLD by default */
-    .receipt-container * {
-        font-weight: 900; /* Maximum bold */
-        color: #000;
-    }
+    /* ===== TIMESTAMP ===== */
+    .ts-line { text-align: right; font-size: 9px; margin-bottom: 3px; }
 
-    /* === COMPANY INFO === */
-    .company-info {
+    /* ===== STORE HEADER ===== */
+    .company-info { text-align: center; margin-bottom: 5px; }
+    .company-info img { width: 70px; height: auto; display: block; margin: 2px auto 4px; }
+    .store-name { font-size: 14px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; margin: 2px 0; }
+    .store-addr, .store-contact { font-size: 10px; margin: 1px 0; }
+
+    /* ===== TITLE ===== */
+    .receipt-title {
         text-align: center;
-        margin-bottom: 6px;
-    }
-
-    .company-info img {
-        width: 75px;
-        height: auto;
-        margin: 2px auto 4px;
-        border: 2px solid #000; /* Thicker border */
-        border-radius: 4px;
-        padding: 1px;
-    }
-
-    .company-info h2 {
-        margin: 3px 0;
-        font-size: 14px;
-        font-weight: 900;
-        letter-spacing: 0.8px;
-        text-transform: uppercase;
-    }
-
-    .company-info p {
-        margin: 2px 0;
-        font-size: 10.5px;
-        color: #000;
-    }
-
-    /* === RECEIPT HEADER === */
-    .receipt-header {
-        text-align: center;
-        margin: 6px 0;
-        padding-bottom: 4px;
-        border-bottom: 2px dashed #000;
-    }
-
-    .receipt-header h2 {
-        margin: 2px 0;
         font-size: 13px;
         font-weight: 900;
         text-transform: uppercase;
         letter-spacing: 1px;
+        margin: 6px 0;
+        padding: 5px 0;
+        border-top: 2px dashed #000;
+        border-bottom: 2px dashed #000;
     }
 
-    .receipt-header p {
-        margin: 2px 0;
-        font-size: 10.5px;
-    }
+    /* ===== INFO BLOCK ===== */
+    .info-block { font-size: 11px; margin-bottom: 5px; line-height: 1.55; }
+    .info-block p { margin: 1px 0; }
 
-    /* === SECTION TITLES === */
-    h4 {
-        text-align: center;
-        font-size: 12px;
-        font-weight: 900;
-        margin: 8px 0 4px;
-        letter-spacing: 1px;
-        border-bottom: 1px solid #000;
-        padding-bottom: 2px;
-    }
-
-    /* === ITEMS TABLE === */
-    table {
+    /* ===== ITEMS TABLE ===== */
+    table.items-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 11px;
-        margin: 5px 0;
-        font-weight: 900;
-    }
-
-    th {
-        font-weight: 900;
-        text-align: center;
-        padding: 4px 2px;
-        border-top: 2px solid #000;
-        border-bottom: 2px solid #000;
-        background: #000;
-        color: #fff !important;
-        font-size: 11px;
-    }
-
-    td {
-        padding: 3px 2px;
-        border-bottom: 1px solid #000;
-        color: #000;
-    }
-
-    .item-name {
-        width: 50%;
-        word-wrap: break-word;
-        text-align: left;
-        padding-left: 3px;
-    }
-
-    .qty {
-        width: 15%;
-        text-align: center;
-    }
-
-    .price {
-        width: 20%;
-        text-align: right;
-        padding-right: 3px;
-    }
-
-    .total {
-        width: 25%;
-        text-align: right;
-        padding-right: 3px;
-        font-weight: 900;
-    }
-
-    /* === DIVIDER === */
-    .divider {
-        border-top: 2px dashed #000;
-        margin: 8px 0 6px 0;
-    }
-
-    /* === PAYMENT SUMMARY === */
-    .payment-summary {
-        font-size: 11px;
-        line-height: 1.5;
-        margin-top: 5px;
-    }
-
-    .payment-summary p {
-        margin: 3px 0;
-        display: flex;
-        justify-content: space-between;
-        font-weight: 900;
-    }
-
-    .payment-summary .fw-bold {
-        font-weight: 900 !important;
-        border-top: 2px solid #000;
-        padding-top: 4px;
-        margin-top: 5px;
-        font-size: 12px;
-    }
-
-    /* === DISCOUNT SUMMARY === */
-    .discount-summary {
         font-size: 10.5px;
-        margin: 5px 0;
-        color: #000;
+        margin: 4px 0;
     }
+    table.items-table thead tr {
+        border-top: 1.5px solid #000;
+        border-bottom: 1.5px solid #000;
+    }
+    table.items-table th { font-weight: 900; padding: 3px 2px; font-size: 10px; }
+    table.items-table td { padding: 3px 2px; border-bottom: 1px dotted #999; }
+    table.items-table .col-name  { text-align: left;   width: 44%; word-break: break-word; }
+    table.items-table .col-price { text-align: right;  width: 22%; }
+    table.items-table .col-qty   { text-align: center; width: 10%; }
+    table.items-table .col-total { text-align: right;  width: 24%; font-weight: 900; }
 
-    .discount-summary p {
-        margin: 2px 0;
-        display: flex;
-        justify-content: space-between;
+    /* ===== DIVIDERS ===== */
+    .dashed-divider { border-top: 1.5px dashed #000; margin: 6px 0; }
+    .solid-divider  { border-top: 1.5px solid #000;  margin: 3px 0; }
+
+    /* ===== SUMMARY ROWS ===== */
+    .summary-block { font-size: 11px; margin-top: 3px; line-height: 1.6; }
+    .s-row { display: flex; justify-content: space-between; margin: 1px 0; }
+    .s-row.bold { font-weight: 900; font-size: 12px; }
+    .s-row.total-row {
         font-weight: 900;
+        font-size: 12px;
+        border-top: 1.5px solid #000;
+        padding-top: 3px;
+        margin-top: 3px;
     }
 
-    /* === FOOTER === */
-    .footer {
+    /* ===== SECTION TITLES ===== */
+    .section-title {
         text-align: center;
-        margin-top: 10px;
-        font-size: 10px;
-        font-style: italic;
-        color: #000;
+        font-size: 11px;
         font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin: 5px 0 3px;
     }
 
-    /* === ACTION BUTTONS === */
-    #printButton {
-        width: 100%;
-        padding: 12px;
-        margin-top: 20px;
-        font-size: 16px;
-        font-weight: 900;
-        background-color: #d9003f;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
+    /* ===== PAYMENT HISTORY ===== */
+    .ph-row { display: flex; justify-content: space-between; font-size: 10.5px; margin: 2px 0; }
+    .ph-row.total-paid { font-weight: 900; border-top: 1px solid #000; margin-top: 3px; padding-top: 3px; }
+
+    /* ===== LOYALTY ===== */
+    .loyalty-block { text-align: center; font-size: 10.5px; margin: 3px 0; }
+
+    /* ===== FOOTER ===== */
+    .receipt-footer { text-align: center; font-size: 10px; margin-top: 8px; line-height: 1.7; }
+
+    /* ===== ACTION BUTTONS ===== */
+    .btn-pos {
+        width: 100%; padding: 12px; margin-top: 10px;
+        font-size: 15px; font-weight: 700;
+        background-color: #1e40af; color: white;
+        border: none; border-radius: 6px; cursor: pointer;
         transition: background 0.2s;
     }
+    .btn-pos:hover { background-color: #1d4ed8; }
+    .btn-pos:disabled { background-color: #6b7280; cursor: not-allowed; }
 
-    #printButton:hover {
-        background-color: #ff1a4f;
-    }
-
-    .back-button {
-        display: block;
-        width: 100%;
-        padding: 12px;
-        margin-top: 10px;
-        font-size: 14px;
-        font-weight: 900;
-        background-color: #6c757d;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        text-align: center;
-        text-decoration: none;
-        cursor: pointer;
+    .btn-browser-print {
+        width: 100%; padding: 12px; margin-top: 8px;
+        font-size: 15px; font-weight: 700;
+        background-color: #d9003f; color: white;
+        border: none; border-radius: 6px; cursor: pointer;
         transition: background 0.2s;
     }
+    .btn-browser-print:hover { background-color: #ff1a4f; }
 
-    .back-button:hover {
-        background-color: #5a6268;
-        color: white;
+    .btn-back {
+        display: block; width: 100%; padding: 12px; margin-top: 8px;
+        font-size: 14px; font-weight: 700;
+        background-color: #6c757d; color: white;
+        border: none; border-radius: 6px;
+        text-align: center; text-decoration: none; cursor: pointer;
+        transition: background 0.2s;
     }
+    .btn-back:hover { background-color: #5a6268; color: white; }
 
-    /* === DARK MODE OVERRIDE === */
-    @media (prefers-color-scheme: dark) {
-        .receipt-container {
-            background: #000;
-            color: #fff;
-        }
-        .company-info, .footer, .payment-summary {
-            color: #fff;
-        }
-        @media print {
-            .receipt-container {
-                background: #fff !important;
-                color: #000 !important;
-            }
-            .receipt-container * {
-                color: #000 !important;
-                background: transparent !important;
-            }
-        }
-    }
+    #pos-print-status { margin-top: 6px; text-align: center; font-size: 13px; display: none; font-family: sans-serif; }
 </style>
 
 <div class="receipt-container">
-    <!-- Company Info -->
+
+    <!-- Timestamp (top-right) -->
+    <div class="ts-line">{{ receipt.date|date:"m/d/Y, g:i A" }}</div>
+
+    <!-- Store Header -->
     <div class="company-info">
         {% if store_config.receipt_logo %}
-        <img src="{{ store_config.receipt_logo.url }}" alt="{{ store_name }} Logo">
+            <img src="{{ store_config.receipt_logo.url }}" alt="{{ store_name }}">
         {% elif store_config.logo %}
-        <img src="{{ store_config.logo.url }}" alt="{{ store_name }} Logo">
+            <img src="{{ store_config.logo.url }}" alt="{{ store_name }}">
         {% else %}
-        <img src="{% static 'img/Wlogo.png' %}" alt="{{ store_name }} Logo">
+            <img src="{% static 'img/Wlogo.png' %}" alt="{{ store_name }}">
         {% endif %}
-        <h2>{{ store_name }}</h2>
-        <p>{{ store_config.address_line_1 }}</p>
-        {% if store_config.address_line_2 %}<p>{{ store_config.address_line_2 }}</p>{% endif %}
-        <p>{{ store_phone }}</p>
-        <p>{{ store_email }}</p>
-        {% if store_config.receipt_header_text %}
-        <p style="margin-top: 8px; font-style: italic;">{{ store_config.receipt_header_text }}</p>
+        <div class="store-name">{{ store_name }}</div>
+        <div class="store-addr">{{ store_config.address_line_1 }}</div>
+        {% if store_config.address_line_2 %}
+            <div class="store-addr">{{ store_config.address_line_2 }}</div>
         {% endif %}
+        <div class="store-contact">Tel: {{ store_phone }}</div>
+        <div class="store-contact">{{ store_email }}</div>
     </div>
 
-    <!-- Receipt Header -->
-    <div class="receipt-header">
-        {% if receipt.payment_status == 'partial' %}
-        <h2 style="color: #ff6b00; font-weight: 900; border: 3px solid #ff6b00; padding: 8px; background: #fff3e0;">*** DEPOSIT RECEIPT ***</h2>
-        {% else %}
-        <h2>Sales Receipt</h2>
-        {% endif %}
-        <p><strong>No:</strong> {{ receipt.receipt_number }}</p>
-        <p><strong>Date:</strong> {{ receipt.date|date:"D d M Y H:i" }}</p>
-        <p><strong>Cashier:</strong> {{ user.username|truncatechars:15 }}</p>
+    <!-- Receipt Title -->
+    <div class="receipt-title">
+        {% if receipt.payment_status == 'partial' %}Deposit Receipt{% elif has_gifts %}Gift Receipt{% else %}Sales Receipt{% endif %}
+    </div>
+
+    <!-- Receipt Info -->
+    <div class="info-block">
+        <p><strong>Date:</strong> {{ receipt.date|date:"m/d/Y g:i A" }}</p>
+        <p><strong>Sale ID:</strong> {{ receipt.receipt_number }}</p>
+        <p><strong>Employee:</strong> {{ user.username }}</p>
         {% if customer_name != "No customer" %}
-            <p><strong>Customer:</strong> {{ customer_name|truncatechars:18 }}</p>
-        {% endif %}
-        {% if receipt.payment_status == 'partial' %}
-            <p style="margin-top: 6px; padding: 4px; background: #fff3e0; border: 2px solid #ff6b00;">
-                <strong>Status:</strong> <span style="color: #ff6b00; font-weight: 900;">PARTIAL PAYMENT</span>
-            </p>
-        {% elif receipt.payment_status == 'paid' and payment_history.count > 1 %}
-            <p style="margin-top: 6px; padding: 4px; background: #e8f5e9; border: 2px solid #28a745;">
-                <strong>Status:</strong> <span style="color: #28a745; font-weight: 900;">FULLY PAID</span>
-            </p>
+            <p><strong>Customer:</strong> {{ customer_name }}</p>
+            {% if receipt.customer.phone_number %}
+                <p><strong>Phone:</strong> {{ receipt.customer.phone_number }}</p>
+            {% endif %}
         {% endif %}
     </div>
 
     <!-- Items Table -->
-    <h4>Items Purchased</h4>
-    <table>
+    <table class="items-table">
         <thead>
             <tr>
-                <th class="item-name">Item</th>
-                <th class="qty">Qty</th>
-                <th class="price">Price ({{ currency_symbol }})</th>
-                <th class="total">Total ({{ currency_symbol }})</th>
+                <th class="col-name">Item Name</th>
+                <th class="col-price">Price</th>
+                <th class="col-qty">Qty</th>
+                <th class="col-total">Total</th>
             </tr>
         </thead>
         <tbody>
             {% for sale in sales %}
             <tr>
-                <td class="item-name">{{ sale.product.brand|truncatechars:20 }}</td>
-                <td class="qty">{{ sale.quantity }}</td>
-                <td class="price">{{ sale.product.selling_price|floatformat:2 }}</td>
-                <td class="total">{{ sale.total_price|floatformat:2 }}</td>
+                <td class="col-name">
+                    {{ sale.product.brand|truncatechars:20 }}{% if sale.is_gift %} 🎁{% endif %}
+                </td>
+                <td class="col-price">
+                    {% if sale.is_gift %}{{ currency_symbol }}0.00{% else %}{{ currency_symbol }}{{ sale.product.selling_price|floatformat:2 }}{% endif %}
+                </td>
+                <td class="col-qty">{{ sale.quantity }}</td>
+                <td class="col-total">
+                    {% if sale.is_gift %}{{ currency_symbol }}0.00{% else %}{{ currency_symbol }}{{ sale.total_price|floatformat:2 }}{% endif %}
+                </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 
-    <div class="divider"></div>
-
-    <!-- Discount Summary (if any discounts exist) -->
-    {% if total_item_discount > 0 or total_bill_discount > 0 %}
-    <div class="discount-summary">
-        <h4>Discounts Applied</h4>
-        {% if total_item_discount > 0 %}
-            {% for sale in sales %}
-                {% if sale.discount_amount > 0 %}
-                <p>
-                    <span>{{ sale.product.brand|truncatechars:15 }}:</span>
-                    <span>-{{ currency_symbol }}{{ sale.discount_amount|floatformat:2 }}</span>
-                </p>
-                {% endif %}
-            {% endfor %}
-        {% endif %}
-
-        {% if total_bill_discount > 0 %}
-            <p>
-                <span>Bill Discount ({{ payment.discount_percentage|default:0 }}%):</span>
-                <span>-{{ currency_symbol }}{{ total_bill_discount|floatformat:2 }}</span>
-            </p>
-        {% endif %}
-    </div>
-    <div class="divider"></div>
-    {% endif %}
-
     <!-- Payment Summary -->
-    <div class="payment-summary">
+    <div class="summary-block">
+
+        <!-- Discounts if applicable -->
         {% if total_item_discount > 0 or total_bill_discount > 0 or receipt.loyalty_discount_amount > 0 %}
-            <p><span>Subtotal (before discounts):</span> <span>{{ currency_symbol }}{{ total_price_before_discount|floatformat:2 }}</span></p>
+            <div class="s-row"><span>Subtotal (before disc.):</span><span>{{ currency_symbol }}{{ total_price_before_discount|floatformat:2 }}</span></div>
+            {% if total_item_discount > 0 %}
+                <div class="s-row"><span>Item Discounts:</span><span>-{{ currency_symbol }}{{ total_item_discount|floatformat:2 }}</span></div>
+            {% endif %}
+            {% if total_bill_discount > 0 %}
+                <div class="s-row"><span>Bill Discount ({{ payment.discount_percentage|default:0 }}%):</span><span>-{{ currency_symbol }}{{ total_bill_discount|floatformat:2 }}</span></div>
+            {% endif %}
+            {% if receipt.loyalty_discount_amount > 0 %}
+                <div class="s-row"><span>Loyalty Discount:</span><span>-{{ currency_symbol }}{{ receipt.loyalty_discount_amount|floatformat:2 }}</span></div>
+            {% endif %}
+        {% else %}
+            <div class="s-row"><span>Subtotal:</span><span>{{ currency_symbol }}{{ subtotal_amount|floatformat:2 }}</span></div>
         {% endif %}
 
-        {% if total_item_discount > 0 %}
-            <p><span>Item Discounts:</span> <span>-{{ currency_symbol }}{{ total_item_discount|floatformat:2 }}</span></p>
-        {% endif %}
-
-        {% if total_bill_discount > 0 %}
-            <p><span>Bill Discount:</span> <span>-{{ currency_symbol }}{{ total_bill_discount|floatformat:2 }}</span></p>
-        {% endif %}
-
-        {% if receipt.loyalty_discount_amount > 0 %}
-            <p style="color: #28a745; font-weight: 700; font-size: 1.05em; background-color: #d4edda; padding: 8px; border-radius: 5px; margin: 10px 0;">
-                <span>💚 Loyalty Discount ({{ receipt.loyalty_points_redeemed }} points redeemed):</span>
-                <span>-{{ currency_symbol }}{{ receipt.loyalty_discount_amount|floatformat:2 }}</span>
-            </p>
+        <!-- Tax breakdown -->
+        {% if receipt.tax_amount > 0 %}
+            {% with tax_data=receipt.tax_details|parse_json %}
+                {% for tax_code, tax_info in tax_data.items %}
+                    <div class="s-row">
+                        <span>{{ tax_info.name }} ({{ tax_info.rate }}% {{ tax_info.method|capfirst }}):</span>
+                        <span>{{ currency_symbol }}{{ tax_info.amount|floatformat:2 }}</span>
+                    </div>
+                {% endfor %}
+            {% endwith %}
         {% endif %}
 
         {% if delivery_cost > 0 %}
-            <p><span>Delivery:</span> <span>+{{ currency_symbol }}{{ delivery_cost|floatformat:2 }}</span></p>
+            <div class="s-row"><span>Delivery:</span><span>+{{ currency_symbol }}{{ delivery_cost|floatformat:2 }}</span></div>
         {% endif %}
 
-        <!-- Tax Breakdown -->
-        {% if receipt.tax_amount > 0 and receipt.tax_details %}
-            <h4 class="mt-3">Tax Breakdown</h4>
-            {% load custom_filters %}
-            {% with tax_data=receipt.tax_details|parse_json %}
-                {% for tax_code, tax_info in tax_data.items %}
-                    <p class="small">
-                        <span>{{ tax_info.name }} ({{ tax_info.rate }}%
-                        {% if tax_info.method == 'inclusive' %}
-                            <i class="bi bi-arrow-down-circle text-success" title="Inclusive"></i>
-                        {% else %}
-                            <i class="bi bi-arrow-up-circle text-warning" title="Exclusive"></i>
-                        {% endif %}):</span>
-                        <span>{{ currency_symbol }}{{ tax_info.amount|floatformat:2 }}</span>
-                    </p>
-                {% endfor %}
-            {% endwith %}
-            <p><span>Total Tax:</span> <span>{{ currency_symbol }}{{ receipt.tax_amount|floatformat:2 }}</span></p>
+        <!-- Grand Total -->
+        <div class="s-row total-row">
+            <span>Total:</span>
+            <span>{{ currency_symbol }}{{ final_total|floatformat:2 }}</span>
+        </div>
+
+        <!-- Gift note -->
+        {% if has_gifts %}
+            <div class="dashed-divider"></div>
+            <div style="text-align:center; font-size:10px; font-weight:900; letter-spacing:0.5px;">
+                🎁 COMPLIMENTARY — NO CHARGE
+            </div>
         {% endif %}
 
-        <p class="fw-bold"><span>Grand Total:</span> <span>{{ currency_symbol }}{{ final_total|floatformat:2 }}</span></p>
-
-        <!-- Payment Methods -->
-        {% if payment_methods %}
-            <h4>Payment Methods</h4>
+        <!-- Payment type(s) -->
+        {% if payment_methods and not has_gifts %}
+            <div class="dashed-divider"></div>
             {% for method in payment_methods %}
-                <p>
-                    <span>{{ method.get_payment_method_display }}:</span>
-                    <span>{{ currency_symbol }}{{ method.amount|floatformat:2 }}</span>
-                </p>
+                <div class="s-row"><span>Payment Type:</span><span>{{ method.get_payment_method_display }}</span></div>
             {% endfor %}
         {% endif %}
 
-        <p><span>Total Paid:</span> <span>{{ currency_symbol }}{{ total_paid|floatformat:2 }}</span></p>
-
-        {% if change_amount > 0 %}
-            <p><span>Change:</span> <span>{{ currency_symbol }}{{ change_amount|floatformat:2 }}</span></p>
-        {% endif %}
-
-        <!-- Deposit/Balance Breakdown for Partial Payments -->
-        {% if receipt.payment_status == 'partial' or payment_history.count > 0 %}
-        <div class="divider" style="margin: 12px 0;"></div>
-        <h4 style="background: #f0f0f0; padding: 6px; border: 2px solid #000;">PAYMENT BREAKDOWN</h4>
-
+        <!-- Deposit / Balance for partial payment -->
         {% if receipt.payment_status == 'partial' %}
-            <p style="color: #ff6b00; font-weight: 900; background: #fff3e0; padding: 4px; border: 2px solid #ff6b00; font-size: 12px;">
-                <span>💰 DEPOSIT PAID:</span>
-                <span>{{ currency_symbol }}{{ receipt.amount_paid|floatformat:2 }}</span>
-            </p>
-            <p style="color: #dc3545; font-weight: 900; background: #f8d7da; padding: 4px; border: 2px solid #dc3545; font-size: 13px;">
-                <span>⚠️ BALANCE DUE:</span>
-                <span>{{ currency_symbol }}{{ receipt.balance_remaining|floatformat:2 }}</span>
-            </p>
-        {% elif receipt.payment_status == 'paid' and payment_history.count > 1 %}
-            {% with first_payment=payment_history|last last_payment=payment_history|first %}
-            <p style="color: #ff6b00; font-weight: 900; background: #fff3e0; padding: 4px; border: 1px solid #ff6b00; font-size: 11px;">
-                <span>💰 DEPOSIT ({{ first_payment.payment_date|date:"d/m/Y" }}):</span>
-                <span>{{ currency_symbol }}{{ first_payment.amount|floatformat:2 }}</span>
-            </p>
-            <p style="color: #28a745; font-weight: 900; background: #e8f5e9; padding: 4px; border: 1px solid #28a745; font-size: 11px;">
-                <span>✅ BALANCE ({{ last_payment.payment_date|date:"d/m/Y" }}):</span>
-                <span>{{ currency_symbol }}{{ last_payment.amount|floatformat:2 }}</span>
-            </p>
-            <p style="color: #000; font-weight: 900; background: #f0f0f0; padding: 6px; border: 2px solid #000; font-size: 12px; margin-top: 4px;">
-                <span>TOTAL PAID:</span>
-                <span>{{ currency_symbol }}{{ receipt.amount_paid|floatformat:2 }}</span>
-            </p>
-            {% endwith %}
+            <div class="s-row"><span>Deposit Paid:</span><span>{{ currency_symbol }}{{ receipt.amount_paid|floatformat:2 }}</span></div>
+            <div class="s-row bold" style="color:#dc3545;"><span>Balance Due:</span><span>{{ currency_symbol }}{{ receipt.balance_remaining|floatformat:2 }}</span></div>
         {% endif %}
 
-        {% if payment_history %}
-        <div class="divider" style="margin: 8px 0;"></div>
-        <h4>Payment History</h4>
-        <table style="font-size: 10px; margin: 4px 0;">
-            <thead>
-                <tr style="background: #f0f0f0;">
-                    <th style="text-align: left; padding: 3px;">Type</th>
-                    <th style="text-align: left; padding: 3px;">Date</th>
-                    <th style="text-align: left; padding: 3px;">Method</th>
-                    <th style="text-align: right; padding: 3px;">Amount</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for payment in payment_history %}
-                <tr style="border-bottom: 1px solid #ddd;">
-                    <td style="padding: 3px; font-size: 9px; font-weight: 900;">
-                        {% if forloop.first and payment_history.count > 1 %}
-                            <span style="color: #ff6b00;">DEPOSIT</span>
-                        {% elif forloop.last and payment_history.count > 1 and receipt.payment_status == 'paid' %}
-                            <span style="color: #28a745;">BALANCE</span>
-                        {% elif payment_history.count == 1 and receipt.payment_status == 'partial' %}
-                            <span style="color: #ff6b00;">DEPOSIT</span>
-                        {% else %}
-                            <span style="color: #28a745;">PAYMENT {{ forloop.counter }}</span>
-                        {% endif %}
-                    </td>
-                    <td style="padding: 3px; font-size: 9px;">{{ payment.payment_date|date:"d/m/Y" }}</td>
-                    <td style="padding: 3px; font-size: 9px;">{{ payment.payment_method }}</td>
-                    <td style="text-align: right; padding: 3px; font-weight: 900;">{{ currency_symbol }}{{ payment.amount|floatformat:2 }}</td>
-                </tr>
-                {% if payment.notes %}
-                <tr>
-                    <td colspan="4" style="font-size: 8px; font-style: italic; padding: 2px; background: #f9f9f9; border-bottom: 1px solid #ddd;">
-                        Note: {{ payment.notes }}
-                    </td>
-                </tr>
+        <!-- Payment History -->
+        {% if partial_payments %}
+            <div class="dashed-divider"></div>
+            <div class="section-title">
+                {% if receipt.payment_status == 'paid' and partial_payments|length > 1 %}
+                    Balance Settlement - Payment History
+                {% else %}
+                    Payment History
                 {% endif %}
-                {% endfor %}
-            </tbody>
-            <tfoot style="background: #f0f0f0; border-top: 2px solid #000;">
-                <tr>
-                    <th colspan="3" style="padding: 4px; font-weight: 900; font-size: 11px;">TOTAL PAID:</th>
-                    <th style="text-align: right; padding: 4px; font-weight: 900; color: #28a745; font-size: 11px;">{{ currency_symbol }}{{ receipt.amount_paid|floatformat:2 }}</th>
-                </tr>
-            </tfoot>
-        </table>
-        {% endif %}
-        {% endif %}
-    </div>
+            </div>
 
-    <!-- Loyalty Points Section -->
+            {% for pp in partial_payments %}
+                <div class="ph-row">
+                    <span>
+                        {% if forloop.last and receipt.payment_status == 'paid' and partial_payments|length > 1 %}
+                            Balance Payment ({{ pp.payment_date|date:"m/d/Y" }}):
+                        {% else %}
+                            Deposit #{{ forloop.counter }} ({{ pp.payment_date|date:"m/d/Y" }}):
+                        {% endif %}
+                    </span>
+                    <span>{{ currency_symbol }}{{ pp.amount|floatformat:2 }}</span>
+                </div>
+            {% endfor %}
+
+            {% if receipt.payment_status == 'paid' %}
+                <div class="ph-row total-paid">
+                    <span>Total Paid:</span>
+                    <span>{{ currency_symbol }}{{ receipt.amount_paid|floatformat:2 }}</span>
+                </div>
+            {% endif %}
+        {% endif %}
+
+    </div><!-- /summary-block -->
+
+    <!-- Loyalty Status -->
     {% if loyalty_info %}
-    <div class="divider"></div>
-    <div class="payment-summary">
-        <h4>🎉 {{ loyalty_info.program_name }}</h4>
-        <p><span>Points Earned:</span> <span>+{{ loyalty_info.points_earned }} pts</span></p>
-        <p><span>Previous Balance:</span> <span>{{ loyalty_info.previous_balance }} pts</span></p>
-        <p class="fw-bold"><span>New Balance:</span> <span>{{ loyalty_info.new_balance }} pts</span></p>
-        <p style="color: #28a745;"><span>💰 Redeemable Value:</span> <span>{{ currency_symbol }}{{ loyalty_info.redeemable_value|floatformat:2 }}</span></p>
-    </div>
+        <div class="dashed-divider"></div>
+        <div class="loyalty-block">
+            <div class="section-title">Loyalty Status</div>
+            <div>Progress: {{ loyalty_info.new_balance }}/{{ loyalty_info.points_threshold }} to {{ loyalty_info.discount_percentage }}% OFF</div>
+        </div>
     {% endif %}
 
     <!-- Delivery Info -->
     {% if delivery %}
-    <div class="divider"></div>
-    <div class="payment-summary">
-        <h4>🚚 Delivery Information</h4>
-        <p><span>Option:</span> <span>{% if delivery.delivery_option == 'pickup' %}Customer Pickup{% else %}Home Delivery{% endif %}</span></p>
-        {% if delivery.delivery_address %}
-        <p style="font-size: 10px; word-wrap: break-word;"><span>Address:</span> <span>{{ delivery.delivery_address }}</span></p>
-        {% endif %}
-        {% if delivery.delivery_date %}
-        <p><span>Date:</span> <span>{{ delivery.delivery_date|date:"d M Y" }}</span></p>
-        {% endif %}
-    </div>
+        <div class="dashed-divider"></div>
+        <div class="section-title">Delivery</div>
+        <div style="font-size:10.5px; line-height:1.5;">
+            <div class="s-row">
+                <span>Option:</span>
+                <span>{% if delivery.delivery_option == 'pickup' %}Customer Pickup{% else %}Home Delivery{% endif %}</span>
+            </div>
+            {% if delivery.delivery_address %}
+                <div style="font-size:10px; word-break:break-word;">Address: {{ delivery.delivery_address }}</div>
+            {% endif %}
+            {% if delivery.delivery_date %}
+                <div class="s-row"><span>Date:</span><span>{{ delivery.delivery_date|date:"d M Y" }}</span></div>
+            {% endif %}
+        </div>
     {% endif %}
 
     <!-- Footer -->
-    <div class="footer">
-        <div class="divider"></div>
+    <div class="dashed-divider"></div>
+    <div class="receipt-footer">
         {% if store_config.receipt_footer_text %}
-        <p>{{ store_config.receipt_footer_text|linebreaks }}</p>
+            {{ store_config.receipt_footer_text|linebreaks }}
         {% else %}
-        <p>Thank you for shopping with us!</p>
-        <p>We value your patronage.</p>
+            <p>Change/Return Only - No Cash Refunds</p>
+            <p>Thank you for shopping with us!</p>
         {% endif %}
     </div>
 
-    <!-- Action Buttons -->
-    <button id="printButton" onclick="window.print()" class="no-print">
-        🖨️ Print Receipt
+    <!-- Action Buttons (hidden on print) -->
+    <button class="btn-pos no-print" id="posPrintBtn" onclick="posPrint()">
+        🖨️ Print to POS Printer
     </button>
-    <a href="{% url 'return_select_receipt' receipt.id %}" class="back-button no-print" style="background: #dc3545; margin-top: 5px;">
+    <div id="pos-print-status"></div>
+
+    <button class="btn-browser-print no-print" onclick="window.print()">
+        🖨️ Browser Print / Save PDF
+    </button>
+
+    {% if receipt.payment_status == 'partial' %}
+    <a href="{% url 'add_partial_payment' receipt.id %}" class="btn-back no-print" style="background:#e67e00; margin-top:5px;">
+        💰 Add Payment
+    </a>
+    {% endif %}
+
+    <a href="{% url 'return_select_receipt' receipt.id %}" class="btn-back no-print" style="background:#dc3545; margin-top:5px;">
         ↩️ Process Return
     </a>
-    <a href="{% url 'receipt_list' %}" class="back-button no-print">
+    <a href="{% url 'receipt_list' %}" class="btn-back no-print">
         ← Back to Receipts
     </a>
-</div>
+
+</div><!-- /receipt-container -->
 {% endblock %}
 
 {% block extra_js %}
-<!-- Optional: Auto-print after load (uncomment if needed) -->
-<!--
 <script>
-    window.addEventListener("load", () => {
-        setTimeout(() => window.print(), 500);
+function posPrint() {
+    const btn    = document.getElementById('posPrintBtn');
+    const status = document.getElementById('pos-print-status');
+    btn.disabled = true;
+    btn.textContent = '⏳ Printing…';
+    status.style.display = 'block';
+    status.style.color = '#555';
+    status.textContent = 'Sending to POS printer…';
+
+    fetch("{% url 'print_pos_receipt' receipt.id %}", {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            status.style.color = '#28a745';
+            status.textContent = '✅ ' + data.message;
+        } else {
+            status.style.color = '#dc3545';
+            status.textContent = '❌ ' + data.message;
+        }
+    })
+    .catch(err => {
+        status.style.color = '#dc3545';
+        status.textContent = '❌ Network error: ' + err;
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.textContent = '🖨️ Print to POS Printer';
     });
+}
 </script>
--->
 {% endblock %}

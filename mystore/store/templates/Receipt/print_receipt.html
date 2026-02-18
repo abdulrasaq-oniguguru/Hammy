@@ -1,3 +1,4 @@
+{% load custom_filters %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,80 +6,345 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Receipt - {{ receipt.receipt_number }}</title>
     <style>
+        /* ===== PRINT ===== */
+        @media print {
+            @page { size: 80mm auto; margin: 0; }
+            body, html { width: 80mm; margin: 0; padding: 0; background: #fff !important; }
+            *, *::before, *::after {
+                color: #000 !important;
+                background: transparent !important;
+                text-shadow: none !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                font-weight: bold !important;
+            }
+            .no-print { display: none !important; }
+        }
+
+        * { box-sizing: border-box; }
+
         body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        .receipt {
-            max-width: 600px;
-            margin: auto;
-            padding: 20px;
-            border: 1px solid #ddd;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .header h2 {
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            background: #f0f0f0;
             margin: 0;
+            padding: 20px 0;
         }
-        .details, .items {
-            margin-bottom: 20px;
+
+        /* ===== CONTAINER ===== */
+        .receipt-container {
+            width: 80mm;
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 6px 6px 20px;
+            font-size: 11px;
+            line-height: 1.4;
+            background: #fff;
+            color: #000;
+            border: 1px solid #ccc;
         }
-        .items table {
+
+        /* ===== TIMESTAMP ===== */
+        .ts-line { text-align: right; font-size: 9px; margin-bottom: 3px; }
+
+        /* ===== STORE HEADER ===== */
+        .company-info { text-align: center; margin-bottom: 5px; }
+        .company-info img { width: 70px; height: auto; display: block; margin: 2px auto 4px; }
+        .store-name { font-size: 14px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; margin: 2px 0; }
+        .store-addr, .store-contact { font-size: 10px; margin: 1px 0; }
+
+        /* ===== TITLE ===== */
+        .receipt-title {
+            text-align: center;
+            font-size: 13px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 6px 0;
+            padding: 5px 0;
+            border-top: 2px dashed #000;
+            border-bottom: 2px dashed #000;
+        }
+
+        /* ===== INFO BLOCK ===== */
+        .info-block { font-size: 11px; margin-bottom: 5px; line-height: 1.55; }
+        .info-block p { margin: 1px 0; }
+
+        /* ===== ITEMS TABLE ===== */
+        table.items-table {
             width: 100%;
             border-collapse: collapse;
+            font-size: 10.5px;
+            margin: 4px 0;
         }
-        .items th, .items td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
+        table.items-table thead tr {
+            border-top: 1.5px solid #000;
+            border-bottom: 1.5px solid #000;
         }
-        .total {
-            font-weight: bold;
-            text-align: right;
+        table.items-table th { font-weight: 900; padding: 3px 2px; font-size: 10px; }
+        table.items-table td { padding: 3px 2px; border-bottom: 1px dotted #999; }
+        .col-name  { text-align: left;   width: 44%; word-break: break-word; }
+        .col-price { text-align: right;  width: 22%; }
+        .col-qty   { text-align: center; width: 10%; }
+        .col-total { text-align: right;  width: 24%; font-weight: 900; }
+
+        /* ===== DIVIDERS ===== */
+        .dashed-divider { border-top: 1.5px dashed #000; margin: 6px 0; }
+        .solid-divider  { border-top: 1.5px solid #000;  margin: 3px 0; }
+
+        /* ===== SUMMARY ROWS ===== */
+        .summary-block { font-size: 11px; margin-top: 3px; line-height: 1.6; }
+        .s-row { display: flex; justify-content: space-between; margin: 1px 0; }
+        .s-row.bold { font-weight: 900; font-size: 12px; }
+        .s-row.total-row {
+            font-weight: 900;
+            font-size: 12px;
+            border-top: 1.5px solid #000;
+            padding-top: 3px;
+            margin-top: 3px;
         }
-        .print-button {
+
+        /* ===== SECTION TITLES ===== */
+        .section-title {
             text-align: center;
-            margin-top: 20px;
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 5px 0 3px;
         }
+
+        /* ===== PAYMENT HISTORY ===== */
+        .ph-row { display: flex; justify-content: space-between; font-size: 10.5px; margin: 2px 0; }
+        .ph-row.total-paid { font-weight: 900; border-top: 1px solid #000; margin-top: 3px; padding-top: 3px; }
+
+        /* ===== LOYALTY ===== */
+        .loyalty-block { text-align: center; font-size: 10.5px; margin: 3px 0; }
+
+        /* ===== FOOTER ===== */
+        .receipt-footer { text-align: center; font-size: 10px; margin-top: 8px; line-height: 1.7; }
+
+        /* ===== PRINT BUTTON ===== */
+        .btn-print {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin-top: 14px;
+            font-size: 15px;
+            font-weight: 700;
+            background-color: #d9003f;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .btn-print:hover { background-color: #ff1a4f; }
     </style>
 </head>
 <body>
-    <div class="receipt">
-        <div class="header">
-            <h2>Receipt</h2>
-            <p><strong>Receipt Number:</strong> {{ receipt.receipt_number }}</p>
-            <p><strong>Date:</strong> {{ receipt.date }}</p>
-        </div>
-        <div class="details">
-            <p><strong>Customer:</strong> {{ receipt.customer.name }}</p>
-            <p><strong>User:</strong> {{ receipt.user.username }}</p>
-        </div>
-        <div class="items">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Item</th>
-                        <th>Qty</th>
-                        <th>Price</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for sale in sales %}
-                    <tr>
-                        <td>{{ sale.product.name }}</td>
-                        <td>{{ sale.quantity }}</td>
-                        <td>{{ sale.discounted_price or sale.total_price }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        <p class="total"><strong>Total:</strong> {{ total_amount }}</p>
-        <div class="print-button">
-            <button onclick="window.print()">Print Receipt</button>
-        </div>
+<div class="receipt-container">
+
+    <!-- Timestamp -->
+    <div class="ts-line">{{ receipt.date|date:"m/d/Y, g:i A" }}</div>
+
+    <!-- Store Header -->
+    <div class="company-info">
+        {% if store_config.receipt_logo %}
+            <img src="{{ store_config.receipt_logo.url }}" alt="{{ store_name }}">
+        {% elif store_config.logo %}
+            <img src="{{ store_config.logo.url }}" alt="{{ store_name }}">
+        {% endif %}
+        <div class="store-name">{{ store_name }}</div>
+        <div class="store-addr">{{ store_config.address_line_1 }}</div>
+        {% if store_config.address_line_2 %}
+            <div class="store-addr">{{ store_config.address_line_2 }}</div>
+        {% endif %}
+        <div class="store-contact">Tel: {{ store_phone }}</div>
+        <div class="store-contact">{{ store_email }}</div>
     </div>
+
+    <!-- Receipt Title -->
+    <div class="receipt-title">
+        {% if receipt.payment_status == 'partial' %}Deposit Receipt{% elif has_gifts %}Gift Receipt{% else %}Sales Receipt{% endif %}
+    </div>
+
+    <!-- Receipt Info -->
+    <div class="info-block">
+        <p><strong>Date:</strong> {{ receipt.date|date:"m/d/Y g:i A" }}</p>
+        <p><strong>Sale ID:</strong> {{ receipt.receipt_number }}</p>
+        <p><strong>Employee:</strong> {{ user.username }}</p>
+        {% if customer_name != "No customer" %}
+            <p><strong>Customer:</strong> {{ customer_name }}</p>
+            {% if receipt.customer.phone_number %}
+                <p><strong>Phone:</strong> {{ receipt.customer.phone_number }}</p>
+            {% endif %}
+        {% endif %}
+    </div>
+
+    <!-- Items Table -->
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th class="col-name">Item Name</th>
+                <th class="col-price">Price</th>
+                <th class="col-qty">Qty</th>
+                <th class="col-total">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for sale in sales %}
+            <tr>
+                <td class="col-name">
+                    {{ sale.product.brand|truncatechars:20 }}{% if sale.is_gift %} 🎁{% endif %}
+                </td>
+                <td class="col-price">
+                    {% if sale.is_gift %}{{ currency_symbol }}0.00{% else %}{{ currency_symbol }}{{ sale.product.selling_price|floatformat:2 }}{% endif %}
+                </td>
+                <td class="col-qty">{{ sale.quantity }}</td>
+                <td class="col-total">
+                    {% if sale.is_gift %}{{ currency_symbol }}0.00{% else %}{{ currency_symbol }}{{ sale.total_price|floatformat:2 }}{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Payment Summary -->
+    <div class="summary-block">
+
+        {% if total_item_discount > 0 or total_bill_discount > 0 or receipt.loyalty_discount_amount > 0 %}
+            <div class="s-row"><span>Subtotal (before disc.):</span><span>{{ currency_symbol }}{{ total_price_before_discount|floatformat:2 }}</span></div>
+            {% if total_item_discount > 0 %}
+                <div class="s-row"><span>Item Discounts:</span><span>-{{ currency_symbol }}{{ total_item_discount|floatformat:2 }}</span></div>
+            {% endif %}
+            {% if total_bill_discount > 0 %}
+                <div class="s-row"><span>Bill Discount ({{ payment.discount_percentage|default:0 }}%):</span><span>-{{ currency_symbol }}{{ total_bill_discount|floatformat:2 }}</span></div>
+            {% endif %}
+            {% if receipt.loyalty_discount_amount > 0 %}
+                <div class="s-row"><span>Loyalty Discount:</span><span>-{{ currency_symbol }}{{ receipt.loyalty_discount_amount|floatformat:2 }}</span></div>
+            {% endif %}
+        {% else %}
+            <div class="s-row"><span>Subtotal:</span><span>{{ currency_symbol }}{{ subtotal_amount|floatformat:2 }}</span></div>
+        {% endif %}
+
+        <!-- Tax breakdown -->
+        {% if receipt.tax_amount > 0 %}
+            {% with tax_data=receipt.tax_details|parse_json %}
+                {% for tax_code, tax_info in tax_data.items %}
+                    <div class="s-row">
+                        <span>{{ tax_info.name }} ({{ tax_info.rate }}% {{ tax_info.method|capfirst }}):</span>
+                        <span>{{ currency_symbol }}{{ tax_info.amount|floatformat:2 }}</span>
+                    </div>
+                {% endfor %}
+            {% endwith %}
+        {% endif %}
+
+        {% if delivery_cost > 0 %}
+            <div class="s-row"><span>Delivery:</span><span>+{{ currency_symbol }}{{ delivery_cost|floatformat:2 }}</span></div>
+        {% endif %}
+
+        <div class="s-row total-row">
+            <span>Total:</span>
+            <span>{{ currency_symbol }}{{ final_total|floatformat:2 }}</span>
+        </div>
+
+        <!-- Gift note -->
+        {% if has_gifts %}
+            <div class="dashed-divider"></div>
+            <div style="text-align:center; font-size:10px; font-weight:900; letter-spacing:0.5px;">
+                🎁 COMPLIMENTARY — NO CHARGE
+            </div>
+        {% endif %}
+
+        <!-- Payment type(s) -->
+        {% if payment_methods and not has_gifts %}
+            <div class="dashed-divider"></div>
+            {% for method in payment_methods %}
+                <div class="s-row"><span>Payment Type:</span><span>{{ method.get_payment_method_display }}</span></div>
+            {% endfor %}
+        {% endif %}
+
+        <!-- Deposit / Balance for partial payment -->
+        {% if receipt.payment_status == 'partial' %}
+            <div class="s-row"><span>Deposit Paid:</span><span>{{ currency_symbol }}{{ receipt.amount_paid|floatformat:2 }}</span></div>
+            <div class="s-row bold" style="color:#dc3545;"><span>Balance Due:</span><span>{{ currency_symbol }}{{ receipt.balance_remaining|floatformat:2 }}</span></div>
+        {% endif %}
+
+        <!-- Payment History -->
+        {% if partial_payments %}
+            <div class="dashed-divider"></div>
+            <div class="section-title">
+                {% if receipt.payment_status == 'paid' and partial_payments|length > 1 %}
+                    Balance Settlement - Payment History
+                {% else %}
+                    Payment History
+                {% endif %}
+            </div>
+            {% for pp in partial_payments %}
+                <div class="ph-row">
+                    <span>
+                        {% if forloop.last and receipt.payment_status == 'paid' and partial_payments|length > 1 %}
+                            Balance Payment ({{ pp.payment_date|date:"m/d/Y" }}):
+                        {% else %}
+                            Deposit #{{ forloop.counter }} ({{ pp.payment_date|date:"m/d/Y" }}):
+                        {% endif %}
+                    </span>
+                    <span>{{ currency_symbol }}{{ pp.amount|floatformat:2 }}</span>
+                </div>
+            {% endfor %}
+            {% if receipt.payment_status == 'paid' %}
+                <div class="ph-row total-paid">
+                    <span>Total Paid:</span>
+                    <span>{{ currency_symbol }}{{ receipt.amount_paid|floatformat:2 }}</span>
+                </div>
+            {% endif %}
+        {% endif %}
+
+    </div><!-- /summary-block -->
+
+    <!-- Loyalty Status -->
+    {% if loyalty_info %}
+        <div class="dashed-divider"></div>
+        <div class="loyalty-block">
+            <div class="section-title">Loyalty Status</div>
+            <div>Progress: {{ loyalty_info.new_balance }}/{{ loyalty_info.points_threshold }} to {{ loyalty_info.discount_percentage }}% OFF</div>
+        </div>
+    {% endif %}
+
+    <!-- Delivery Info -->
+    {% if delivery %}
+        <div class="dashed-divider"></div>
+        <div class="section-title">Delivery</div>
+        <div style="font-size:10.5px; line-height:1.5;">
+            <div class="s-row">
+                <span>Option:</span>
+                <span>{% if delivery.delivery_option == 'pickup' %}Customer Pickup{% else %}Home Delivery{% endif %}</span>
+            </div>
+            {% if delivery.delivery_address %}
+                <div style="font-size:10px; word-break:break-word;">Address: {{ delivery.delivery_address }}</div>
+            {% endif %}
+            {% if delivery.delivery_date %}
+                <div class="s-row"><span>Date:</span><span>{{ delivery.delivery_date|date:"d M Y" }}</span></div>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    <!-- Footer -->
+    <div class="dashed-divider"></div>
+    <div class="receipt-footer">
+        {% if store_config.receipt_footer_text %}
+            {{ store_config.receipt_footer_text|linebreaks }}
+        {% else %}
+            <p>Change/Return Only - No Cash Refunds</p>
+            <p>Thank you for shopping with us!</p>
+        {% endif %}
+    </div>
+
+    <!-- Print Button (hidden when printing) -->
+    <button class="btn-print no-print" onclick="window.print()">
+        🖨️ Print Receipt
+    </button>
+
+</div><!-- /receipt-container -->
 </body>
 </html>
