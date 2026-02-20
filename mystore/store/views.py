@@ -78,7 +78,8 @@ from .models import (
     Product, PreOrder, Invoice, GoodsReceived, Delivery, Customer, Sale,
     InvoiceProduct, Receipt, Payment, PaymentMethod, LocationTransfer,
     ProductHistory, TransferItem, UserProfile, ActivityLog, StoreConfiguration,
-    LoyaltyConfiguration, LoyaltyTransaction, TaxConfiguration, PartialPayment
+    LoyaltyConfiguration, LoyaltyTransaction, TaxConfiguration, PartialPayment,
+    ProductDraft, ReorderCartItem
 )
 from .utils import (
     get_cached_choices,
@@ -2630,13 +2631,6 @@ def sell_product(request):
                     # Handle successful transaction based on request type
                     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                         # AJAX request - return JSON response
-
-                        # Trigger background email
-                        if receipt.customer and receipt.customer.email:
-                            domain = get_current_site(request).domain
-                            protocol = 'https' if request.is_secure() else 'http'
-                            send_receipt_email_background(receipt.id, domain, protocol)
-
                         return JsonResponse({
                             'success': True,
                             'message': success_message,
@@ -2645,13 +2639,6 @@ def sell_product(request):
                         })
                     else:
                         # Regular form submission - redirect normally
-
-                        # Trigger background email
-                        if receipt.customer and receipt.customer.email:
-                            domain = get_current_site(request).domain
-                            protocol = 'https' if request.is_secure() else 'http'
-                            send_receipt_email_background(receipt.id, domain, protocol)
-
                         messages.success(request, success_message)
                         return redirect('sale_success', receipt_id=receipt.id)
 
@@ -3252,7 +3239,12 @@ def print_pos_receipt(request, pk):
         store_config = StoreConfiguration.get_active_config()
         partial_payments = list(PartialPayment.objects.filter(receipt=receipt).order_by('payment_date'))
 
-        printer_name = win32print.GetDefaultPrinter()
+        # Resolve receipt printer: task mapping → OS default
+        receipt_mapping_printer = PrinterTaskMapping.get_printer_for_task('receipt_pos')
+        if receipt_mapping_printer:
+            printer_name = receipt_mapping_printer.system_printer_name
+        else:
+            printer_name = win32print.GetDefaultPrinter()
         p = Win32Raw(printer_name)
         cs = store_config.currency_symbol or '₦'
         W = 42  # receipt width in chars
@@ -4028,12 +4020,14 @@ def add_product(request):
 
     if request.method == 'POST':
         formset = ProductFormSet(request.POST, request.FILES)
+        draft_id = request.POST.get('current_draft_id')
         if formset.is_valid():
             has_data = any(form.cleaned_data for form in formset)
             if not has_data:
                 messages.error(request, "Please add at least one product.")
             else:
                 invoice = Invoice.objects.create(user=request.user)
+                created_product_ids = []
 
                 for idx, form in enumerate(formset):
                     if form.cleaned_data:
@@ -4054,6 +4048,7 @@ def add_product(request):
                         product.selling_price = product.calculate_selling_price()
 
                         product.save()
+                        created_product_ids.append(product.id)
 
                         # Log product creation
                         ActivityLog.log_activity(
@@ -4076,14 +4071,235 @@ def add_product(request):
                             quantity=product.quantity,
                             total_price=product.price * product.quantity
                         )
-                return redirect('invoice_list')
+
+                # Delete draft if one was active
+                if draft_id:
+                    ProductDraft.objects.filter(id=draft_id, user=request.user).delete()
+
+                # Store created product IDs in session and redirect to success page
+                request.session['new_product_ids'] = created_product_ids
+                return redirect('add_product_success')
         else:
             messages.error(request, "There were errors in the form. Please correct them.")
     else:
         formset = ProductFormSet()
 
-    return render(request, 'product/add_product.html', {'formset': formset})
+    # Load user drafts for the draft resume modal
+    user_drafts = ProductDraft.objects.filter(user=request.user)
+    context = {
+        'formset': formset,
+        'user_drafts': user_drafts,
+        # Only auto-open the draft modal on the initial GET visit.
+        # On a POST re-render (validation failure) keep it closed so the
+        # user can see the form errors without the modal appearing.
+        'show_draft_modal': request.method == 'GET',
+    }
+    return render(request, 'product/add_product.html', context)
 
+
+
+# =====================================
+# PRODUCT DRAFT VIEWS
+# =====================================
+
+@csrf_exempt
+@login_required(login_url='login')
+def save_product_draft(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'POST required'}, status=405)
+    try:
+        data = json.loads(request.body)
+        draft_id = data.get('draft_id')
+        name = data.get('name', 'Draft')
+        form_data = data.get('form_data', {})
+
+        if draft_id:
+            draft = ProductDraft.objects.filter(id=draft_id, user=request.user).first()
+            if draft:
+                draft.name = name
+                draft.form_data = form_data
+                draft.save()
+            else:
+                draft = ProductDraft.objects.create(user=request.user, name=name, form_data=form_data)
+        else:
+            draft = ProductDraft.objects.create(user=request.user, name=name, form_data=form_data)
+
+        return JsonResponse({'success': True, 'draft_id': draft.id, 'message': 'Draft saved successfully.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=400)
+
+
+@login_required(login_url='login')
+def load_product_draft(request, draft_id):
+    draft = get_object_or_404(ProductDraft, id=draft_id, user=request.user)
+    return JsonResponse({'success': True, 'form_data': draft.form_data, 'name': draft.name})
+
+
+@login_required(login_url='login')
+def delete_product_draft(request, draft_id):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'POST required'}, status=405)
+    ProductDraft.objects.filter(id=draft_id, user=request.user).delete()
+    return JsonResponse({'success': True})
+
+
+@login_required(login_url='login')
+def list_product_drafts(request):
+    drafts = ProductDraft.objects.filter(user=request.user).values('id', 'name', 'updated_at')
+    return JsonResponse({'drafts': [
+        {'id': d['id'], 'name': d['name'], 'updated_at': d['updated_at'].strftime('%Y-%m-%d %H:%M')}
+        for d in drafts
+    ]})
+
+
+# =====================================
+# ADD PRODUCT SUCCESS VIEW
+# =====================================
+
+@login_required(login_url='login')
+def add_product_success(request):
+    product_ids = request.session.pop('new_product_ids', [])
+    if not product_ids:
+        return redirect('invoice_list')
+    products = Product.objects.filter(id__in=product_ids)
+    return render(request, 'product/add_product_success.html', {
+        'products': products,
+        'product_ids_json': json.dumps([
+            {'product_id': p.id, 'quantity': p.quantity} for p in products
+        ]),
+    })
+
+
+# =====================================
+# REORDER MODULE VIEWS
+# =====================================
+
+@login_required(login_url='login')
+def reorder_page(request):
+    query = request.GET.get('search', '')
+    filters = Q()
+    if query:
+        filters &= (
+            Q(brand__icontains=query) |
+            Q(color__icontains=query) |
+            Q(category__icontains=query) |
+            Q(design__icontains=query) |
+            Q(size__icontains=query)
+        )
+    products = Product.objects.filter(filters).order_by('brand')
+    cart_ids = list(
+        ReorderCartItem.objects.filter(user=request.user).values_list('product_id', flat=True)
+    )
+    cart_count = len(cart_ids)
+    return render(request, 'product/reorder.html', {
+        'products': products,
+        'query': query,
+        'cart_product_ids': cart_ids,
+        'cart_count': cart_count,
+    })
+
+
+@csrf_exempt
+@login_required(login_url='login')
+def reorder_toggle_cart(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'POST required'}, status=405)
+    try:
+        data = json.loads(request.body)
+        product_id = int(data.get('product_id'))
+        product = get_object_or_404(Product, id=product_id)
+        item, created = ReorderCartItem.objects.get_or_create(user=request.user, product=product)
+        if not created:
+            item.delete()
+            action = 'removed'
+        else:
+            action = 'added'
+        return JsonResponse({'action': action, 'product_id': product_id})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=400)
+
+
+@login_required(login_url='login')
+def reorder_cart_data(request):
+    items = ReorderCartItem.objects.filter(user=request.user).select_related('product')
+    data = [
+        {
+            'id': item.id,
+            'product_id': item.product.id,
+            'brand': item.product.brand,
+            'quantity': item.product.quantity,
+            'barcode_number': item.product.barcode_number,
+            'price': float(item.product.price),
+        }
+        for item in items
+    ]
+    return JsonResponse({'cart': data, 'count': len(data)})
+
+
+@login_required(login_url='login')
+def reorder_clear_cart(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'POST required'}, status=405)
+    ReorderCartItem.objects.filter(user=request.user).delete()
+    return JsonResponse({'success': True})
+
+
+@login_required(login_url='login')
+def reorder_confirm(request):
+    cart_items = ReorderCartItem.objects.filter(user=request.user).select_related('product')
+
+    if not cart_items.exists():
+        messages.warning(request, "Your reorder cart is empty.")
+        return redirect('reorder_page')
+
+    if request.method == 'POST':
+        invoice = Invoice.objects.create(user=request.user)
+        errors = []
+
+        for item in cart_items:
+            field_name = f'qty_{item.product.id}'
+            qty_str = request.POST.get(field_name, '0')
+            try:
+                qty = int(qty_str)
+                if qty <= 0:
+                    continue
+            except ValueError:
+                errors.append(f"Invalid quantity for {item.product.brand}.")
+                continue
+
+            item.product.quantity += qty
+            item.product.save()
+
+            InvoiceProduct.objects.create(
+                invoice=invoice,
+                product_name=item.product.brand,
+                product_price=item.product.price,
+                product_color=item.product.color,
+                product_size=item.product.size,
+                product_category=item.product.category,
+                quantity=qty,
+                total_price=item.product.price * qty
+            )
+
+            ActivityLog.log_activity(
+                user=request.user,
+                action='product_update',
+                description=f'Reorder: added {qty} units to {item.product.brand} — new qty: {item.product.quantity}',
+                model_name='Product',
+                object_id=item.product.id,
+                object_repr=str(item.product),
+                request=request
+            )
+
+        if errors:
+            for err in errors:
+                messages.error(request, err)
+
+        ReorderCartItem.objects.filter(user=request.user).delete()
+        messages.success(request, "Reorder completed and invoice created.")
+        return redirect('invoice_detail', pk=invoice.id)
+
+    return render(request, 'product/reorder_confirm.html', {'cart_items': cart_items})
 
 
 def lookup_product_by_barcode(request):
@@ -5269,6 +5485,8 @@ def upload_products_excel(request):
                 error_count = 0
                 errors = []
                 new_choices_added = {'colors': set(), 'designs': set(), 'categories': set()}
+                saved_products = []   # Track products saved this upload for invoice creation
+                invoice = None        # Will be created after the loop if any products succeed
 
                 with transaction.atomic():
                     for index, row in df.iterrows():
@@ -5399,15 +5617,42 @@ def upload_products_excel(request):
                             # Save without full_clean() to bypass Django's choice validation
                             # We'll handle our own validation above
                             product.save()
+                            saved_products.append(product)
                             success_count += 1
 
                         except Exception as e:
                             errors.append(f"Row {index + 2}: {str(e)}")
                             error_count += 1
 
+                    # ── Create invoice for this upload (mirrors add_product behaviour) ──
+                    if saved_products:
+                        invoice = Invoice.objects.create(user=request.user)
+                        for product in saved_products:
+                            InvoiceProduct.objects.create(
+                                invoice=invoice,
+                                product_name=product.brand,
+                                product_price=product.price,
+                                product_color=product.color,
+                                product_size=product.size,
+                                product_category=product.category,
+                                quantity=product.quantity,
+                                total_price=product.price * product.quantity,
+                            )
+                        ActivityLog.log_activity(
+                            user=request.user,
+                            action='product_create',
+                            description=f'Bulk uploaded {len(saved_products)} product(s) via Excel — Invoice #{invoice.invoice_number}',
+                            model_name='Invoice',
+                            object_id=invoice.id,
+                            object_repr=f'Invoice #{invoice.invoice_number}',
+                            request=request
+                        )
+
                 # Prepare results message
                 if success_count > 0:
-                    messages.success(request, f"Successfully processed {success_count} products")
+                    messages.success(request, f"Successfully uploaded {success_count} product(s).")
+                    if invoice:
+                        messages.success(request, f"Invoice #{invoice.invoice_number} created with {success_count} item(s).")
 
                 # Show new choices that were added
                 if any(new_choices_added.values()):
@@ -5430,6 +5675,8 @@ def upload_products_excel(request):
                     if len(errors) > 10:
                         messages.warning(request, f"... and {len(errors) - 10} more errors")
 
+                if invoice:
+                    return redirect('invoice_list')
                 return redirect('product_list')
 
             except Exception as e:
@@ -7190,11 +7437,17 @@ def print_multiple_barcodes_directly(request):
                 'error': 'No products specified for printing'
             })
 
-        printer_name = request.session.get('selected_printer') or win32print.GetDefaultPrinter()
+        # Resolve barcode printer: task mapping → session override → OS default
+        barcode_mapping_printer = PrinterTaskMapping.get_printer_for_task('barcode_label')
+        if barcode_mapping_printer:
+            printer_name = barcode_mapping_printer.system_printer_name
+        else:
+            printer_name = request.session.get('selected_printer') or win32print.GetDefaultPrinter()
+
         if not printer_name:
             return JsonResponse({
                 'success': False,
-                'error': 'No printer selected. Please select a printer first.'
+                'error': 'No barcode printer configured. Go to Printer Settings and assign a Barcode Printer.',
             })
 
         results = []
@@ -7256,7 +7509,7 @@ def print_multiple_barcodes_directly(request):
             'successful_products': successful_products,
             'total_products': total_products,
             'results': results,
-            'printer_name': printer_name
+            'printer_name': printer_name,
         })
 
     except json.JSONDecodeError:
@@ -7287,11 +7540,17 @@ def print_single_barcode_directly(request, product_id):
             product.generate_barcode()
             product.save()
 
-        printer_name = request.session.get('selected_printer') or win32print.GetDefaultPrinter()
+        # Resolve barcode printer: task mapping → session override → OS default
+        barcode_mapping_printer = PrinterTaskMapping.get_printer_for_task('barcode_label')
+        if barcode_mapping_printer:
+            printer_name = barcode_mapping_printer.system_printer_name
+        else:
+            printer_name = request.session.get('selected_printer') or win32print.GetDefaultPrinter()
+
         if not printer_name:
             return JsonResponse({
                 'success': False,
-                'error': 'No printer selected. Please select a printer first.'
+                'error': 'No barcode printer configured. Go to Printer Settings and assign a Barcode Printer.',
             })
 
         # Get the path to the barcode image
@@ -8218,6 +8477,7 @@ def store_credit_detail(request, credit_id):
 
     context = {
         'store_credit': store_credit,
+        'credit': store_credit,   # template uses {{ credit.* }}
         'usages': usages,
     }
     return render(request, 'store_credits/store_credit_detail.html', context)

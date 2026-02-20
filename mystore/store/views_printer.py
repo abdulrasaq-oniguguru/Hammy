@@ -1,16 +1,25 @@
 """
 Printer Management Views
 """
+import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from .models import PrinterConfiguration, PrintJob, PrinterTaskMapping
 from .forms import PrinterConfigurationForm, PrinterTaskMappingForm
 from .printing import PrinterManager
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Maps the 3 top-level roles to specific task_name keys in PrinterTaskMapping
+PRINTER_ROLES = {
+    'receipt': 'receipt_pos',
+    'barcode': 'barcode_label',
+    'report':  'sales_report',
+}
 
 
 @login_required(login_url='login')
@@ -19,15 +28,91 @@ def printer_management(request):
     printers = PrinterConfiguration.objects.all()
     recent_jobs = PrintJob.objects.select_related('printer', 'created_by')[:20]
 
-    # Get system printers
+    # Get system printers and build availability set
     system_printers = PrinterManager.get_system_printers()
+    system_printer_names = {p['name'] for p in system_printers}
+
+    # Annotate each configured printer with live availability
+    for p in printers:
+        p.is_available = p.system_printer_name in system_printer_names
+
+    # Build role assignment context
+    role_assignments = {}
+    for role, task_name in PRINTER_ROLES.items():
+        mapping = (
+            PrinterTaskMapping.objects
+            .filter(task_name=task_name)
+            .select_related('printer')
+            .first()
+        )
+        assigned_printer = mapping.printer if mapping else None
+        role_assignments[role] = {
+            'mapping':   mapping,
+            'printer':   assigned_printer,
+            'available': (
+                assigned_printer is not None
+                and assigned_printer.system_printer_name in system_printer_names
+            ),
+        }
+
+    active_printers = PrinterConfiguration.objects.filter(is_active=True)
 
     context = {
-        'printers': printers,
-        'recent_jobs': recent_jobs,
-        'system_printers': system_printers,
+        'printers':         printers,
+        'active_printers':  active_printers,
+        'recent_jobs':      recent_jobs,
+        'system_printers':  system_printers,
+        'role_assignments': role_assignments,
     }
     return render(request, 'printer/printer_management.html', context)
+
+
+@login_required(login_url='login')
+@csrf_exempt
+def save_printer_roles(request):
+    """AJAX POST — save a single role → printer assignment."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'POST required'}, status=405)
+
+    if not request.user.has_perm('store.change_printertaskmapping') and not request.user.is_staff:
+        return JsonResponse({'success': False, 'message': 'Permission denied'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'success': False, 'message': 'Invalid JSON'}, status=400)
+
+    role = data.get('role')
+    printer_id = data.get('printer_id')  # int or None
+
+    task_name = PRINTER_ROLES.get(role)
+    if not task_name:
+        return JsonResponse({'success': False, 'message': f'Unknown role: {role}'}, status=400)
+
+    printer = None
+    if printer_id:
+        printer = get_object_or_404(PrinterConfiguration, pk=printer_id, is_active=True)
+
+    mapping, created = PrinterTaskMapping.objects.get_or_create(
+        task_name=task_name,
+        defaults={'printer': printer, 'is_active': True},
+    )
+    if not created:
+        mapping.printer = printer
+        mapping.is_active = True
+        mapping.save(update_fields=['printer', 'is_active', 'updated_at'])
+
+    return JsonResponse({
+        'success':      True,
+        'created':      created,
+        'role':         role,
+        'printer_name': printer.name if printer else None,
+        'printer_system_name': printer.system_printer_name if printer else None,
+        'message': (
+            f"{'Assigned' if printer else 'Cleared'} {role} printer"
+            + (f" → {printer.name}" if printer else "")
+        ),
+    })
 
 
 @login_required(login_url='login')

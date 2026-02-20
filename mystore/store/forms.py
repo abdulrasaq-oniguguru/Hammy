@@ -231,7 +231,7 @@ class CustomerForm(forms.ModelForm):
             }),
             'email': forms.EmailInput(attrs={
                 'class': 'form-control form-control-lg rounded-12',
-                'placeholder': 'customer@domain.com'
+                'placeholder': 'customer@domain.com (Optional)'
             }),
             'phone_number': forms.TextInput(attrs={
                 'class': 'form-control form-control-lg rounded-12',
@@ -253,11 +253,11 @@ class CustomerForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(CustomerForm, self).__init__(*args, **kwargs)
 
-        # Mark only name and email as required
+        # Only name is required
         self.fields['name'].required = True
-        self.fields['email'].required = True
 
-        # Make all other fields optional
+        # All other fields are optional
+        self.fields['email'].required = False
         self.fields['phone_number'].required = False
         self.fields['address'].required = False
         self.fields['sex'].required = False
@@ -284,7 +284,7 @@ class CustomerForm(forms.ModelForm):
         self.fields['sex'].widget.attrs['placeholder'] = 'Select gender (Optional)'
 
     def clean_phone_number(self):
-        phone = self.cleaned_data.get('phone_number', '').strip()
+        phone = (self.cleaned_data.get('phone_number') or '').strip()
 
         # If phone number is empty or just the default prefix, allow it (field is optional)
         if not phone or phone == '+234' or phone == '234':

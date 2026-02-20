@@ -5,138 +5,321 @@
 
 {% block content %}
 <div class="container-fluid py-4">
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
+
+    <!-- ── Page Header ───────────────────────────────────────────── -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
-            <h1 class="h3 mb-1">🖨️ Printer Management</h1>
-            <p class="text-muted">Configure and manage your printing devices</p>
+            <h1 class="h3 mb-1"><i class="bi bi-printer-fill me-2 text-primary"></i>Printer Management</h1>
+            <p class="text-muted mb-0">Configure printers and assign them to specific operations</p>
         </div>
-        <div>
-            <a href="{% url 'tools_menu' %}" class="btn btn-outline-secondary me-2">
-                <i class="bi bi-arrow-left"></i> Back to Tools
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{% url 'tools_menu' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Back
             </a>
-            <a href="{% url 'task_printer_mapping' %}" class="btn btn-success me-2">
-                <i class="bi bi-link-45deg"></i> Task Mapping
+            <a href="{% url 'task_printer_mapping' %}" class="btn btn-outline-info btn-sm">
+                <i class="bi bi-link-45deg"></i> Advanced Mapping
             </a>
-            <a href="{% url 'add_printer' %}" class="btn btn-primary">
+            <a href="{% url 'add_printer' %}" class="btn btn-primary btn-sm">
                 <i class="bi bi-plus-circle"></i> Add Printer
             </a>
         </div>
     </div>
 
-    <!-- System Printers Info -->
-    <div class="card mb-4 border-info">
-        <div class="card-header bg-info text-white">
-            <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>System Printers Detected</h5>
+    <!-- Flash Messages -->
+    {% if messages %}
+    <div class="mb-3">
+        {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show py-2">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- ══════════════════════════════════════════════════════════════
+         SECTION 1: PRINTER ROLE ASSIGNMENT  ← the new primary section
+         ══════════════════════════════════════════════════════════════ -->
+    <div class="card border-primary mb-4">
+        <div class="card-header bg-primary text-white d-flex align-items-center justify-content-between">
+            <h5 class="mb-0"><i class="bi bi-sliders2 me-2"></i>Printer Role Assignment</h5>
+            <small class="opacity-75">Changes save automatically</small>
         </div>
         <div class="card-body">
-            {% if system_printers %}
-                <div class="row">
-                    {% for printer in system_printers %}
-                        <div class="col-md-4 mb-2">
-                            <div class="d-flex align-items-center">
-                                <i class="bi bi-printer{% if printer.is_default %}-fill text-success{% endif %} me-2"></i>
-                                <span>{{ printer.name }}</span>
-                                {% if printer.is_default %}
-                                    <span class="badge bg-success ms-2">Default</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                    {% endfor %}
-                </div>
+            <p class="text-muted small mb-4">
+                Assign a dedicated printer to each operation. When a print action is triggered, the system
+                routes it to the printer selected here — no more relying on the OS default.
+            </p>
+
+            {% if not active_printers %}
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                No active printers configured yet.
+                <a href="{% url 'add_printer' %}">Add a printer</a> to enable role assignment.
+            </div>
             {% else %}
-                <p class="mb-0 text-muted">No system printers detected</p>
+
+            <div class="row g-3">
+
+                <!-- RECEIPT ROLE -->
+                <div class="col-md-4">
+                    <div class="card h-100 border-{% if role_assignments.receipt.available %}success{% elif role_assignments.receipt.printer %}warning{% else %}secondary{% endif %}">
+                        <div class="card-header bg-dark text-white d-flex align-items-center gap-2">
+                            <i class="bi bi-receipt fs-5 text-info"></i>
+                            <span class="fw-semibold">Receipt Printer</span>
+                            <span class="ms-auto badge {% if role_assignments.receipt.available %}bg-success{% elif role_assignments.receipt.printer %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                {% if role_assignments.receipt.available %}Online
+                                {% elif role_assignments.receipt.printer %}Offline
+                                {% else %}Not Set{% endif %}
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <p class="small text-muted mb-2">POS / thermal receipts from sales</p>
+                            <label class="form-label small fw-semibold">Assigned Printer</label>
+                            <select class="form-select form-select-sm role-select" data-role="receipt" id="select-receipt">
+                                <option value="">— None (use OS default) —</option>
+                                {% for p in active_printers %}
+                                <option value="{{ p.pk }}"
+                                    {% if role_assignments.receipt.printer.pk == p.pk %}selected{% endif %}>
+                                    {{ p.name }}
+                                    ({{ p.get_printer_type_display }})
+                                    {% if p.system_printer_name not in system_printers|join:"," %}⚠{% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if role_assignments.receipt.printer %}
+                            <small class="text-muted d-block mt-1">
+                                <i class="bi bi-hdd-network me-1"></i>{{ role_assignments.receipt.printer.system_printer_name }}
+                            </small>
+                            {% endif %}
+                        </div>
+                        <div class="card-footer bg-transparent d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-primary flex-fill save-role-btn" data-role="receipt">
+                                <i class="bi bi-floppy me-1"></i>Save
+                            </button>
+                            {% if role_assignments.receipt.printer %}
+                            <a href="{% url 'test_printer' role_assignments.receipt.printer.pk %}" class="btn btn-sm btn-outline-success" title="Test print">
+                                <i class="bi bi-printer"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BARCODE ROLE -->
+                <div class="col-md-4">
+                    <div class="card h-100 border-{% if role_assignments.barcode.available %}success{% elif role_assignments.barcode.printer %}warning{% else %}secondary{% endif %}">
+                        <div class="card-header bg-dark text-white d-flex align-items-center gap-2">
+                            <i class="bi bi-upc-scan fs-5 text-warning"></i>
+                            <span class="fw-semibold">Barcode Printer</span>
+                            <span class="ms-auto badge {% if role_assignments.barcode.available %}bg-success{% elif role_assignments.barcode.printer %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                {% if role_assignments.barcode.available %}Online
+                                {% elif role_assignments.barcode.printer %}Offline
+                                {% else %}Not Set{% endif %}
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <p class="small text-muted mb-2">Barcode / label printing for products</p>
+                            <label class="form-label small fw-semibold">Assigned Printer</label>
+                            <select class="form-select form-select-sm role-select" data-role="barcode" id="select-barcode">
+                                <option value="">— None (use OS default) —</option>
+                                {% for p in active_printers %}
+                                <option value="{{ p.pk }}"
+                                    {% if role_assignments.barcode.printer.pk == p.pk %}selected{% endif %}>
+                                    {{ p.name }}
+                                    ({{ p.get_printer_type_display }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if role_assignments.barcode.printer %}
+                            <small class="text-muted d-block mt-1">
+                                <i class="bi bi-hdd-network me-1"></i>{{ role_assignments.barcode.printer.system_printer_name }}
+                            </small>
+                            {% endif %}
+                        </div>
+                        <div class="card-footer bg-transparent d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-primary flex-fill save-role-btn" data-role="barcode">
+                                <i class="bi bi-floppy me-1"></i>Save
+                            </button>
+                            {% if role_assignments.barcode.printer %}
+                            <a href="{% url 'test_printer' role_assignments.barcode.printer.pk %}" class="btn btn-sm btn-outline-success" title="Test print">
+                                <i class="bi bi-printer"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- REPORT ROLE -->
+                <div class="col-md-4">
+                    <div class="card h-100 border-{% if role_assignments.report.available %}success{% elif role_assignments.report.printer %}warning{% else %}secondary{% endif %}">
+                        <div class="card-header bg-dark text-white d-flex align-items-center gap-2">
+                            <i class="bi bi-file-earmark-bar-graph fs-5 text-success"></i>
+                            <span class="fw-semibold">Report Printer</span>
+                            <span class="ms-auto badge {% if role_assignments.report.available %}bg-success{% elif role_assignments.report.printer %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                {% if role_assignments.report.available %}Online
+                                {% elif role_assignments.report.printer %}Offline
+                                {% else %}Not Set{% endif %}
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <p class="small text-muted mb-2">Sales reports, invoices, A4 documents</p>
+                            <label class="form-label small fw-semibold">Assigned Printer</label>
+                            <select class="form-select form-select-sm role-select" data-role="report" id="select-report">
+                                <option value="">— None (use OS default) —</option>
+                                {% for p in active_printers %}
+                                <option value="{{ p.pk }}"
+                                    {% if role_assignments.report.printer.pk == p.pk %}selected{% endif %}>
+                                    {{ p.name }}
+                                    ({{ p.get_printer_type_display }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if role_assignments.report.printer %}
+                            <small class="text-muted d-block mt-1">
+                                <i class="bi bi-hdd-network me-1"></i>{{ role_assignments.report.printer.system_printer_name }}
+                            </small>
+                            {% endif %}
+                        </div>
+                        <div class="card-footer bg-transparent d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-primary flex-fill save-role-btn" data-role="report">
+                                <i class="bi bi-floppy me-1"></i>Save
+                            </button>
+                            {% if role_assignments.report.printer %}
+                            <a href="{% url 'test_printer' role_assignments.report.printer.pk %}" class="btn btn-sm btn-outline-success" title="Test print">
+                                <i class="bi bi-printer"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- /row -->
+            {% endif %}
+        </div><!-- /card-body -->
+    </div><!-- /role assignment card -->
+
+    <!-- ══════════════════════════════════════════════════════════════
+         SECTION 2: SYSTEM PRINTERS DETECTED
+         ══════════════════════════════════════════════════════════════ -->
+    <div class="card mb-4 border-info">
+        <div class="card-header bg-info text-white d-flex align-items-center justify-content-between">
+            <h5 class="mb-0"><i class="bi bi-wifi me-2"></i>System Printers Detected</h5>
+            <button type="button" class="btn btn-sm btn-light" id="refresh-printers-btn">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+        </div>
+        <div class="card-body" id="system-printers-list">
+            {% if system_printers %}
+            <div class="row row-cols-1 row-cols-md-3 g-2">
+                {% for sp in system_printers %}
+                <div class="col">
+                    <div class="d-flex align-items-center gap-2 p-2 rounded border border-secondary">
+                        <i class="bi bi-printer{% if sp.is_default %}-fill text-success{% endif %} fs-5"></i>
+                        <div class="flex-grow-1 overflow-hidden">
+                            <div class="fw-semibold text-truncate small">{{ sp.name }}</div>
+                            {% if sp.is_default %}<span class="badge bg-success" style="font-size:.65rem;">OS Default</span>{% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="mb-0 text-muted"><i class="bi bi-exclamation-circle me-1"></i>No system printers detected.</p>
             {% endif %}
         </div>
     </div>
 
-    <!-- Configured Printers -->
+    <!-- ══════════════════════════════════════════════════════════════
+         SECTION 3: CONFIGURED PRINTERS
+         ══════════════════════════════════════════════════════════════ -->
+    <h5 class="mb-3 fw-semibold"><i class="bi bi-gear me-2"></i>Configured Printers</h5>
     <div class="row mb-4">
         {% for printer in printers %}
-            <div class="col-md-6 col-lg-4 mb-3">
-                <div class="card h-100 {% if printer.is_default %}border-primary{% endif %}">
-                    <div class="card-header {% if printer.is_default %}bg-primary text-white{% else %}bg-light{% endif %}">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h6 class="mb-0">
-                                <i class="bi bi-printer me-2"></i>{{ printer.name }}
-                            </h6>
-                            {% if printer.is_default %}
-                                <span class="badge bg-warning">Default</span>
-                            {% endif %}
-                        </div>
+        <div class="col-md-6 col-lg-4 mb-3">
+            <div class="card h-100 {% if printer.is_default %}border-primary{% elif not printer.is_available %}border-warning{% endif %}">
+                <div class="card-header {% if printer.is_default %}bg-primary text-white{% else %}bg-dark text-white{% endif %} d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-2 overflow-hidden">
+                        <i class="bi bi-printer-fill"></i>
+                        <span class="fw-semibold text-truncate">{{ printer.name }}</span>
                     </div>
-                    <div class="card-body">
-                        <dl class="row mb-2">
-                            <dt class="col-sm-5">Type:</dt>
-                            <dd class="col-sm-7">
-                                <span class="badge bg-secondary">{{ printer.get_printer_type_display }}</span>
-                            </dd>
-
-                            <dt class="col-sm-5">System Name:</dt>
-                            <dd class="col-sm-7">{{ printer.system_printer_name|truncatewords:3 }}</dd>
-
-                            <dt class="col-sm-5">Paper Size:</dt>
-                            <dd class="col-sm-7">{{ printer.get_paper_size_display }}</dd>
-
-                            <dt class="col-sm-5">DPI:</dt>
-                            <dd class="col-sm-7">{{ printer.dpi }}</dd>
-
-                            <dt class="col-sm-5">Copies:</dt>
-                            <dd class="col-sm-7">{{ printer.copies }}</dd>
-
-                            <dt class="col-sm-5">Status:</dt>
-                            <dd class="col-sm-7">
-                                {% if printer.is_active %}
-                                    <span class="badge bg-success">Active</span>
-                                {% else %}
-                                    <span class="badge bg-danger">Inactive</span>
-                                {% endif %}
-                            </dd>
-
-                            <dt class="col-sm-5">Auto Print:</dt>
-                            <dd class="col-sm-7">
-                                {% if printer.auto_print %}
-                                    <i class="bi bi-check-circle text-success"></i> Yes
-                                {% else %}
-                                    <i class="bi bi-x-circle text-danger"></i> No
-                                {% endif %}
-                            </dd>
-                        </dl>
+                    <div class="d-flex gap-1 flex-shrink-0">
+                        {% if printer.is_default %}<span class="badge bg-warning text-dark">Default</span>{% endif %}
+                        {% if printer.is_available %}
+                            <span class="badge bg-success">Online</span>
+                        {% else %}
+                            <span class="badge bg-danger">Offline</span>
+                        {% endif %}
                     </div>
-                    <div class="card-footer bg-light">
-                        <div class="btn-group w-100" role="group">
-                            <a href="{% url 'edit_printer' printer.pk %}" class="btn btn-sm btn-outline-primary" title="Edit">
-                                <i class="bi bi-pencil"></i>
-                            </a>
-                            <a href="{% url 'test_printer' printer.pk %}" class="btn btn-sm btn-outline-success" title="Test Print">
-                                <i class="bi bi-printer"></i>
-                            </a>
-                            {% if not printer.is_default %}
-                                <a href="{% url 'set_default_printer' printer.pk %}" class="btn btn-sm btn-outline-warning" title="Set Default">
-                                    <i class="bi bi-star"></i>
-                                </a>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0 small">
+                        <dt class="col-5">Type:</dt>
+                        <dd class="col-7"><span class="badge bg-secondary">{{ printer.get_printer_type_display }}</span></dd>
+
+                        <dt class="col-5">System Name:</dt>
+                        <dd class="col-7 text-truncate" title="{{ printer.system_printer_name }}">{{ printer.system_printer_name }}</dd>
+
+                        <dt class="col-5">Paper:</dt>
+                        <dd class="col-7">{{ printer.get_paper_size_display }}</dd>
+
+                        <dt class="col-5">DPI / Copies:</dt>
+                        <dd class="col-7">{{ printer.dpi }} / {{ printer.copies }}</dd>
+
+                        <dt class="col-5">Status:</dt>
+                        <dd class="col-7">
+                            {% if printer.is_active %}
+                                <span class="badge bg-success">Active</span>
+                            {% else %}
+                                <span class="badge bg-danger">Inactive</span>
                             {% endif %}
-                            <a href="{% url 'toggle_printer_status' printer.pk %}" class="btn btn-sm btn-outline-{% if printer.is_active %}danger{% else %}success{% endif %}" title="{% if printer.is_active %}Deactivate{% else %}Activate{% endif %}">
-                                <i class="bi bi-power"></i>
-                            </a>
-                            <a href="{% url 'delete_printer' printer.pk %}" class="btn btn-sm btn-outline-danger" title="Delete">
-                                <i class="bi bi-trash"></i>
-                            </a>
-                        </div>
+                        </dd>
+                    </dl>
+                    {% if not printer.is_available %}
+                    <div class="alert alert-warning py-1 px-2 mt-2 mb-0 small">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        Printer not found on this system.
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer bg-transparent">
+                    <div class="btn-group w-100 btn-group-sm">
+                        <a href="{% url 'edit_printer' printer.pk %}" class="btn btn-outline-primary" title="Edit">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <a href="{% url 'test_printer' printer.pk %}" class="btn btn-outline-success" title="Test">
+                            <i class="bi bi-printer"></i>
+                        </a>
+                        {% if not printer.is_default %}
+                        <a href="{% url 'set_default_printer' printer.pk %}" class="btn btn-outline-warning" title="Set Default">
+                            <i class="bi bi-star"></i>
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'toggle_printer_status' printer.pk %}"
+                           class="btn btn-outline-{% if printer.is_active %}danger{% else %}success{% endif %}"
+                           title="{% if printer.is_active %}Deactivate{% else %}Activate{% endif %}">
+                            <i class="bi bi-power"></i>
+                        </a>
+                        <a href="{% url 'delete_printer' printer.pk %}" class="btn btn-outline-danger" title="Delete">
+                            <i class="bi bi-trash"></i>
+                        </a>
                     </div>
                 </div>
             </div>
+        </div>
         {% empty %}
-            <div class="col-12">
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle me-2"></i>
-                    No printers configured yet. Click "Add Printer" to get started.
-                </div>
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                No printers configured yet. <a href="{% url 'add_printer' %}">Add a printer</a> to get started.
             </div>
+        </div>
         {% endfor %}
     </div>
 
-    <!-- Recent Print Jobs -->
+    <!-- ══════════════════════════════════════════════════════════════
+         SECTION 4: RECENT PRINT JOBS
+         ══════════════════════════════════════════════════════════════ -->
     <div class="card">
         <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
             <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Print Jobs</h5>
@@ -144,10 +327,10 @@
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead>
+                <table class="table table-hover table-sm mb-0">
+                    <thead class="table-dark">
                         <tr>
-                            <th>Date/Time</th>
+                            <th>Date / Time</th>
                             <th>Document Type</th>
                             <th>Printer</th>
                             <th>Status</th>
@@ -156,37 +339,126 @@
                     </thead>
                     <tbody>
                         {% for job in recent_jobs %}
-                            <tr>
-                                <td>{{ job.created_at|date:"M d, Y H:i" }}</td>
-                                <td>
-                                    <span class="badge bg-info">{{ job.get_document_type_display }}</span>
-                                    {% if job.document_id %}
-                                        #{{ job.document_id }}
-                                    {% endif %}
-                                </td>
-                                <td>{{ job.printer.name|default:"N/A" }}</td>
-                                <td>
-                                    {% if job.status == 'completed' %}
-                                        <span class="badge bg-success">{{ job.get_status_display }}</span>
-                                    {% elif job.status == 'failed' %}
-                                        <span class="badge bg-danger">{{ job.get_status_display }}</span>
-                                    {% elif job.status == 'printing' %}
-                                        <span class="badge bg-warning">{{ job.get_status_display }}</span>
-                                    {% else %}
-                                        <span class="badge bg-secondary">{{ job.get_status_display }}</span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ job.created_by.username|default:"System" }}</td>
-                            </tr>
+                        <tr>
+                            <td class="small">{{ job.created_at|date:"M d, Y H:i" }}</td>
+                            <td><span class="badge bg-info">{{ job.get_document_type_display }}</span>{% if job.document_id %} #{{ job.document_id }}{% endif %}</td>
+                            <td class="small">{{ job.printer.name|default:"N/A" }}</td>
+                            <td>
+                                {% if job.status == 'completed' %}<span class="badge bg-success">{{ job.get_status_display }}</span>
+                                {% elif job.status == 'failed' %}<span class="badge bg-danger">{{ job.get_status_display }}</span>
+                                {% elif job.status == 'printing' %}<span class="badge bg-warning text-dark">{{ job.get_status_display }}</span>
+                                {% else %}<span class="badge bg-secondary">{{ job.get_status_display }}</span>{% endif %}
+                            </td>
+                            <td class="small">{{ job.created_by.username|default:"System" }}</td>
+                        </tr>
                         {% empty %}
-                            <tr>
-                                <td colspan="5" class="text-center text-muted">No print jobs yet</td>
-                            </tr>
+                        <tr><td colspan="5" class="text-center text-muted py-3">No print jobs yet</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
+
+</div><!-- /container-fluid -->
+
+<!-- ── Toast notification ─────────────────────────────────── -->
+<div class="toast-container position-fixed top-0 end-0 p-3">
+    <div id="role-toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header" id="role-toast-header">
+            <i class="bi bi-printer me-2"></i>
+            <strong class="me-auto" id="role-toast-title">Printer Roles</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body" id="role-toast-body"></div>
+    </div>
 </div>
+
+<script>
+(function () {
+    const toast = new bootstrap.Toast(document.getElementById('role-toast'));
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value
+                   || document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+
+    function showToast(ok, title, msg) {
+        const header = document.getElementById('role-toast-header');
+        header.className = `toast-header bg-${ok ? 'success' : 'danger'} text-white`;
+        document.getElementById('role-toast-title').textContent = title;
+        document.getElementById('role-toast-body').textContent = msg;
+        toast.show();
+    }
+
+    // ── Save role assignment ─────────────────────────────────
+    document.querySelectorAll('.save-role-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const role = this.dataset.role;
+            const select = document.getElementById(`select-${role}`);
+            const printerId = select.value || null;
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+            fetch('{% url "save_printer_roles" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify({ role: role, printer_id: printerId ? parseInt(printerId) : null }),
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(true, 'Saved', data.message);
+                    // Reload the page after a short delay so status badges refresh
+                    setTimeout(() => location.reload(), 1200);
+                } else {
+                    showToast(false, 'Error', data.message || 'Could not save assignment.');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-floppy me-1"></i>Save';
+                }
+            })
+            .catch(() => {
+                showToast(false, 'Error', 'Network error. Please try again.');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-floppy me-1"></i>Save';
+            });
+        });
+    });
+
+    // ── Refresh system printers list ─────────────────────────
+    document.getElementById('refresh-printers-btn')?.addEventListener('click', function () {
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+        fetch('{% url "get_system_printers_ajax" %}')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const list = document.getElementById('system-printers-list');
+                    if (data.printers.length === 0) {
+                        list.innerHTML = '<p class="mb-0 text-muted"><i class="bi bi-exclamation-circle me-1"></i>No system printers detected.</p>';
+                    } else {
+                        list.innerHTML = '<div class="row row-cols-1 row-cols-md-3 g-2">'
+                            + data.printers.map(p =>
+                                `<div class="col"><div class="d-flex align-items-center gap-2 p-2 rounded border border-secondary">
+                                    <i class="bi bi-printer${p.is_default ? '-fill text-success' : ''} fs-5"></i>
+                                    <div class="flex-grow-1 overflow-hidden">
+                                        <div class="fw-semibold text-truncate small">${p.name}</div>
+                                        ${p.is_default ? '<span class="badge bg-success" style="font-size:.65rem;">OS Default</span>' : ''}
+                                    </div>
+                                </div></div>`
+                            ).join('')
+                            + '</div>';
+                    }
+                }
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh';
+            });
+    });
+})();
+</script>
 {% endblock %}

@@ -1,0 +1,249 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Reorder Products{% endblock %}
+{% block content %}
+<div class="page-wrapper py-4">
+    <div class="container-fluid px-4" style="max-width: 1400px; margin: 0 auto;">
+
+        <!-- Page Header -->
+        <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+            <div>
+                <h2 class="fw-bold text-white mb-0">
+                    <i class="bi bi-arrow-repeat me-2 text-warning"></i>Reorder Products
+                </h2>
+                <p class="text-muted mb-0 small">Select products to restock, then confirm quantities.</p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{% url 'reorder_confirm' %}" class="btn btn-warning d-flex align-items-center gap-1" id="reorder-selected-btn">
+                    <i class="bi bi-cart-check"></i>
+                    Reorder Selected
+                    <span class="badge bg-dark ms-1" id="cart-badge">{{ cart_count }}</span>
+                </a>
+                <a href="{% url 'product_list' %}" class="btn btn-outline-light d-flex align-items-center gap-1">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+            </div>
+        </div>
+
+        <!-- Search Bar -->
+        <form method="GET" action="{% url 'reorder_page' %}" class="mb-4">
+            <div class="input-group">
+                <input type="text" class="form-control bg-dark text-white border-secondary"
+                       name="search" value="{{ query }}" placeholder="Search by brand, color, category, design, size...">
+                <button class="btn btn-outline-warning" type="submit">
+                    <i class="bi bi-search"></i> Search
+                </button>
+                {% if query %}
+                <a href="{% url 'reorder_page' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x"></i> Clear
+                </a>
+                {% endif %}
+            </div>
+        </form>
+
+        <!-- Main Content + Sidebar -->
+        <div class="row">
+            <!-- Product Table -->
+            <div class="col-lg-9">
+                <div class="card bg-dark border-secondary">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-dark table-hover mb-0 align-middle">
+                                <thead class="table-secondary text-dark">
+                                    <tr>
+                                        <th style="width:40px;"></th>
+                                        <th>Brand</th>
+                                        <th>Category</th>
+                                        <th>Size</th>
+                                        <th>Color</th>
+                                        <th>Design</th>
+                                        <th>Qty</th>
+                                        <th>Price</th>
+                                        <th>Barcode</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="product-table-body">
+                                    {% for product in products %}
+                                    <tr class="product-row {% if product.id in cart_product_ids %}table-warning text-dark selected-row{% endif %}"
+                                        data-product-id="{{ product.id }}"
+                                        style="cursor:pointer;">
+                                        <td>
+                                            <input type="checkbox" class="form-check-input product-checkbox"
+                                                   data-product-id="{{ product.id }}"
+                                                   {% if product.id in cart_product_ids %}checked{% endif %}>
+                                        </td>
+                                        <td class="fw-semibold">{{ product.brand }}</td>
+                                        <td>{{ product.category }}</td>
+                                        <td>{{ product.size }}</td>
+                                        <td>{{ product.color|default:"-" }}</td>
+                                        <td>{{ product.design|default:"-" }}</td>
+                                        <td>
+                                            {% if product.quantity == 0 %}
+                                            <span class="badge bg-danger">Out of stock</span>
+                                            {% else %}
+                                            <span class="badge bg-success">{{ product.quantity }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>&#8358;{{ product.price }}</td>
+                                        <td><small class="text-muted">{{ product.barcode_number|default:"-" }}</small></td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="9" class="text-center text-muted py-5">
+                                            <i class="bi bi-inbox" style="font-size:2rem;"></i>
+                                            <p class="mt-2">No products found{% if query %} for "{{ query }}"{% endif %}.</p>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cart Sidebar -->
+            <div class="col-lg-3 mt-4 mt-lg-0">
+                <div class="card bg-dark border-warning sticky-top" style="top: 80px;">
+                    <div class="card-header bg-warning text-dark d-flex align-items-center justify-content-between">
+                        <strong><i class="bi bi-cart3 me-1"></i>Reorder Cart</strong>
+                        <span class="badge bg-dark" id="sidebar-cart-count">{{ cart_count }}</span>
+                    </div>
+                    <div class="card-body p-2" id="cart-sidebar-body">
+                        {% if cart_count == 0 %}
+                        <p class="text-muted text-center small py-3">No items selected yet.</p>
+                        {% else %}
+                        <p class="text-muted text-center small py-3">{{ cart_count }} item{{ cart_count|pluralize }} selected.</p>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer d-flex flex-column gap-2">
+                        <a href="{% url 'reorder_confirm' %}" class="btn btn-warning btn-sm w-100" id="sidebar-reorder-btn">
+                            <i class="bi bi-cart-check me-1"></i>Reorder Selected Items
+                        </a>
+                        <button type="button" class="btn btn-outline-danger btn-sm w-100" id="clear-cart-btn">
+                            <i class="bi bi-trash me-1"></i>Clear Cart
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-container position-fixed top-0 end-0 p-3">
+    <div id="reorder-toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header" id="reorder-toast-header">
+            <strong class="me-auto" id="reorder-toast-title"></strong>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body bg-dark text-white" id="reorder-toast-body"></div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const cartProductIds = new Set({{ cart_product_ids|safe }});
+    const toast = new bootstrap.Toast(document.getElementById('reorder-toast'));
+
+    function showToast(type, title, msg) {
+        const header = document.getElementById('reorder-toast-header');
+        header.className = `toast-header bg-${type === 'add' ? 'warning text-dark' : 'secondary text-white'}`;
+        document.getElementById('reorder-toast-title').textContent = title;
+        document.getElementById('reorder-toast-body').textContent = msg;
+        toast.show();
+    }
+
+    function updateCartBadge() {
+        const count = cartProductIds.size;
+        document.getElementById('cart-badge').textContent = count;
+        document.getElementById('sidebar-cart-count').textContent = count;
+        const sidebarBody = document.getElementById('cart-sidebar-body');
+        sidebarBody.innerHTML = count === 0
+            ? '<p class="text-muted text-center small py-3">No items selected yet.</p>'
+            : `<p class="text-muted text-center small py-3">${count} item${count !== 1 ? 's' : ''} selected.</p>`;
+    }
+
+    function setRowStyle(row, selected) {
+        if (selected) {
+            row.classList.add('table-warning', 'text-dark', 'selected-row');
+        } else {
+            row.classList.remove('table-warning', 'text-dark', 'selected-row');
+        }
+    }
+
+    function toggleProduct(productId, checkbox, row) {
+        fetch('/reorder/toggle/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || ''
+            },
+            body: JSON.stringify({ product_id: productId })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.action === 'added') {
+                cartProductIds.add(productId);
+                checkbox.checked = true;
+                setRowStyle(row, true);
+                showToast('add', 'Added', 'Product added to reorder cart.');
+            } else {
+                cartProductIds.delete(productId);
+                checkbox.checked = false;
+                setRowStyle(row, false);
+                showToast('remove', 'Removed', 'Product removed from reorder cart.');
+            }
+            updateCartBadge();
+        });
+    }
+
+    // Row click toggles checkbox
+    document.querySelectorAll('.product-row').forEach(function(row) {
+        row.addEventListener('click', function(e) {
+            if (e.target.type === 'checkbox') return; // handled separately
+            const checkbox = row.querySelector('.product-checkbox');
+            const productId = parseInt(row.dataset.productId);
+            toggleProduct(productId, checkbox, row);
+        });
+    });
+
+    // Checkbox change
+    document.querySelectorAll('.product-checkbox').forEach(function(checkbox) {
+        checkbox.addEventListener('change', function(e) {
+            e.stopPropagation();
+            const productId = parseInt(this.dataset.productId);
+            const row = this.closest('.product-row');
+            toggleProduct(productId, this, row);
+            // Revert immediate visual — let server response drive it
+            this.checked = !this.checked;
+        });
+    });
+
+    // Clear cart
+    document.getElementById('clear-cart-btn').addEventListener('click', function() {
+        if (!confirm('Clear all items from your reorder cart?')) return;
+        fetch('/reorder/clear/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || ''
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                cartProductIds.clear();
+                document.querySelectorAll('.product-row').forEach(r => {
+                    setRowStyle(r, false);
+                    const cb = r.querySelector('.product-checkbox');
+                    if (cb) cb.checked = false;
+                });
+                updateCartBadge();
+                showToast('remove', 'Cart Cleared', 'All items removed from reorder cart.');
+            }
+        });
+    });
+})();
+</script>
+{% endblock %}

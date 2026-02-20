@@ -24,6 +24,20 @@ urlpatterns = [
     # Product Management
     path('products/', views.product_list, name='product_list'),
     path('add_product/', views.add_product, name='add_product'),
+    path('products/add/success/', views.add_product_success, name='add_product_success'),
+
+    # Product Draft endpoints
+    path('products/drafts/save/', views.save_product_draft, name='save_product_draft'),
+    path('products/drafts/list/', views.list_product_drafts, name='list_product_drafts'),
+    path('products/drafts/<int:draft_id>/load/', views.load_product_draft, name='load_product_draft'),
+    path('products/drafts/<int:draft_id>/delete/', views.delete_product_draft, name='delete_product_draft'),
+
+    # Reorder module
+    path('reorder/', views.reorder_page, name='reorder_page'),
+    path('reorder/toggle/', views.reorder_toggle_cart, name='reorder_toggle_cart'),
+    path('reorder/cart/', views.reorder_cart_data, name='reorder_cart_data'),
+    path('reorder/clear/', views.reorder_clear_cart, name='reorder_clear_cart'),
+    path('reorder/confirm/', views.reorder_confirm, name='reorder_confirm'),
     path('products/edit/<int:product_id>/', views.edit_product, name='edit_product'),
     path('products/delete/<int:product_id>/', views.delete_product, name='delete_product'),
     path('products/transfer-to-warehouse/', views.transfer_to_warehouse_view, name='transfer_to_warehouse'),
@@ -142,6 +156,7 @@ urlpatterns = [
     path('printers/task-mapping/delete/<int:pk>/', views_printer.delete_task_mapping, name='delete_task_mapping'),
     path('printers/task-mapping/toggle/<int:pk>/', views_printer.toggle_task_mapping_status, name='toggle_task_mapping_status'),
     path('api/printers/quick-assign/<int:pk>/', views_printer.quick_assign_printer, name='quick_assign_printer'),
+    path('api/printers/roles/save/', views_printer.save_printer_roles, name='save_printer_roles'),
 
     # Configuration Menu
     path('configuration/', views_config.configuration_menu, name='configuration_menu'),

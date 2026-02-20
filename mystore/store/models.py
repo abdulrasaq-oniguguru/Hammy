@@ -2834,3 +2834,38 @@ class StoreCreditUsage(models.Model):
             self.store_credit.save()
 
         super().save(*args, **kwargs)
+
+
+# =====================================
+# PRODUCT DRAFT MODEL
+# =====================================
+
+class ProductDraft(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='product_drafts')
+    name = models.CharField(max_length=100, default='Draft')
+    form_data = models.JSONField()          # serialised formset field values
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f"{self.user.username} \u2013 {self.name} ({self.updated_at:%Y-%m-%d %H:%M})"
+
+
+# =====================================
+# REORDER CART MODEL
+# =====================================
+
+class ReorderCartItem(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reorder_cart')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'product')
+        ordering = ['added_at']
+
+    def __str__(self):
+        return f"{self.user.username} \u2013 {self.product.brand}"

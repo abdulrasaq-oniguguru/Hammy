@@ -159,8 +159,14 @@
                                 </button>
                             </div>
 
-                            <!-- Submit Button -->
-                            <div class="d-flex justify-content-center">
+                            <!-- Hidden draft ID field -->
+                            <input type="hidden" name="current_draft_id" id="current-draft-id" value="">
+
+                            <!-- Submit + Save Progress Buttons -->
+                            <div class="d-flex justify-content-center gap-3 flex-wrap">
+                                <button type="button" id="save-progress-btn" class="btn btn-outline-warning px-4 py-2 d-flex align-items-center gap-2">
+                                    <i class="bi bi-cloud-arrow-up"></i> Save Progress
+                                </button>
                                 <button type="submit" class="btn btn-danger px-4 py-2 d-flex align-items-center gap-2">
                                     <i class="bi bi-save"></i> Save All Products
                                 </button>
@@ -192,7 +198,71 @@
             Product has been successfully cloned. You can now modify the details as needed.
         </div>
     </div>
+    <!-- Draft Save Toast -->
+    <div id="draft-toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header bg-warning text-dark" id="draft-toast-header">
+            <i class="bi bi-cloud-check me-2"></i>
+            <strong class="me-auto" id="draft-toast-title">Draft Saved</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body bg-dark text-white" id="draft-toast-body">
+            Your progress has been saved.
+        </div>
+    </div>
 </div>
+
+<!-- Draft Resume Modal -->
+{% if user_drafts %}
+<div class="modal fade" id="draftModal" tabindex="-1" aria-labelledby="draftModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark text-white border-warning">
+            <div class="modal-header border-warning">
+                <h5 class="modal-title" id="draftModalLabel">
+                    <i class="bi bi-cloud-arrow-down me-2 text-warning"></i>Resume Saved Draft
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">You have unsaved drafts. Would you like to continue where you left off?</p>
+                <div class="table-responsive">
+                    <table class="table table-dark table-hover table-sm">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Last Saved</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for draft in user_drafts %}
+                            <tr>
+                                <td>{{ draft.name }}</td>
+                                <td><small class="text-muted">{{ draft.updated_at|date:"Y-m-d H:i" }}</small></td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-outline-warning load-draft-btn me-1"
+                                            data-draft-id="{{ draft.id }}" data-draft-name="{{ draft.name }}">
+                                        <i class="bi bi-play-fill"></i> Continue
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger delete-draft-btn"
+                                            data-draft-id="{{ draft.id }}">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer border-warning">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-plus-circle me-1"></i>Start New Entry
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <style>
     /* Compact Labels */
@@ -382,6 +452,137 @@ document.addEventListener('DOMContentLoaded', function () {
     const totalForms = document.getElementById('id_form-TOTAL_FORMS');
     const addMoreButton = document.getElementById('add-more');
     const cloneToast = new bootstrap.Toast(document.getElementById('clone-toast'));
+    const draftToast = new bootstrap.Toast(document.getElementById('draft-toast'));
+    const currentDraftIdInput = document.getElementById('current-draft-id');
+
+    // ---- Draft modal setup ----
+    {% if user_drafts %}
+    const draftModal = new bootstrap.Modal(document.getElementById('draftModal'));
+    // Only auto-open on a fresh page visit (GET), not after a failed form submission (POST).
+    {% if show_draft_modal %}
+    draftModal.show();
+    {% endif %}
+
+    // Load draft button
+    document.querySelectorAll('.load-draft-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const draftId = this.dataset.draftId;
+            const draftName = this.dataset.draftName;
+            fetch(`/products/drafts/${draftId}/load/`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        populateFormsetFromDraft(data.form_data);
+                        currentDraftIdInput.value = draftId;
+                        draftModal.hide();
+                        showDraftToast('success', 'Draft Loaded', `Resumed: ${draftName}`);
+                    }
+                });
+        });
+    });
+
+    // Delete draft button
+    document.querySelectorAll('.delete-draft-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const draftId = this.dataset.draftId;
+            const row = this.closest('tr');
+            fetch(`/products/drafts/${draftId}/delete/`, { method: 'POST', headers: {'X-CSRFToken': getCsrfToken()} })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && row) row.remove();
+                });
+        });
+    });
+    {% endif %}
+
+    // ---- Save Progress button ----
+    document.getElementById('save-progress-btn').addEventListener('click', function() {
+        const formData = serializeFormset();
+        const existingDraftId = currentDraftIdInput.value || null;
+        const draftName = (formData[0] && formData[0]['brand']) ? formData[0]['brand'] : 'Draft';
+
+        fetch('/products/drafts/save/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken()},
+            body: JSON.stringify({draft_id: existingDraftId, name: draftName, form_data: formData})
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                currentDraftIdInput.value = data.draft_id;
+                showDraftToast('success', 'Progress Saved', data.message);
+            } else {
+                showDraftToast('danger', 'Save Failed', data.message || 'Could not save draft.');
+            }
+        })
+        .catch(() => showDraftToast('danger', 'Save Failed', 'Network error. Please try again.'));
+    });
+
+    function getCsrfToken() {
+        const el = document.querySelector('[name=csrfmiddlewaretoken]');
+        return el ? el.value : '';
+    }
+
+    function showDraftToast(type, title, message) {
+        const header = document.getElementById('draft-toast-header');
+        const titleEl = document.getElementById('draft-toast-title');
+        const bodyEl = document.getElementById('draft-toast-body');
+        header.className = `toast-header bg-${type === 'success' ? 'warning text-dark' : 'danger text-white'}`;
+        titleEl.textContent = title;
+        bodyEl.textContent = message;
+        draftToast.show();
+    }
+
+    function serializeFormset() {
+        const rows = formContainer.querySelectorAll('.form-row');
+        const result = [];
+        rows.forEach(function(row) {
+            const obj = {};
+            row.querySelectorAll('input, select, textarea').forEach(function(el) {
+                if (!el.name || el.type === 'file') return;
+                const fieldMatch = el.name.match(/form-\d+-(.+)/);
+                if (fieldMatch) {
+                    obj[fieldMatch[1]] = el.type === 'checkbox' ? el.checked : el.value;
+                }
+            });
+            if (Object.keys(obj).length > 0) result.push(obj);
+        });
+        return result;
+    }
+
+    function populateFormsetFromDraft(formData) {
+        if (!Array.isArray(formData) || formData.length === 0) return;
+
+        // Ensure we have enough rows
+        while (formContainer.children.length < formData.length) {
+            const firstRow = formContainer.children[0];
+            if (!firstRow) break;
+            const newRow = firstRow.cloneNode(true);
+            const regex = new RegExp(`form-(\\d+)`, 'g');
+            newRow.innerHTML = newRow.innerHTML.replace(regex, `form-${formIdx}`);
+            newRow.querySelectorAll('input, select').forEach(el => {
+                if (el.type !== 'file') el.value = '';
+                if (el.tagName === 'SELECT') el.selectedIndex = 0;
+            });
+            formContainer.appendChild(newRow);
+            totalForms.value = ++formIdx;
+        }
+
+        const rows = formContainer.querySelectorAll('.form-row');
+        formData.forEach(function(fieldData, i) {
+            if (!rows[i]) return;
+            Object.entries(fieldData).forEach(function([field, value]) {
+                const el = rows[i].querySelector(`[name$="-${field}"]`);
+                if (!el || el.type === 'file') return;
+                if (el.type === 'checkbox') {
+                    el.checked = !!value;
+                } else {
+                    el.value = value;
+                }
+            });
+        });
+        updateFormNumbers();
+    }
 
     let formIdx = formContainer.children.length;
 
@@ -399,16 +600,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Clone form row function
     function cloneFormRow(sourceRow) {
-        // First, collect all the current values from the source row
-        const sourceData = {};
-        const sourceInputs = sourceRow.querySelectorAll('input, select, textarea');
+        // Detect the actual index of the source form from its input names
+        const firstNamedInput = sourceRow.querySelector('input[name], select[name], textarea[name]');
+        const sourceIndexMatch = firstNamedInput ? firstNamedInput.name.match(/form-(\d+)/) : null;
+        const sourceIndex = sourceIndexMatch ? sourceIndexMatch[1] : '0';
 
-        sourceInputs.forEach(input => {
+        // Collect all current values from the source row
+        const sourceData = {};
+        sourceRow.querySelectorAll('input, select, textarea').forEach(input => {
             if (input.name) {
                 if (input.type === 'file') {
-                    sourceData[input.name] = null; // Don't copy file inputs
+                    sourceData[input.name] = null;
                 } else if (input.name.includes('barcode_number')) {
-                    sourceData[input.name] = ''; // Clear barcode for new product
+                    sourceData[input.name] = ''; // Clear barcode — each product needs a unique one
                 } else if (input.type === 'checkbox' || input.type === 'radio') {
                     sourceData[input.name] = input.checked;
                 } else {
@@ -420,33 +624,26 @@ document.addEventListener('DOMContentLoaded', function () {
         // Clone the HTML structure
         const newFormRow = sourceRow.cloneNode(true);
 
-        // Update form field names and IDs with new index FIRST
-        const regex = new RegExp(`form-(\\d+)`, 'g');
-        newFormRow.innerHTML = newFormRow.innerHTML.replace(regex, `form-₦{formIdx}`);
+        // Replace the source form index with the new form index in all names/ids
+        const regex = new RegExp(`form-${sourceIndex}`, 'g');
+        newFormRow.innerHTML = newFormRow.innerHTML.replace(regex, `form-${formIdx}`);
 
         // Insert the new form after the source form
         sourceRow.parentNode.insertBefore(newFormRow, sourceRow.nextSibling);
 
-        // Now populate the new form with the collected data
-        const newInputs = newFormRow.querySelectorAll('input, select, textarea');
-        newInputs.forEach(input => {
+        // Populate the new form with the collected source data
+        newFormRow.querySelectorAll('input, select, textarea').forEach(input => {
             if (input.name) {
-                // Convert the new form field name back to get the original field name
-                const originalFieldName = input.name.replace(`form-₦{formIdx}`, sourceRow.getAttribute('data-form-index') !== null ?
-                    `form-₦{sourceRow.getAttribute('data-form-index')}` : 'form-0');
+                // Map new field name back to original to look up the value
+                const originalFieldName = input.name.replace(`form-${formIdx}`, `form-${sourceIndex}`);
 
                 if (sourceData.hasOwnProperty(originalFieldName)) {
                     if (input.type === 'file') {
-                        // Don't set file inputs
                         input.value = '';
                     } else if (input.name.includes('barcode_number')) {
-                        // Clear barcode for new product
                         input.value = '';
                     } else if (input.type === 'checkbox' || input.type === 'radio') {
                         input.checked = sourceData[originalFieldName];
-                    } else if (input.tagName === 'SELECT') {
-                        // For select elements, set the value
-                        input.value = sourceData[originalFieldName];
                     } else {
                         input.value = sourceData[originalFieldName];
                     }
@@ -462,9 +659,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Add animation to the new row
         newFormRow.classList.add('clone-animation');
-        setTimeout(() => {
-            newFormRow.classList.remove('clone-animation');
-        }, 800);
+        setTimeout(() => newFormRow.classList.remove('clone-animation'), 800);
 
         // Show success toast
         cloneToast.show();
@@ -472,7 +667,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // Scroll to the new form
         newFormRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-        // Focus on the first different field (usually color or size)
+        // Focus on color or size so the user can adjust the difference
         const firstColorInput = newFormRow.querySelector('select[name*="color"]');
         const firstSizeInput = newFormRow.querySelector('input[name*="size"]');
         if (firstColorInput) {
@@ -489,9 +684,14 @@ document.addEventListener('DOMContentLoaded', function () {
         const firstFormRow = formContainer.children[0];
         const newFormRow = firstFormRow.cloneNode(true);
 
-        // Clear all input values in the new form
-        const inputs = newFormRow.querySelectorAll('input, select');
-        inputs.forEach(input => {
+        // Fix indices FIRST via innerHTML replace (uses $ not ₦), THEN clear values.
+        // This order matters: innerHTML serialisation can restore attribute values,
+        // so we clear AFTER the replace so we are operating on fresh DOM elements.
+        const regex = new RegExp(`form-(\\d+)`, 'g');
+        newFormRow.innerHTML = newFormRow.innerHTML.replace(regex, `form-${formIdx}`);
+
+        // Clear all input values on the freshly-indexed elements
+        newFormRow.querySelectorAll('input, select').forEach(input => {
             if (input.type === 'file') {
                 input.value = '';
             } else if (input.tagName === 'SELECT') {
@@ -501,8 +701,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
 
-        const regex = new RegExp(`form-(\\d+)`, 'g');
-        newFormRow.innerHTML = newFormRow.innerHTML.replace(regex, `form-₦{formIdx}`);
         formContainer.appendChild(newFormRow);
         totalForms.value = ++formIdx;
         updateFormNumbers();
