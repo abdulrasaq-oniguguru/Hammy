@@ -52,6 +52,15 @@ secrets.json
 credentials.json
 
 # =====================================
+# SSL CERTIFICATES (server-side only)
+# =====================================
+*.crt
+*.key
+*.pem
+mystore/cert.crt
+mystore/cert.key
+
+# =====================================
 # IDE / EDITORS
 # =====================================
 .vscode/
@@ -79,19 +88,35 @@ celerybeat.pid
 *.sql
 *.log
 logs/
+sync_logs/
 backups/
 
 # =====================================
-# DOCUMENTATION
+# DOCUMENTATION (dev-only guides)
 # =====================================
-# Documentation folder (use toggle_doc_folder.bat to include/exclude)
 .doc/
+API_FIX_DEPLOYMENT_GUIDE.md
+CELERY_SETUP_GUIDE.md
+CLEAR_AND_RESYNC_GUIDE.md
+CONTINUE.md
+Check.txt
+FEATURES_IMPLEMENTED.txt
+GIFT_AND_PARTIAL_PAYMENT_SUMMARY.md
+IMPLEMENTATION_PLAN_GIFT_PARTIAL.md
+MIGRATION_PLAN_ABS-II_TO_III.md
+PARTIAL_PAYMENT_GUIDE.md
+SETTLE_BALANCE_GUIDE.md
+SYNC_USAGE_GUIDE.md
+requirements1.txt
+mystore/CONFIGURATION_UPDATES.md
+mystore/PDF_VALIDATION_README.md
+mystore/PRINTER_MANAGEMENT_README.md
+mystore/TASK_PRINTER_MAPPING_GUIDE.md
 
 # =====================================
 # PDF & RECEIPT TEMPLATES
 # =====================================
 *.pdf
-"Receipt Template/"
 Receipt Template/
 
 # =====================================
@@ -107,6 +132,7 @@ coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
+mystore/mystore/test_pdf_validation.py
 
 # =====================================
 # COMPILED FILES
@@ -116,7 +142,6 @@ coverage.xml
 *.dll
 *.exe
 *.o
-*.so
 
 # =====================================
 # OS SPECIFIC
@@ -137,19 +162,74 @@ Thumbs.db
 ~$*
 
 # =====================================
-# DEVELOPMENT & LOCAL SCRIPTS
+# WINDOWS-ONLY SCRIPTS (not for deployment)
 # =====================================
-# Windows batch files (don't work on Linux/PythonAnywhere)
-# EXCEPT essential batch files for local development
 *.bat
-!sync_all_data.bat
-!start_celery.bat
-!start_celery_service.bat
-!stop_celery.bat
+*.ps1
+*.vbs
+*.xml
+StartAllServices.vbs
 
-# Development sync scripts (local only)
-# EXCEPT mystore/sync_to_pythonanywhere.py which is needed for data sync
-# EXCEPT mystore/setup_celery_tasks.py which is needed for Celery setup on new deployments
+# =====================================
+# LOCAL DEV & MAINTENANCE SCRIPTS (root level)
+# =====================================
+sync_to_pythonanywhere.py
+sync_to_pythonanywhere_robust.py
+export_mssql_data.py
+import_postgresql_data.py
+compare_local_vs_remote.py
+debug_data_issues.py
+verify_migration.py
+verify_customer_credit.py
+check_store_credits.py
+check_today_sales.py
+check_receipts.py
+test_single_receipt_sync.py
+postgresql_settings_template.py
+apply_task_fix.bat
+create_scheduled_task.bat
+fix_with_duration.bat
+fix_with_ri.bat
+complete_fix.bat
+
+# =====================================
+# DATA EXPORT & BACKUP FILES
+# =====================================
+data_backup.json
+export_metadata.json
+.last_sync_time.txt
+
+# =====================================
+# ROOT-LEVEL IMAGES (not part of app)
+# =====================================
+*.png
+*.jpg
+*.jpeg
+*.PNG
+*.JPG
+*.JPEG
+# Allow static/media images inside mystore
+!mystore/static/**/*.png
+!mystore/static/**/*.jpg
+!mystore/static/**/*.jpeg
+!mystore/static/**/*.ico
+!mystore/static/**/*.webp
+!mystore/static/**/*.svg
+
+# =====================================
+# LOCAL-ONLY DIRECTORIES
+# =====================================
+minimal_api/
+.venv/
+
+# =====================================
+# MEDIA FILES (user-uploaded, managed on server)
+# =====================================
+mystore/media/
+
+# =====================================
+# MYSTORE DEV SYNC SCRIPTS (local only)
+# =====================================
 mystore/api_sync.py
 mystore/api_sync_full.py
 mystore/auto_sync.py

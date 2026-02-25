@@ -79,7 +79,7 @@ from .models import (
     InvoiceProduct, Receipt, Payment, PaymentMethod, LocationTransfer,
     ProductHistory, TransferItem, UserProfile, ActivityLog, StoreConfiguration,
     LoyaltyConfiguration, LoyaltyTransaction, TaxConfiguration, PartialPayment,
-    ProductDraft, ReorderCartItem
+    ProductDraft, ReorderCartItem, PrinterTaskMapping, PrinterConfiguration
 )
 from .utils import (
     get_cached_choices,
@@ -818,6 +818,16 @@ def barcode_print_manager(request):
         else:
             shop_choices.append((shop, shop))
 
+    # Get configured barcode printer from task mapping
+    barcode_mapping = PrinterTaskMapping.objects.filter(
+        task_name='barcode_label', is_active=True
+    ).select_related('printer').first()
+    barcode_printer = barcode_mapping.printer if barcode_mapping else None
+    if not barcode_printer:
+        barcode_printer = PrinterConfiguration.objects.filter(
+            printer_type='barcode', is_active=True
+        ).first()
+
     context = {
         'products': products_page,
         'query': search,
@@ -848,6 +858,7 @@ def barcode_print_manager(request):
         'products_with_barcode': products_with_barcode,
         'products_without_barcode': products_without_barcode,
         'is_superuser': request.user.is_superuser,
+        'barcode_printer': barcode_printer,
     }
 
     return render(request, 'barcode/barcode_print_manager.html', context)
@@ -4076,6 +4087,15 @@ def add_product(request):
                 if draft_id:
                     ProductDraft.objects.filter(id=draft_id, user=request.user).delete()
 
+                # Warn if a matching invoice was created in the last 48 hours
+                duplicate = _check_duplicate_invoice(invoice)
+                if duplicate:
+                    messages.warning(
+                        request,
+                        f"Invoice {duplicate.invoice_number} (created within the last 48 hours) "
+                        f"contains the same items as this one. Please verify this is not a duplicate."
+                    )
+
                 # Store created product IDs in session and redirect to success page
                 request.session['new_product_ids'] = created_product_ids
                 return redirect('add_product_success')
@@ -4176,7 +4196,9 @@ def add_product_success(request):
 
 @login_required(login_url='login')
 def reorder_page(request):
-    query = request.GET.get('search', '')
+    query = request.GET.get('search', '').strip()
+    show_all = request.GET.get('all', '') == '1'
+
     filters = Q()
     if query:
         filters &= (
@@ -4186,16 +4208,17 @@ def reorder_page(request):
             Q(design__icontains=query) |
             Q(size__icontains=query)
         )
-    products = Product.objects.filter(filters).order_by('brand')
-    cart_ids = list(
-        ReorderCartItem.objects.filter(user=request.user).values_list('product_id', flat=True)
-    )
-    cart_count = len(cart_ids)
+        show_all = True  # when searching, show all matches regardless of stock level
+    elif not show_all:
+        filters &= Q(quantity__lt=5)  # default: low-stock only (0 and <5)
+
+    # Sort: qty=0 first, then ascending qty, then brand
+    products = Product.objects.filter(filters).order_by('quantity', 'brand')
+
     return render(request, 'product/reorder.html', {
         'products': products,
         'query': query,
-        'cart_product_ids': cart_ids,
-        'cart_count': cart_count,
+        'show_all': show_all,
     })
 
 
@@ -4246,60 +4269,100 @@ def reorder_clear_cart(request):
 
 @login_required(login_url='login')
 def reorder_confirm(request):
-    cart_items = ReorderCartItem.objects.filter(user=request.user).select_related('product')
-
-    if not cart_items.exists():
-        messages.warning(request, "Your reorder cart is empty.")
+    if request.method != 'POST':
         return redirect('reorder_page')
 
-    if request.method == 'POST':
-        invoice = Invoice.objects.create(user=request.user)
-        errors = []
+    raw_ids = request.POST.getlist('selected_product_ids')
+    product_ids = [int(x) for x in raw_ids if x.isdigit()]
+    if not product_ids:
+        messages.warning(request, "No products were selected for reorder.")
+        return redirect('reorder_page')
 
-        for item in cart_items:
-            field_name = f'qty_{item.product.id}'
-            qty_str = request.POST.get(field_name, '0')
-            try:
-                qty = int(qty_str)
-                if qty <= 0:
-                    continue
-            except ValueError:
-                errors.append(f"Invalid quantity for {item.product.brand}.")
+    products_qs = Product.objects.filter(id__in=product_ids)
+    invoice = Invoice.objects.create(user=request.user)
+    errors = []
+    reordered = []
+
+    for product in products_qs:
+        qty_str = request.POST.get(f'qty_{product.id}', '').strip()
+        price_str = request.POST.get(f'price_{product.id}', '').strip()
+
+        try:
+            qty = int(qty_str)
+            if qty <= 0:
+                errors.append(f"Quantity for {product.brand} must be greater than 0.")
                 continue
+        except ValueError:
+            errors.append(f"Invalid quantity for {product.brand}.")
+            continue
 
-            item.product.quantity += qty
-            item.product.save()
+        try:
+            unit_price = Decimal(price_str)
+            if unit_price < 0:
+                raise ValueError
+        except (ValueError, Exception):
+            errors.append(f"Invalid price for {product.brand}.")
+            continue
 
-            InvoiceProduct.objects.create(
-                invoice=invoice,
-                product_name=item.product.brand,
-                product_price=item.product.price,
-                product_color=item.product.color,
-                product_size=item.product.size,
-                product_category=item.product.category,
-                quantity=qty,
-                total_price=item.product.price * qty
-            )
+        product.quantity += qty
+        if unit_price != product.price:
+            product.price = unit_price
+        product.save()
+        reordered.append(product)
 
-            ActivityLog.log_activity(
-                user=request.user,
-                action='product_update',
-                description=f'Reorder: added {qty} units to {item.product.brand} — new qty: {item.product.quantity}',
-                model_name='Product',
-                object_id=item.product.id,
-                object_repr=str(item.product),
-                request=request
-            )
+        InvoiceProduct.objects.create(
+            invoice=invoice,
+            product_name=product.brand,
+            product_price=unit_price,
+            product_color=product.color,
+            product_size=product.size,
+            product_category=product.category,
+            quantity=qty,
+            total_price=unit_price * qty
+        )
 
-        if errors:
-            for err in errors:
-                messages.error(request, err)
+        ActivityLog.log_activity(
+            user=request.user,
+            action='product_update',
+            description=f'Reorder: added {qty} units to {product.brand} — new stock: {product.quantity}',
+            model_name='Product',
+            object_id=product.id,
+            object_repr=str(product),
+            request=request
+        )
 
-        ReorderCartItem.objects.filter(user=request.user).delete()
-        messages.success(request, "Reorder completed and invoice created.")
-        return redirect('invoice_detail', pk=invoice.id)
+    for err in errors:
+        messages.error(request, err)
 
-    return render(request, 'product/reorder_confirm.html', {'cart_items': cart_items})
+    # Duplicate-invoice warning (48-hour window)
+    duplicate = _check_duplicate_invoice(invoice)
+    if duplicate:
+        messages.warning(
+            request,
+            f"Invoice {duplicate.invoice_number} (created within the last 48 hours) "
+            f"contains the same items as this reorder. Please verify this is not a duplicate."
+        )
+
+    request.session['reorder_product_ids'] = [p.id for p in reordered]
+    request.session['reorder_invoice_number'] = invoice.invoice_number
+    messages.success(request, f"Reorder complete! Invoice #{invoice.invoice_number} created.")
+    return redirect('reorder_success')
+
+
+@login_required(login_url='login')
+def reorder_success(request):
+    product_ids = request.session.pop('reorder_product_ids', [])
+    invoice_number = request.session.pop('reorder_invoice_number', '')
+    if not product_ids:
+        return redirect('reorder_page')
+    products = Product.objects.filter(id__in=product_ids)
+    return render(request, 'product/reorder_success.html', {
+        'products': products,
+        'invoice_number': invoice_number,
+        'product_ids_json': json.dumps([
+            {'product_id': p.id, 'quantity': p.quantity} for p in products
+        ]),
+    })
 
 
 def lookup_product_by_barcode(request):
@@ -5112,6 +5175,30 @@ def invoice_list(request):
     return render(request, 'invoice/invoice_list.html', {'invoices': invoices})
 
 
+def _check_duplicate_invoice(invoice):
+    """
+    Return the first invoice (created within the last 48 hours, excluding
+    *invoice* itself) whose item set matches *invoice* item-for-item by
+    product name, color, size, and category.  Returns None when no match.
+    """
+    cutoff = timezone.now() - timedelta(hours=48)
+    new_items = frozenset(
+        invoice.invoice_products.values_list(
+            'product_name', 'product_color', 'product_size', 'product_category'
+        )
+    )
+    if not new_items:
+        return None
+    for past in Invoice.objects.filter(date__gte=cutoff).exclude(pk=invoice.pk):
+        past_items = frozenset(
+            past.invoice_products.values_list(
+                'product_name', 'product_color', 'product_size', 'product_category'
+            )
+        )
+        if past_items == new_items:
+            return past
+    return None
+
 
 @login_required(login_url='login')
 def invoice_detail(request, pk):
@@ -5162,17 +5249,37 @@ def export_invoice_pdf(request, pk):
     p.drawString(6.5 * inch, y, "Total")
 
     # Add products
-    p.setFont("Helvetica", 12)
-    y -= 0.25 * inch
+    y -= 0.2 * inch
     for item in invoice_products:
-        y -= 0.25 * inch
-        if y < 1 * inch:  # Create new page if needed
+        # Build spec line for this item
+        spec_parts = []
+        if item.product_color:
+            spec_parts.append(f"Color: {item.product_color}")
+        if item.product_size:
+            spec_parts.append(f"Size: {item.product_size}")
+        if item.product_category:
+            spec_parts.append(f"Category: {item.product_category}")
+        spec_line = "  |  ".join(spec_parts)
+
+        row_height = (0.42 if spec_line else 0.28) * inch
+        y -= row_height
+        if y < 1.2 * inch:  # Create new page if needed
             p.showPage()
             y = height - 1 * inch
+            y -= row_height
+
+        p.setFont("Helvetica", 11)
+        p.setFillColorRGB(0, 0, 0)
         p.drawString(1 * inch, y, item.product_name)
         p.drawString(4 * inch, y, f"{item.product_price:.2f}")
         p.drawString(5.5 * inch, y, str(item.quantity))
         p.drawString(6.5 * inch, y, f"{item.total_price:.2f}")
+
+        if spec_line:
+            p.setFont("Helvetica-Oblique", 9)
+            p.setFillColorRGB(0.42, 0.47, 0.56)
+            p.drawString(1.05 * inch, y - 0.17 * inch, spec_line[:90])
+            p.setFillColorRGB(0, 0, 0)
 
     # Add totals
     y -= 0.5 * inch
@@ -7437,12 +7544,20 @@ def print_multiple_barcodes_directly(request):
                 'error': 'No products specified for printing'
             })
 
-        # Resolve barcode printer: task mapping → session override → OS default
+        # Resolve barcode printer: task mapping → barcode PrinterConfiguration → session/OS default
         barcode_mapping_printer = PrinterTaskMapping.get_printer_for_task('barcode_label')
         if barcode_mapping_printer:
             printer_name = barcode_mapping_printer.system_printer_name
+            printer_source = 'task_mapping'
         else:
-            printer_name = request.session.get('selected_printer') or win32print.GetDefaultPrinter()
+            from .models import PrinterConfiguration as PC
+            barcode_config = PC.objects.filter(printer_type='barcode', is_active=True).first()
+            if barcode_config:
+                printer_name = barcode_config.system_printer_name
+                printer_source = 'barcode_config'
+            else:
+                printer_name = request.session.get('selected_printer') or win32print.GetDefaultPrinter()
+                printer_source = 'fallback'
 
         if not printer_name:
             return JsonResponse({
@@ -7502,6 +7617,15 @@ def print_multiple_barcodes_directly(request):
         successful_products = sum(1 for result in results if result['success'])
         total_products = len(results)
 
+        # Surface first failure reason as top-level error when nothing printed
+        top_error = None
+        if successful_products == 0:
+            failed = [r for r in results if not r['success'] and r.get('error')]
+            if failed:
+                top_error = failed[0]['error']
+            else:
+                top_error = f"Print job sent to '{printer_name}' but 0 copies confirmed. Check the printer is online and the name is correct."
+
         return JsonResponse({
             'success': successful_products > 0,
             'message': f'Printed {total_printed} barcodes for {successful_products}/{total_products} products',
@@ -7510,6 +7634,8 @@ def print_multiple_barcodes_directly(request):
             'total_products': total_products,
             'results': results,
             'printer_name': printer_name,
+            'printer_source': printer_source,
+            **(({'error': top_error}) if top_error else {}),
         })
 
     except json.JSONDecodeError:
@@ -7540,12 +7666,17 @@ def print_single_barcode_directly(request, product_id):
             product.generate_barcode()
             product.save()
 
-        # Resolve barcode printer: task mapping → session override → OS default
+        # Resolve barcode printer: task mapping → barcode PrinterConfiguration → session/OS default
         barcode_mapping_printer = PrinterTaskMapping.get_printer_for_task('barcode_label')
         if barcode_mapping_printer:
             printer_name = barcode_mapping_printer.system_printer_name
         else:
-            printer_name = request.session.get('selected_printer') or win32print.GetDefaultPrinter()
+            from .models import PrinterConfiguration as PC
+            barcode_config = PC.objects.filter(printer_type='barcode', is_active=True).first()
+            if barcode_config:
+                printer_name = barcode_config.system_printer_name
+            else:
+                printer_name = request.session.get('selected_printer') or win32print.GetDefaultPrinter()
 
         if not printer_name:
             return JsonResponse({

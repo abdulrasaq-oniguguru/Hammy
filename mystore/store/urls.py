@@ -38,6 +38,7 @@ urlpatterns = [
     path('reorder/cart/', views.reorder_cart_data, name='reorder_cart_data'),
     path('reorder/clear/', views.reorder_clear_cart, name='reorder_clear_cart'),
     path('reorder/confirm/', views.reorder_confirm, name='reorder_confirm'),
+    path('reorder/success/', views.reorder_success, name='reorder_success'),
     path('products/edit/<int:product_id>/', views.edit_product, name='edit_product'),
     path('products/delete/<int:product_id>/', views.delete_product, name='delete_product'),
     path('products/transfer-to-warehouse/', views.transfer_to_warehouse_view, name='transfer_to_warehouse'),

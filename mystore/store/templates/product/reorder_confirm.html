@@ -39,8 +39,9 @@
                                     <th>Color</th>
                                     <th>Current Qty</th>
                                     <th>Barcode</th>
-                                    <th>Price</th>
+                                    <th style="width:140px;">Unit Price (&#8358;)</th>
                                     <th style="width:130px;">Reorder Qty</th>
+                                    <th>Line Total</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -58,11 +59,20 @@
                                         {% endif %}
                                     </td>
                                     <td><small class="text-muted">{{ item.product.barcode_number|default:"-" }}</small></td>
-                                    <td>&#8358;{{ item.product.price }}</td>
+                                    <td>
+                                        <input type="number" name="price_{{ item.product.id }}"
+                                               class="form-control form-control-sm bg-dark text-white border-secondary reorder-price"
+                                               step="0.01" min="0" value="{{ item.product.price }}"
+                                               data-product-id="{{ item.product.id }}" required>
+                                    </td>
                                     <td>
                                         <input type="number" name="qty_{{ item.product.id }}"
                                                class="form-control form-control-sm bg-dark text-white border-warning reorder-qty"
-                                               min="1" value="1" required>
+                                               min="1" placeholder="Enter qty"
+                                               data-product-id="{{ item.product.id }}" required>
+                                    </td>
+                                    <td>
+                                        <span class="text-warning fw-semibold line-total" id="total_{{ item.product.id }}">—</span>
                                     </td>
                                 </tr>
                                 {% empty %}
@@ -80,13 +90,17 @@
             <div class="card bg-dark border-secondary mb-4">
                 <div class="card-body">
                     <div class="row text-center">
-                        <div class="col-6">
+                        <div class="col-4">
                             <div class="text-muted small">Products Selected</div>
                             <div class="fw-bold fs-4 text-warning">{{ cart_items|length }}</div>
                         </div>
-                        <div class="col-6">
-                            <div class="text-muted small">Total Units (estimated)</div>
+                        <div class="col-4">
+                            <div class="text-muted small">Total Units</div>
                             <div class="fw-bold fs-4 text-white" id="total-units">—</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="text-muted small">Invoice Total</div>
+                            <div class="fw-bold fs-4 text-success" id="total-cost">—</div>
                         </div>
                     </div>
                 </div>
@@ -108,19 +122,36 @@
 </div>
 
 <script>
-function updateTotalUnits() {
-    let total = 0;
-    document.querySelectorAll('.reorder-qty').forEach(function(input) {
-        const val = parseInt(input.value) || 0;
-        if (val > 0) total += val;
+function updateSummary() {
+    let totalUnits = 0;
+    let totalCost = 0;
+
+    document.querySelectorAll('.reorder-qty').forEach(function(qtyInput) {
+        const id = qtyInput.dataset.productId;
+        const priceInput = document.querySelector(`.reorder-price[data-product-id="${id}"]`);
+        const qty = parseInt(qtyInput.value) || 0;
+        const price = parseFloat(priceInput ? priceInput.value : 0) || 0;
+        const lineTotal = qty * price;
+
+        // Update line total cell
+        const cell = document.getElementById('total_' + id);
+        if (cell) {
+            cell.textContent = qty > 0 ? '₦' + lineTotal.toLocaleString('en-NG', {minimumFractionDigits: 2}) : '—';
+        }
+
+        totalUnits += qty;
+        totalCost += lineTotal;
     });
-    document.getElementById('total-units').textContent = total;
+
+    document.getElementById('total-units').textContent = totalUnits > 0 ? totalUnits : '—';
+    document.getElementById('total-cost').textContent = totalCost > 0
+        ? '₦' + totalCost.toLocaleString('en-NG', {minimumFractionDigits: 2}) : '—';
 }
 
-document.querySelectorAll('.reorder-qty').forEach(function(input) {
-    input.addEventListener('input', updateTotalUnits);
+document.querySelectorAll('.reorder-qty, .reorder-price').forEach(function(input) {
+    input.addEventListener('input', updateSummary);
 });
-updateTotalUnits();
+updateSummary();
 
 function cancelAndClear(e) {
     e.preventDefault();

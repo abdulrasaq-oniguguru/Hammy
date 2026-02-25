@@ -1,0 +1,381 @@
+/*
+ * style.css – Responsive adaptive layout for WEARHOUSE POS
+ *
+ * Target screens (all landscape-primary):
+ *   xxl  ≥ 1400px  – AIO PCs (1920×1080, 2560×1440)
+ *   xl   ≥ 1200px  – Standard desktops / laptops (1366×768)
+ *   lg   ≥ 992px   – POS touchscreen (1280×800, 1024×768)
+ *   md   768–991px – Small POS / tablets (1024×600 in compact mode)
+ *   sm   < 768px   – Very small / stacked
+ *
+ * Philosophy: no fixed pixel widths on layout containers – everything
+ * scales via max-width + fluid units so the OS zoom never needs adjusting.
+ */
+
+/* =========================================================
+   1. BASE FLUID FOUNDATIONS
+   ========================================================= */
+
+html {
+    /* Fluid root font: 14px on small POS, 16px on desktop, 17px on large AIO */
+    font-size: clamp(13px, 1.1vw, 17px);
+    -webkit-text-size-adjust: 100%;
+}
+
+/* Prevent any element from overflowing its container horizontally */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    max-width: 100%;   /* nothing exceeds its parent width */
+}
+
+/* Images & media always fluid */
+img, video, iframe, embed, object {
+    max-width: 100%;
+    height: auto;
+}
+
+/* =========================================================
+   2. NAVBAR – compact on smaller screens, touch-friendly
+   ========================================================= */
+
+/* Collapse nav at md (≤991px) instead of waiting for xs */
+@media (max-width: 991.98px) {
+    .navbar-expand-lg .navbar-toggler {
+        display: flex;
+    }
+    .navbar-expand-lg .navbar-collapse {
+        flex-basis: 100%;
+    }
+}
+
+/* Tight navbar on mid-size POS screens (1024px–1280px height-constrained) */
+@media (max-width: 1280px) {
+    .navbar {
+        padding: 0.4rem 0;
+    }
+    .navbar-nav .nav-link {
+        padding: 0.35rem 0.6rem;
+        font-size: 0.88rem;
+    }
+    .navbar-brand {
+        font-size: 1.2rem;
+    }
+}
+
+/* Very compact on small screens */
+@media (max-width: 767.98px) {
+    .navbar {
+        padding: 0.3rem 0;
+    }
+    .navbar-brand {
+        font-size: 1.05rem;
+    }
+    .theme-toggle {
+        padding: 0.35rem 0.7rem;
+        font-size: 0.95rem;
+    }
+    /* Give collapsed nav items bigger touch targets */
+    .navbar-nav .nav-link {
+        padding: 0.6rem 1rem;
+        font-size: 0.9rem;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+    }
+}
+
+/* =========================================================
+   3. CONTENT WRAPPER – adaptive padding
+   ========================================================= */
+
+.content-wrapper {
+    padding: clamp(0.75rem, 2vw, 2rem);
+    margin-top: clamp(0.5rem, 1.5vw, 2rem);
+    border-radius: clamp(8px, 1vw, 16px);
+}
+
+/* =========================================================
+   4. FLUID CONTAINERS – override any fixed-width containers
+   ========================================================= */
+
+/* All containers become fluid and max out at their breakpoint */
+.container {
+    width: 100%;
+}
+
+/* Inline fixed-width panels (sidebars, filter panels, etc.) */
+[style*="width: 280px"],
+[style*="width: 300px"],
+[style*="width: 320px"],
+[style*="width:280px"],
+[style*="width:300px"],
+[style*="width:320px"] {
+    width: min(300px, 100%) !important;
+}
+
+/* Fixed max-width wrappers that are too wide for smaller POS screens */
+@media (max-width: 1199.98px) {
+    [style*="max-width: 1600px"],
+    [style*="max-width: 1400px"],
+    [style*="max-width:1600px"],
+    [style*="max-width:1400px"] {
+        max-width: 100% !important;
+    }
+}
+
+@media (max-width: 991.98px) {
+    [style*="max-width: 1200px"],
+    [style*="max-width: 1000px"],
+    [style*="max-width:1200px"],
+    [style*="max-width:1000px"] {
+        max-width: 100% !important;
+    }
+}
+
+/* =========================================================
+   5. TABLES – always scrollable, never overflow viewport
+   ========================================================= */
+
+/* Any plain <table> that isn't already wrapped gets scroll behaviour */
+.table-responsive-auto {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Auto-wrap bare tables in templates that forgot table-responsive */
+table:not(.table-fixed) {
+    width: 100%;
+    table-layout: auto;
+}
+
+@media (max-width: 991.98px) {
+    /* Make tables scroll on POS screens */
+    .table-wrap,
+    .content-wrapper > .table,
+    .card-body > .table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    /* Compact table cells */
+    .table th,
+    .table td {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.88rem;
+        white-space: nowrap;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .table th,
+    .table td {
+        padding: 0.3rem 0.45rem;
+        font-size: 0.82rem;
+    }
+}
+
+/* =========================================================
+   6. FORMS & INPUTS – touch-friendly minimum sizes
+   ========================================================= */
+
+.form-control,
+.form-select,
+.btn {
+    min-height: 38px;   /* always tappable */
+}
+
+@media (max-width: 1199.98px) {
+    /* Larger touch targets on POS screens */
+    .form-control,
+    .form-select {
+        min-height: 42px;
+        font-size: 0.95rem;
+    }
+    .btn {
+        min-height: 42px;
+        padding: 0.45rem 0.9rem;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .form-control,
+    .form-select {
+        min-height: 44px;   /* WCAG touch target */
+        font-size: 1rem;
+    }
+    .btn {
+        min-height: 44px;
+    }
+}
+
+/* =========================================================
+   7. CARDS – fluid, never fixed-width in grids
+   ========================================================= */
+
+.card {
+    width: 100%;
+}
+
+/* Prevent card hover transform from causing scroll on small screens */
+@media (max-width: 991.98px) {
+    .card:hover {
+        transform: none;
+    }
+}
+
+/* =========================================================
+   8. GRID / ROW GUTTERS – reduce on small screens
+   ========================================================= */
+
+@media (max-width: 767.98px) {
+    .row {
+        --bs-gutter-x: 0.75rem;
+    }
+}
+
+/* =========================================================
+   9. TYPOGRAPHY – fluid scale
+   ========================================================= */
+
+h1 { font-size: clamp(1.4rem, 2.5vw, 2.2rem); }
+h2 { font-size: clamp(1.2rem, 2vw,   1.8rem); }
+h3 { font-size: clamp(1.1rem, 1.7vw, 1.5rem); }
+h4 { font-size: clamp(1rem,   1.4vw, 1.25rem); }
+h5 { font-size: clamp(0.95rem, 1.2vw, 1.1rem); }
+h6 { font-size: clamp(0.88rem, 1vw,   1rem); }
+
+/* =========================================================
+   10. MODALS – fit within small POS screens
+   ========================================================= */
+
+@media (max-width: 991.98px) {
+    .modal-dialog {
+        margin: 0.5rem auto;
+        max-width: min(600px, calc(100vw - 1rem));
+    }
+    .modal-body {
+        padding: 0.75rem 1rem;
+    }
+}
+
+@media (max-width: 767.98px) {
+    /* Full-width modals on very small screens */
+    .modal-dialog {
+        margin: 0.25rem;
+        max-width: calc(100vw - 0.5rem);
+    }
+    .modal-header,
+    .modal-footer {
+        padding: 0.6rem 0.75rem;
+    }
+}
+
+/* =========================================================
+   11. BACK BUTTON – size with screen
+   ========================================================= */
+
+@media (max-width: 991.98px) {
+    .back-button {
+        bottom: 1.25rem;
+        right: 1.25rem;
+        padding: 0.6rem 1.25rem;
+        font-size: 0.9rem;
+    }
+}
+
+/* =========================================================
+   12. PAGINATION – wrap on small screens
+   ========================================================= */
+
+.pagination {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+@media (max-width: 767.98px) {
+    .pagination .page-link {
+        padding: 0.35rem 0.6rem;
+        font-size: 0.85rem;
+        min-width: 36px;
+        min-height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+}
+
+/* =========================================================
+   13. PRINT STYLES – never show nav/buttons when printing
+   ========================================================= */
+
+@media print {
+    .navbar,
+    .back-button,
+    footer,
+    .btn:not(.btn-print),
+    .no-print {
+        display: none !important;
+    }
+    .content-wrapper {
+        box-shadow: none;
+        border: none;
+        padding: 0;
+        margin: 0;
+    }
+    body {
+        background: white;
+        color: black;
+    }
+}
+
+/* =========================================================
+   14. SCROLLBAR – thinner on smaller screens to save space
+   ========================================================= */
+
+@media (max-width: 991.98px) {
+    ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+}
+
+/* =========================================================
+   15. UTILITY HELPERS (available to all templates)
+   ========================================================= */
+
+/* Force any element to scroll horizontally rather than overflow */
+.scroll-x {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Stack flex children vertically on small POS screens */
+@media (max-width: 991.98px) {
+    .pos-stack {
+        flex-direction: column !important;
+    }
+    .pos-full {
+        width: 100% !important;
+        max-width: 100% !important;
+        flex: 0 0 100% !important;
+    }
+}
+
+/* Compact spacing helper for dense POS layouts */
+.pos-compact {
+    padding: clamp(0.4rem, 1vw, 1rem) !important;
+}
+
+/* Touch-friendly action button row */
+.action-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.action-row .btn {
+    flex-shrink: 0;
+}

@@ -5,19 +5,19 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{% block title %}SBC Fashion House{% endblock %}</title>
 
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Local Fonts (Inter) -->
+    <link rel="stylesheet" href="{% static 'css/fonts.css' %}">
 
-    <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- Bootstrap Icons (local) -->
+    <link rel="stylesheet" href="{% static 'css/bootstrap-icons.min.css' %}">
 
     <!-- Lux Bootstrap CSS -->
     <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
 
-    <!-- Additional CSS -->
+    <!-- Responsive / adaptive layout -->
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
 
     <!-- CSRF Token -->
@@ -491,22 +491,7 @@
             border: 1px solid var(--border-color);
         }
 
-        /* Responsive Adjustments */
-        @media (max-width: 768px) {
-            .content-wrapper {
-                padding: 1.5rem;
-                margin-top: 1rem;
-            }
-
-            .navbar-brand {
-                font-size: 1.2rem;
-            }
-
-            .theme-toggle {
-                padding: 0.4rem 0.8rem;
-                font-size: 1rem;
-            }
-        }
+        /* Responsive Adjustments – handled by style.css */
 
         /* Smooth scrolling */
         html {
@@ -627,7 +612,7 @@
     {% endblock %}
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg">
+    <nav class="navbar navbar-expand-xl">
         <div class="container-fluid">
             <a class="navbar-brand" href="{% url 'homepage' %}">
                 <i class="bi bi-shop-window me-2"></i>WEARHOUSE
@@ -637,10 +622,25 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'product_list' %}">
-                            <i class="bi bi-box me-1"></i>Products
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="inventoryDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-box me-1"></i>Inventory
                         </a>
+                        <ul class="dropdown-menu" aria-labelledby="inventoryDropdown">
+                            <li><a class="dropdown-item" href="{% url 'product_list' %}">
+                                <i class="bi bi-list-ul me-2"></i>Products
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'add_product' %}">
+                                <i class="bi bi-plus-circle me-2"></i>Add Product
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'reorder_page' %}">
+                                <i class="bi bi-arrow-repeat me-2"></i>Reorder Stock
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'inventory_report' %}">
+                                <i class="bi bi-graph-up me-2"></i>Inventory Report
+                            </a></li>
+                        </ul>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'sell_product' %}">
@@ -677,6 +677,9 @@
                             </a></li>
                             <li><a class="dropdown-item" href="{% url 'gift_report' %}">
                                 <i class="bi bi-gift me-2"></i>Gift Report
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'inventory_report' %}">
+                                <i class="bi bi-graph-up me-2"></i>Inventory Report
                             </a></li>
                         </ul>
                     </li>

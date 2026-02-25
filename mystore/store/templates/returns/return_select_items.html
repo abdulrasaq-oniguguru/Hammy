@@ -152,7 +152,10 @@
                             </thead>
                             <tbody>
                                 {% for sale in sales %}
-                                <tr class="item-row" data-price="{{ sale.product.selling_price }}" data-sale-id="{{ sale.id }}">
+                                <tr class="item-row"
+                                    data-price="{% if sale.is_gift %}0{% else %}{{ sale.product.selling_price }}{% endif %}"
+                                    data-is-gift="{% if sale.is_gift %}true{% else %}false{% endif %}"
+                                    data-sale-id="{{ sale.id }}">
                                     <td>
                                         {% if sale.has_returnable %}
                                         <input type="checkbox" class="form-check-input item-checkbox" name="selected_items" value="{{ sale.id }}">
@@ -161,7 +164,8 @@
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <strong>{{ sale.product.brand }}</strong><br>
+                                        <strong>{{ sale.product.brand }}</strong>
+                                        {% if sale.is_gift %}<span class="badge bg-warning text-dark ms-1"><i class="bi bi-gift-fill"></i> GIFT</span>{% endif %}<br>
                                         <small class="text-muted">
                                             Size: {{ sale.product.size }} | Color: {{ sale.product.color }}
                                         </small>
@@ -182,7 +186,14 @@
                                         <span class="badge bg-secondary">All Returned</span>
                                         {% endif %}
                                     </td>
-                                    <td>₦{{ sale.product.selling_price|floatformat:2 }}</td>
+                                    <td>
+                                        {% if sale.is_gift %}
+                                            <span class="text-success fw-bold">₦0.00</span><br>
+                                            <small class="text-muted">Gifted item</small>
+                                        {% else %}
+                                            ₦{{ sale.product.selling_price|floatformat:2 }}
+                                        {% endif %}
+                                    </td>
                                     <td>
                                         <input type="number" class="form-control" name="new_price_{{ sale.id }}"
                                                step="0.01" min="0" placeholder="Optional" style="width: 100px;" {% if not sale.has_returnable %}disabled{% endif %}>
@@ -285,21 +296,28 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateRefundCalculation() {
         let total = 0;
         let itemCount = 0;
+        let hasGiftItems = false;
 
         checkboxes.forEach(checkbox => {
             if (checkbox.checked) {
                 const row = checkbox.closest('.item-row');
-                const price = parseFloat(row.dataset.price);
+                const isGift = row.dataset.isGift === 'true';
+                const price = isGift ? 0 : parseFloat(row.dataset.price);
                 const qtyInput = row.querySelector('.return-qty');
                 const qty = parseInt(qtyInput.value) || 0;
 
                 total += price * qty;
                 itemCount++;
-                console.log('Item selected - Price:', price, 'Qty:', qty, 'Subtotal:', price * qty);
+                if (isGift) hasGiftItems = true;
             }
         });
 
         refundTotalEl.textContent = '₦' + total.toFixed(2);
+        if (hasGiftItems && total === 0) {
+            refundTotalEl.textContent = '₦0.00 (Gift — no refund)';
+        } else if (hasGiftItems) {
+            refundTotalEl.textContent = '₦' + total.toFixed(2) + ' (gift items = ₦0)';
+        }
         itemCountEl.textContent = itemCount;
 
         // Enable submit button if at least one item selected

@@ -1329,8 +1329,13 @@
             function updateFormIndices() {
                 $('#form-body .product-row').each(function(index) {
                     $(this).find('select, input').each(function() {
-                        const name = $(this).attr('name').replace(/form-\d+/, `form-${index}`);
-                        $(this).attr('name', name);
+                        const name = $(this).attr('name');
+                        if (name) $(this).attr('name', name.replace(/form-\d+/, `form-${index}`));
+                    });
+                    // Also rename gift fields in the sibling gift-options-row
+                    $(this).next('.gift-options-row').find('input, textarea').each(function() {
+                        const name = $(this).attr('name');
+                        if (name) $(this).attr('name', name.replace(/_\d+$/, `_${index}`));
                     });
                 });
                 $('#id_form-TOTAL_FORMS').val($('#form-body .product-row').length);
@@ -1662,11 +1667,13 @@
             // Remove product with event delegation
             $(document).on('click', '.remove-product', function() {
                 const row = $(this).closest('.product-row');
+                const giftRow = row.next('.gift-options-row');
                 const productSelect = row.find('.product-select');
                 const selectedOption = productSelect.find('option:selected');
                 if ($('#form-body .product-row').length > 1) {
                     const productName = selectedOption.text().split(' - ')[0] || 'Product';
                     row.fadeOut(300, function() {
+                        giftRow.remove();
                         $(this).remove();
                         updateFormIndices();
                         updateTotalAmount();
@@ -1769,13 +1776,42 @@
                             <div class="total-display">${CURRENCY_SYMBOL}<span class="item-total">0.00</span></div>
                         </td>
                         <td class="action-container">
+                            {% if user.is_superuser %}
+                            <button type="button" class="btn btn-warning btn-sm toggle-gift-option" title="Mark as Gift (Admin Only)">
+                                <i class="fas fa-gift"></i>
+                            </button>
+                            {% endif %}
                             <button type="button" class="btn btn-danger btn-sm remove-product">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </td>
                     </tr>
                 `);
+                {% if user.is_superuser %}
+                const newGiftRow = $(`
+                    <tr class="gift-options-row" style="display:none;">
+                        <td colspan="6" class="bg-light">
+                            <div class="p-3 border border-warning rounded">
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input is-gift-checkbox" type="checkbox" name="is_gift_${formCount}" value="true">
+                                    <label class="form-check-label text-danger fw-bold">
+                                        <i class="fas fa-gift me-1"></i> GIFT THIS ITEM (₦0 - Admin Only)
+                                    </label>
+                                </div>
+                                <div class="gift-reason-container" style="display:none;">
+                                    <label class="form-label">Gift Reason<span class="text-danger">*</span></label>
+                                    <textarea class="form-control gift-reason-input" name="gift_reason_${formCount}" rows="2" placeholder="Enter reason for gifting this item..."></textarea>
+                                    <input type="hidden" class="original-price-hidden" name="original_price_${formCount}" value="0">
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                `);
+                {% endif %}
                 $('#form-body').append(newRow);
+                {% if user.is_superuser %}
+                newRow.after(newGiftRow);
+                {% endif %}
                 newRow.fadeIn(300);
                 // Initialize Select2 for the new row
                 const newSelect = newRow.find('.product-select');
