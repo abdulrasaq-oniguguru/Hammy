@@ -29,17 +29,28 @@ MANIFEST
 # =====================================
 *.log
 local_settings.py
+settings.py
 db.sqlite3
 db.sqlite3-journal
 /media/
-/static_root/
-/staticfiles/
+# /static_root/ — tracked locally, include in repo
+# /staticfiles/ — tracked locally, include in repo
 
 # Barcode images (generated locally, should not be in git)
 mystore/barcodes/
 mystore/media/barcodes/
 **/barcodes/*.png
 **/barcodes/*.jpg
+**/barcodes/*.svg
+# But keep .gitkeep placeholders so folder structure is preserved
+!**/.gitkeep
+
+# =====================================
+# MIGRATIONS (each system runs makemigrations locally)
+# =====================================
+# Exclude numbered migration files — keep __init__.py
+**/migrations/0*.py
+**/migrations/00*.py
 
 # =====================================
 # ENVIRONMENT & SECRETS
@@ -219,13 +230,15 @@ export_metadata.json
 # =====================================
 # LOCAL-ONLY DIRECTORIES
 # =====================================
-minimal_api/
+# minimal_api/ — include in repo
 .venv/
 
 # =====================================
 # MEDIA FILES (user-uploaded, managed on server)
 # =====================================
-mystore/media/
+mystore/media/**
+!mystore/media/**/
+!mystore/media/**/.gitkeep
 
 # =====================================
 # MYSTORE DEV SYNC SCRIPTS (local only)
