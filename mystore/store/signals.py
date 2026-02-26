@@ -39,6 +39,13 @@ def invalidate_product_related_cache(sender, instance, **kwargs):
         pass
 
 
+@receiver([post_save, post_delete], sender='store.WarehouseInventory')
+def invalidate_warehouse_stats_cache(sender, instance, **kwargs):
+    # WarehouseInventory changes must also bust the product_stats cache
+    # so the warehouse quantity/value figures on the product list stay accurate.
+    cache.delete('product_stats')
+
+
 # =====================================
 # LOYALTY PROGRAM SIGNALS
 # =====================================

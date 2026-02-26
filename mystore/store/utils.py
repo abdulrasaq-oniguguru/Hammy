@@ -1,7 +1,7 @@
 from django.core.cache import cache
-from django.db import models  # ← ✅ ADD THIS — needed for F and Sum
+from django.db import models
 from .choices import ProductChoices
-from .models import Product
+from .models import Product, WarehouseInventory
 
 def flatten_choices_completely(choices):
     """Completely flatten nested choice structures to simple (value, label) tuples"""
@@ -55,18 +55,49 @@ def get_cached_choices(choice_type):
 def get_product_stats():
     stats = cache.get('product_stats')
     if stats is None:
-        products = Product.objects.filter(quantity__gt=0)
-        total_items = products.count()
-        total_quantity = products.aggregate(total_qty=models.Sum('quantity'))['total_qty'] or 0
-        total_inventory_value = products.aggregate(
-            total_value=models.Sum(models.F('price') * models.F('quantity'))
-        )['total_value'] or 0.0
+        # Shop floor: Product table, qty > 0 only
+        store_qs = Product.objects.filter(quantity__gt=0)
+        # Warehouse: entirely separate WarehouseInventory table, qty > 0 only
+        # (Product records are deleted when fully transferred to warehouse,
+        #  so Product.filter(shop='WAREHOUSE') is always empty — never use it)
+        warehouse_qs = WarehouseInventory.objects.filter(quantity__gt=0)
+
+        # Total item types: deduplicate across both tables.
+        # A partial transfer leaves a Product row (remaining floor qty) AND a
+        # WarehouseInventory row (warehouse qty) for the same product type at
+        # the same time.  Simple addition would count it twice.
+        # Fix: collect distinct (brand, category, size, color, design, location)
+        # tuples from each table, then take the Python set union — duplicates
+        # are eliminated automatically before counting.
+        _FIELDS = ('brand', 'category', 'size', 'color', 'design', 'location')
+        store_types = set(store_qs.values_list(*_FIELDS).distinct())
+        warehouse_types = set(warehouse_qs.values_list(*_FIELDS).distinct())
+        total_items = len(store_types | warehouse_types)
+
+        store_agg = store_qs.aggregate(
+            qty=models.Sum('quantity'),
+            value=models.Sum(models.F('price') * models.F('quantity')),
+        )
+        warehouse_agg = warehouse_qs.aggregate(
+            qty=models.Sum('quantity'),
+            value=models.Sum(models.F('price') * models.F('quantity')),
+        )
+
+        store_quantity = store_agg['qty'] or 0
+        warehouse_quantity = warehouse_agg['qty'] or 0
+        store_value = store_agg['value'] or 0
+        warehouse_value = warehouse_agg['value'] or 0
+
         stats = {
             'total_items': total_items,
-            'total_quantity': total_quantity,
-            'total_inventory_value': total_inventory_value,
+            'total_quantity': store_quantity + warehouse_quantity,
+            'store_quantity': store_quantity,
+            'warehouse_quantity': warehouse_quantity,
+            'total_inventory_value': store_value + warehouse_value,
+            'store_inventory_value': store_value,
+            'warehouse_inventory_value': warehouse_value,
         }
-        cache.set('product_stats', stats, 300)  # Cache 5 minutes
+        cache.set('product_stats', stats, 60)  # Cache 1 minute for accuracy
     return stats
 
 

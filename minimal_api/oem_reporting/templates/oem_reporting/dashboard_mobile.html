@@ -1,0 +1,318 @@
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            padding-bottom: 60px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 15px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+
+        .header .date {
+            font-size: 13px;
+            opacity: 0.9;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            padding: 15px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .stat-card.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .stat-value.success {
+            color: #10b981;
+        }
+
+        .stat-value.warning {
+            color: #f59e0b;
+        }
+
+        .stat-value.danger {
+            color: #ef4444;
+        }
+
+        .stat-sub {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        .quick-actions {
+            padding: 0 15px 15px;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #333;
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .action-btn {
+            background: white;
+            border: none;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            text-decoration: none;
+            color: #333;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            transition: transform 0.2s;
+        }
+
+        .action-btn:active {
+            transform: scale(0.97);
+        }
+
+        .action-btn .icon {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .action-btn .label {
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .alerts-section {
+            padding: 0 15px 15px;
+        }
+
+        .alert-item {
+            background: white;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-left: 4px solid #ef4444;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .alert-item.warning {
+            border-left-color: #f59e0b;
+        }
+
+        .alert-item.critical {
+            border-left-color: #dc2626;
+        }
+
+        .alert-title {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .alert-detail {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: #9ca3af;
+            font-size: 11px;
+            padding: 5px 10px;
+            transition: color 0.2s;
+        }
+
+        .nav-item.active {
+            color: #667eea;
+        }
+
+        .nav-item .icon {
+            font-size: 22px;
+            margin-bottom: 4px;
+        }
+
+        @media (min-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(4, 1fr);
+                max-width: 1200px;
+                margin: 0 auto;
+            }
+
+            .action-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+
+            .quick-actions, .alerts-section {
+                max-width: 1200px;
+                margin: 0 auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Business Dashboard</h1>
+        <div class="date">{{ today|date:"l, F j, Y" }}</div>
+    </div>
+
+    {% if error %}
+    <div style="padding: 20px; background: #fee; margin: 15px; border-radius: 8px; border-left: 4px solid #dc2626;">
+        <div style="font-weight: 600; color: #dc2626; margin-bottom: 8px;">Error Loading Dashboard</div>
+        <div style="font-size: 14px; color: #666;">{{ error_message }}</div>
+        <div style="margin-top: 12px; font-size: 13px;">
+            <a href="{% url 'oem_reporting:dashboard' %}" style="color: #667eea;">Try Again</a>
+        </div>
+    </div>
+    {% else %}
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Today's Sales</div>
+            <div class="stat-value success">{{ currency_symbol }}{{ daily_sales|default:0|floatformat:0|intcomma }}</div>
+            <div class="stat-sub">{{ daily_count|default:0 }} transactions</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-label">This Week</div>
+            <div class="stat-value">{{ currency_symbol }}{{ weekly_sales|default:0|floatformat:0|intcomma }}</div>
+            <div class="stat-sub">{{ weekly_count|default:0 }} transactions</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-label">Total Sales</div>
+            <div class="stat-value">{{ currency_symbol }}{{ total_sales|default:0|floatformat:0|intcomma }}</div>
+            <div class="stat-sub">{{ total_count|default:0 }} all time</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-label">Products</div>
+            <div class="stat-value">{{ total_products|default:0|intcomma }}</div>
+            <div class="stat-sub">In stock</div>
+        </div>
+    </div>
+
+    <div class="quick-actions">
+        <h2 class="section-title">Quick Reports</h2>
+        <div class="action-grid">
+            <a href="{% url 'oem_reporting:sales_report' %}" class="action-btn">
+                <div class="icon">💰</div>
+                <div class="label">Sales</div>
+            </a>
+            <a href="{% url 'oem_reporting:inventory_report' %}" class="action-btn">
+                <div class="icon">📦</div>
+                <div class="label">Inventory</div>
+            </a>
+            <a href="{% url 'oem_reporting:financial_report' %}" class="action-btn">
+                <div class="icon">💳</div>
+                <div class="label">Financial</div>
+            </a>
+            <a href="{% url 'oem_reporting:reports_menu' %}" class="action-btn">
+                <div class="icon">📊</div>
+                <div class="label">All Reports</div>
+            </a>
+        </div>
+    </div>
+
+    {% if low_stock_items %}
+    <div class="alerts-section">
+        <h2 class="section-title">Critical Stock Alerts</h2>
+        {% for item in low_stock_items %}
+        <div class="alert-item {% if item.quantity < 3 %}critical{% elif item.quantity < 5 %}danger{% else %}warning{% endif %}">
+            <div class="alert-title">{{ item.brand }} - {{ item.size }}</div>
+            <div class="alert-detail">
+                Only {{ item.quantity }} left in {{ item.location }}
+                {% if item.color %} • {{ item.color }}{% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% endif %}
+
+    <div class="bottom-nav">
+        <a href="{% url 'oem_reporting:dashboard' %}" class="nav-item active">
+            <div class="icon">🏠</div>
+            <div>Home</div>
+        </a>
+        <a href="{% url 'oem_reporting:sales_report' %}" class="nav-item">
+            <div class="icon">💰</div>
+            <div>Sales</div>
+        </a>
+        <a href="{% url 'oem_reporting:inventory_report' %}" class="nav-item">
+            <div class="icon">📦</div>
+            <div>Inventory</div>
+        </a>
+        <a href="{% url 'oem_reporting:financial_report' %}" class="nav-item">
+            <div class="icon">💳</div>
+            <div>Financial</div>
+        </a>
+    </div>
+</body>
+</html>

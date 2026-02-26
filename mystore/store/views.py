@@ -657,7 +657,11 @@ def product_list(request):
     stats = get_product_stats()
     total_items = stats['total_items']
     total_quantity = stats['total_quantity']
+    store_quantity = stats['store_quantity']
+    warehouse_quantity = stats['warehouse_quantity']
     total_inventory_value = stats['total_inventory_value']
+    store_inventory_value = stats['store_inventory_value']
+    warehouse_inventory_value = stats['warehouse_inventory_value']
 
     # Pagination
     page = request.GET.get('page', 1)
@@ -691,7 +695,11 @@ def product_list(request):
         'category_choices': category_choices,
         'total_items': total_items,
         'total_quantity': total_quantity,
+        'store_quantity': store_quantity,
+        'warehouse_quantity': warehouse_quantity,
         'total_inventory_value': total_inventory_value,
+        'store_inventory_value': store_inventory_value,
+        'warehouse_inventory_value': warehouse_inventory_value,
         'shop_choices': shop_choices,
         'has_filters': has_filters,
         'COLOR_CHOICES': color_choices,
