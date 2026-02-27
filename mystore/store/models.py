@@ -12,6 +12,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from .choices import ProductChoices
+from . import services
 import logging
 
 logger = logging.getLogger(__name__)
@@ -990,16 +991,16 @@ class Payment(models.Model):
         self.total_paid = self.payment_methods.filter(status='completed').aggregate(
             total=Sum('amount')
         )['total'] or Decimal('0')
-        self.balance_due = self.total_amount - self.total_paid
 
-        if self.total_paid >= self.total_amount:
-            self.payment_status = 'completed'
-            self.completed_date = timezone.now()
-            self.balance_due = Decimal('0')
-        elif self.total_paid > Decimal('0'):
-            self.payment_status = 'partial'
-        else:
-            self.payment_status = 'pending'
+        status, balance_due, completed_date = services.determine_payment_status(
+            self.total_amount, self.total_paid
+        )
+        self.payment_status = status
+        self.balance_due = balance_due
+        if completed_date is not None:
+            self.completed_date = timezone.make_aware(
+                timezone.datetime.combine(completed_date, timezone.datetime.min.time())
+            ) if hasattr(timezone, 'make_aware') else timezone.now()
 
     def get_payment_summary(self):
         """Get a summary of all payment methods used"""
@@ -1194,10 +1195,11 @@ class Sale(models.Model):
 
         # Clamp discount: stored discount_amount cannot exceed the line total
         item_total = self.product.selling_price * self.quantity
-        if self.discount_amount and self.discount_amount > item_total:
-            self.discount_amount = item_total
+        self.discount_amount = services.clamp_discount(self.discount_amount, item_total)
 
-        self.total_price = self.calculate_total()
+        self.total_price = services.calculate_sale_line_total(
+            self.product.selling_price, self.quantity, self.discount_amount
+        )
 
         with transaction.atomic():
             if self.receipt and not self.receipt.customer:
