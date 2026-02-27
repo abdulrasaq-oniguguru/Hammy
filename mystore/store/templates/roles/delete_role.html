@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Delete Role – {{ role.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4" style="max-width: 600px;">
+    <div class="card" style="border-radius:16px; border:1px solid var(--border-color); background:var(--card-bg); box-shadow:var(--shadow-sm); overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#dc3545,#c82333); padding:2rem; color:white; text-align:center;">
+            <i class="bi bi-exclamation-triangle-fill" style="font-size:2.5rem; display:block; margin-bottom:0.75rem;"></i>
+            <h3 style="font-weight:700; margin-bottom:0.3rem;">Delete Role</h3>
+            <p style="opacity:0.9; margin:0;">This action cannot be undone.</p>
+        </div>
+        <div style="padding:2rem;">
+            <p style="color:var(--text-primary); font-size:1rem;">
+                You are about to permanently delete the role <strong>{{ role.name }}</strong>.
+            </p>
+            {% if user_count %}
+            <div class="alert alert-warning" style="border-radius:10px;">
+                <i class="bi bi-people-fill me-1"></i>
+                <strong>{{ user_count }} user{{ user_count|pluralize }}</strong> currently assigned to this role will have it removed.
+                They will not be deleted.
+            </div>
+            {% endif %}
+            <form method="post" class="d-flex gap-3 mt-3">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger" style="border-radius:30px; padding:0.65rem 2rem; font-weight:600;">
+                    <i class="bi bi-trash me-1"></i> Yes, Delete
+                </button>
+                <a href="{% url 'list_roles' %}" class="btn btn-secondary" style="border-radius:30px; padding:0.65rem 1.5rem;">
+                    Cancel
+                </a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

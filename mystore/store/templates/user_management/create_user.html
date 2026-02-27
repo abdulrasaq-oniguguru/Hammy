@@ -180,6 +180,69 @@
         color: var(--accent-danger) !important;
     }
 
+    /* ── Admin toggle ── */
+    .admin-toggle-card {
+        border: 2px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        background: var(--card-bg);
+        transition: border-color 0.25s, background 0.25s;
+        margin-top: 0.25rem;
+    }
+    .admin-toggle-card.active {
+        border-color: #f6a623;
+        background: rgba(246, 166, 35, 0.06);
+    }
+    .admin-toggle-title {
+        font-weight: 700;
+        color: var(--text-primary);
+        font-size: 1rem;
+        margin-bottom: 2px;
+    }
+    .admin-toggle-desc {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+    }
+
+    /* Toggle switch */
+    .admin-switch {
+        position: relative;
+        display: inline-block;
+        width: 52px;
+        height: 28px;
+        flex-shrink: 0;
+        cursor: pointer;
+    }
+    .admin-switch input { opacity: 0; width: 0; height: 0; }
+    .admin-slider {
+        position: absolute;
+        inset: 0;
+        background: var(--border-color);
+        border-radius: 28px;
+        transition: background 0.25s;
+    }
+    .admin-slider::before {
+        content: '';
+        position: absolute;
+        width: 20px; height: 20px;
+        left: 4px; bottom: 4px;
+        background: white;
+        border-radius: 50%;
+        transition: transform 0.25s;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    }
+    .admin-switch input:checked + .admin-slider { background: #f6a623; }
+    .admin-switch input:checked + .admin-slider::before { transform: translateX(24px); }
+
+    .admin-active-msg {
+        background: rgba(246,166,35,0.1);
+        border: 1px solid rgba(246,166,35,0.4);
+        border-radius: 10px;
+        padding: 0.85rem 1.1rem;
+        color: #7a5000;
+        font-size: 0.9rem;
+    }
+
     @media (max-width: 576px) {
         .form-container {
             margin: 1rem;
@@ -201,7 +264,7 @@
         <nav aria-label="breadcrumb" class="mb-4">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item">
-                    <a href="{% url 'user_management_dashboard' %}">
+                    <a href="{% url 'user_menu' %}">
                         <i class="fas fa-users mr-1"></i> User Management
                     </a>
                 </li>
@@ -227,7 +290,7 @@
                     <div class="row g-3">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label for="{{ user_form.first_name.id_for_label }}" class="required-field">First Name</label>
+                                <label for="{{ user_form.first_name.id_for_label }}">First Name</label>
                                 {{ user_form.first_name }}
                                 {% if user_form.first_name.errors %}
                                     <div class="text-danger small mt-1">{{ user_form.first_name.errors.0 }}</div>
@@ -236,7 +299,7 @@
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label for="{{ user_form.last_name.id_for_label }}" class="required-field">Last Name</label>
+                                <label for="{{ user_form.last_name.id_for_label }}">Last Name</label>
                                 {{ user_form.last_name }}
                                 {% if user_form.last_name.errors %}
                                     <div class="text-danger small mt-1">{{ user_form.last_name.errors.0 }}</div>
@@ -248,7 +311,7 @@
                     <div class="row g-3">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label for="{{ user_form.email.id_for_label }}" class="required-field">Email Address</label>
+                                <label for="{{ user_form.email.id_for_label }}">Email Address</label>
                                 {{ user_form.email }}
                                 {% if user_form.email.errors %}
                                     <div class="text-danger small mt-1">{{ user_form.email.errors.0 }}</div>
@@ -271,38 +334,69 @@
                         <i class="fas fa-user-cog"></i> Account & Access
                     </h5>
 
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="{{ user_form.username.id_for_label }}" class="required-field">Username</label>
-                                {{ user_form.username }}
-                                {% if user_form.username.errors %}
-                                    <div class="text-danger small mt-1">{{ user_form.username.errors.0 }}</div>
-                                {% endif %}
-                                <small class="text-muted">Letters, digits, and @/./+/-/_ only.</small>
+                    <!-- Username -->
+                    <div class="form-group mb-3">
+                        <label for="{{ user_form.username.id_for_label }}" class="required-field">Username</label>
+                        {{ user_form.username }}
+                        {% if user_form.username.errors %}
+                            <div class="text-danger small mt-1">{{ user_form.username.errors.0 }}</div>
+                        {% endif %}
+                        <small class="text-muted">Letters, digits, and @/./+/-/_ only.</small>
+                    </div>
+
+                    <!-- Admin Toggle -->
+                    <div class="admin-toggle-card" id="adminToggleCard">
+                        <div class="d-flex align-items-center justify-content-between gap-3">
+                            <div>
+                                <div class="admin-toggle-title">
+                                    <i class="bi bi-shield-fill-check"></i> Admin User
+                                </div>
+                                <div class="admin-toggle-desc">
+                                    Grants full system access — bypasses all role restrictions.
+                                </div>
                             </div>
+                            <label class="admin-switch" title="Toggle admin access">
+                                <input type="checkbox" name="is_admin" id="isAdmin">
+                                <span class="admin-slider"></span>
+                            </label>
                         </div>
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="{{ user_form.access_level.id_for_label }}" class="required-field">Access Level</label>
-                                {{ user_form.access_level }}
-                                {% if user_form.access_level.errors %}
-                                    <div class="text-danger small mt-1">{{ user_form.access_level.errors.0 }}</div>
-                                {% endif %}
+                    </div>
+
+                    <!-- Role selector (hidden when admin is on) -->
+                    <div id="roleSection">
+                        <div class="form-group mt-3">
+                            <label for="role_id" class="required-field">Assign Role</label>
+                            <select name="role_id" id="role_id" class="form-control">
+                                <option value="">-- Select a Role --</option>
+                                {% for role in roles %}
+                                <option value="{{ role.id }}">{{ role.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">The user inherits all permissions from this role.</small>
+                        </div>
+                        <div class="access-info">
+                            <h6><i class="fas fa-info-circle"></i> About Roles</h6>
+                            <small>
+                                Roles define what a user can do in the system.
+                                <strong>MD</strong> roles grant full access.
+                                <strong>Accountant</strong> roles allow financial reports and inventory.
+                                <strong>Cashier</strong> roles allow sales processing only.
+                                Custom roles carry only the permissions you configured.
+                            </small>
+                            <div class="mt-2 pt-2" style="border-top: 1px dashed var(--border-color);">
+                                <small>
+                                    <i class="fas fa-shield-alt mr-1"></i>
+                                    Don't see the right role?
+                                    <a href="{% url 'create_role' %}" style="color:var(--accent-primary);">Create a new role</a> first.
+                                </small>
                             </div>
                         </div>
                     </div>
 
-                    <div class="access-info">
-                        <h6><i class="fas fa-info-circle"></i> Access Level & Group Assignment Guide</h6>
-                        <small>
-                            <strong>Managing Director:</strong> Full access including user management. <em>Assigned to "MD" group with staff privileges.</em><br>
-                            <strong>Accountant:</strong> Financial reports, inventory, and sales. <em>Assigned to "Accountant" group.</em><br>
-                            <strong>Cashier:</strong> Sales processing and receipt printing. <em>Assigned to "Cashier" group.</em>
-                        </small>
-                        <div class="mt-2 pt-2" style="border-top: 1px dashed var(--border-color);">
-                            <small><i class="fas fa-users-cog mr-1"></i> <strong>Note:</strong> Django groups are automatically assigned based on the selected access level.</small>
-                        </div>
+                    <!-- Admin full-access confirmation (shown when admin is on) -->
+                    <div id="adminMessage" style="display:none;" class="admin-active-msg mt-3">
+                        <i class="bi bi-shield-fill-check me-2"></i>
+                        <strong>Full Access Granted</strong> — this user will have unrestricted access to all areas of the system. No role required.
                     </div>
 
                     <!-- Password -->
@@ -348,7 +442,7 @@
                         <button type="submit" class="btn btn-primary btn-custom">
                             <i class="fas fa-plus mr-2"></i> Create User
                         </button>
-                        <a href="{% url 'user_management_dashboard' %}" class="btn btn-secondary btn-custom">
+                        <a href="{% url 'user_menu' %}" class="btn btn-secondary btn-custom">
                             <i class="fas fa-times mr-2"></i> Cancel
                         </a>
                     </div>
@@ -379,6 +473,28 @@
 {% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        // ── Admin toggle ──
+        const adminCheckbox  = document.getElementById('isAdmin');
+        const adminCard      = document.getElementById('adminToggleCard');
+        const roleSection    = document.getElementById('roleSection');
+        const adminMessage   = document.getElementById('adminMessage');
+        const roleSelect     = document.getElementById('role_id');
+
+        function applyAdminState() {
+            if (adminCheckbox.checked) {
+                adminCard.classList.add('active');
+                roleSection.style.display  = 'none';
+                adminMessage.style.display = 'block';
+                roleSelect.required = false;
+            } else {
+                adminCard.classList.remove('active');
+                roleSection.style.display  = 'block';
+                adminMessage.style.display = 'none';
+            }
+        }
+        adminCheckbox.addEventListener('change', applyAdminState);
+
+        // ── Password strength ──
         const passwordInput = document.getElementById('{{ user_form.password1.id_for_label }}');
         const strengthBar = document.getElementById('passwordStrength');
 

@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% block title %}Roles{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+        border-radius: 16px;
+        padding: 2rem 2.5rem;
+        margin-bottom: 2rem;
+        color: white;
+        box-shadow: var(--shadow-lg);
+    }
+    .page-header h1 { font-weight: 800; font-size: 2rem; margin-bottom: 0.3rem; }
+    .page-header p { opacity: 0.9; margin: 0; }
+
+    .role-table-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        box-shadow: var(--shadow-sm);
+        overflow: hidden;
+    }
+
+    .table { margin: 0; color: var(--text-primary); }
+    .table thead th {
+        background: rgba(102,126,234,0.08);
+        border-bottom: 2px solid var(--border-color);
+        font-weight: 700;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-secondary);
+        padding: 1rem 1.25rem;
+    }
+    .table tbody td { padding: 1rem 1.25rem; vertical-align: middle; border-color: var(--border-color); }
+    .table tbody tr:hover { background: rgba(102,126,234,0.04); }
+
+    .role-name {
+        font-weight: 600;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .role-badge {
+        background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+        color: white;
+        border-radius: 6px;
+        width: 32px; height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        font-weight: 700;
+        flex-shrink: 0;
+    }
+
+    .perm-pills { display: flex; flex-wrap: wrap; gap: 5px; }
+    .perm-pill {
+        background: rgba(102,126,234,0.1);
+        color: var(--accent-primary);
+        border-radius: 20px;
+        padding: 2px 10px;
+        font-size: 0.78rem;
+        font-weight: 500;
+    }
+    .perm-pill.delete-pill {
+        background: rgba(220,53,69,0.1);
+        color: #dc3545;
+    }
+    .no-perms { color: var(--text-muted); font-size: 0.88rem; font-style: italic; }
+
+    .user-count-badge {
+        background: rgba(40,167,69,0.1);
+        color: #28a745;
+        border-radius: 20px;
+        padding: 3px 10px;
+        font-size: 0.82rem;
+        font-weight: 600;
+    }
+
+    .system-tag {
+        background: rgba(255,193,7,0.15);
+        color: #856404;
+        border-radius: 20px;
+        padding: 2px 8px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .btn-action {
+        border-radius: 8px;
+        padding: 0.35rem 0.75rem;
+        font-size: 0.85rem;
+        font-weight: 500;
+        border: none;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        transition: all 0.2s;
+    }
+    .btn-edit   { background: rgba(102,126,234,0.12); color: var(--accent-primary); }
+    .btn-edit:hover   { background: var(--accent-primary); color: white; }
+    .btn-delete { background: rgba(220,53,69,0.1); color: #dc3545; }
+    .btn-delete:hover { background: #dc3545; color: white; }
+
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: var(--text-secondary);
+    }
+    .empty-state i { font-size: 3rem; opacity: 0.3; margin-bottom: 1rem; display: block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+    <!-- Header -->
+    <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <h1><i class="bi bi-shield-lock me-2"></i>Roles</h1>
+            <p>Define what each type of user can access and do in the system.</p>
+        </div>
+        <a href="{% url 'create_role' %}" class="btn btn-light fw-semibold">
+            <i class="bi bi-plus-circle me-1"></i> Create Role
+        </a>
+    </div>
+
+    <!-- Roles Table -->
+    <div class="role-table-card">
+        {% if roles %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Role Name</th>
+                        <th>Permissions</th>
+                        <th>Users</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for role in roles %}
+                    <tr>
+                        <td>
+                            <div class="role-name">
+                                <div class="role-badge">{{ role.name|first|upper }}</div>
+                                {{ role.name }}
+                                {% if role.name in "MD,Cashier,Accountant" %}
+                                    <span class="system-tag">System</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            {% with perm_count=role.permissions.count %}
+                            {% if perm_count %}
+                                <span class="perm-pill">{{ perm_count }} permission{{ perm_count|pluralize }}</span>
+                            {% else %}
+                                <span class="no-perms">No permissions assigned</span>
+                            {% endif %}
+                            {% endwith %}
+                        </td>
+                        <td>
+                            {% with uc=role.user_set.count %}
+                            <span class="user-count-badge">
+                                <i class="bi bi-people-fill"></i> {{ uc }} user{{ uc|pluralize }}
+                            </span>
+                            {% endwith %}
+                        </td>
+                        <td class="text-end">
+                            <div class="d-flex justify-content-end gap-2">
+                                <a href="{% url 'edit_role' role.id %}" class="btn-action btn-edit">
+                                    <i class="bi bi-pencil"></i> Edit
+                                </a>
+                                {% if role.name != "MD" and role.name != "Cashier" and role.name != "Accountant" %}
+                                <a href="{% url 'delete_role' role.id %}" class="btn-action btn-delete">
+                                    <i class="bi bi-trash"></i> Delete
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-shield-x"></i>
+            <h5>No roles yet</h5>
+            <p>Create your first role to start assigning permissions to users.</p>
+            <a href="{% url 'create_role' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-1"></i> Create First Role
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Back -->
+    <div class="mt-4">
+        <a href="{% url 'user_menu' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Back to User Management
+        </a>
+    </div>
+
+</div>
+{% endblock %}

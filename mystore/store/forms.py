@@ -9,19 +9,15 @@ import win32print
 
 
 class CustomUserCreationForm(UserCreationForm):
-    first_name = forms.CharField(max_length=30, required=True, widget=forms.TextInput(attrs={
+    first_name = forms.CharField(max_length=30, required=False, widget=forms.TextInput(attrs={
         'class': 'form-control', 'placeholder': 'Enter first name'
     }))
-    last_name = forms.CharField(max_length=30, required=True, widget=forms.TextInput(attrs={
+    last_name = forms.CharField(max_length=30, required=False, widget=forms.TextInput(attrs={
         'class': 'form-control', 'placeholder': 'Enter last name'
     }))
-    email = forms.EmailField(required=True, widget=forms.EmailInput(attrs={
+    email = forms.EmailField(required=False, widget=forms.EmailInput(attrs={
         'class': 'form-control', 'placeholder': 'Enter email address'
     }))
-    access_level = forms.ChoiceField(
-        choices=UserProfile.ACCESS_LEVEL_CHOICES,
-        widget=forms.Select(attrs={'class': 'form-control'})
-    )
     phone_number = forms.CharField(max_length=15, required=False, widget=forms.TextInput(attrs={
         'class': 'form-control', 'placeholder': 'Enter phone number'
     }))

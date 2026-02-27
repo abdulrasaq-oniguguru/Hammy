@@ -174,8 +174,8 @@
         <nav aria-label="breadcrumb" class="mb-4">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item">
-                    <a href="{% url 'user_management_dashboard' %}">
-                        <i class="fas fa-users mr-1"></i>User Management
+                    <a href="{% url 'list_users' %}">
+                        <i class="fas fa-users mr-1"></i>Users
                     </a>
                 </li>
                 <li class="breadcrumb-item active">Edit User</li>
@@ -327,17 +327,19 @@
 
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="{{ profile_form.access_level.id_for_label }}" class="required-field">
-                                        Access Level
-                                    </label>
-                                    {{ profile_form.access_level }}
-                                    {% if profile_form.access_level.errors %}
-                                        <div class="text-danger small mt-1">
-                                            {{ profile_form.access_level.errors.0 }}
-                                        </div>
-                                    {% endif %}
+                                    <label for="role_id">Assigned Role</label>
+                                    <select name="role_id" id="role_id" class="form-control">
+                                        <option value="">-- No Role --</option>
+                                        {% for role in all_roles %}
+                                        <option value="{{ role.id }}"
+                                            {% if current_role and current_role.id == role.id %}selected{% endif %}>
+                                            {{ role.name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
                                     <small class="form-text text-muted">
-                                        <i class="fas fa-users-cog mr-1"></i>Django groups are automatically synced with access level changes.
+                                        Changing the role updates permissions immediately.
+                                        <a href="{% url 'list_roles' %}" style="color:var(--accent-primary);">Manage roles</a>
                                     </small>
                                 </div>
                             </div>
@@ -405,7 +407,7 @@
                         <button type="submit" class="btn btn-success btn-custom mr-3">
                             <i class="fas fa-save mr-2"></i>Update User
                         </button>
-                        <a href="{% url 'user_management_dashboard' %}" class="btn btn-secondary btn-custom">
+                        <a href="{% url 'list_users' %}" class="btn btn-secondary btn-custom">
                             <i class="fas fa-times mr-2"></i>Cancel
                         </a>
 

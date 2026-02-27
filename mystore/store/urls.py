@@ -107,12 +107,19 @@ urlpatterns = [
 
     # User Management
     path('users/', views.user_management_dashboard, name='user_management_dashboard'),
+    path('users/list/', views.list_users, name='list_users'),
     path('users/create/', views.create_user, name='create_user'),
     path('users/edit/<int:user_id>/', views.edit_user, name='edit_user'),
     path('users/toggle-status/<int:user_id>/', views.toggle_user_status, name='toggle_user_status'),
     path('users/delete/<int:user_id>/', views.delete_user, name='delete_user'),
     path('profile/', views.user_profile_view, name='user_profile'),
     path('user-menu/', views.user_menu, name='user_menu'),
+
+    # Role Management
+    path('roles/', views.list_roles, name='list_roles'),
+    path('roles/create/', views.create_role, name='create_role'),
+    path('roles/<int:role_id>/edit/', views.edit_role, name='edit_role'),
+    path('roles/<int:role_id>/delete/', views.delete_role, name='delete_role'),
 
     # Tools & Utilities
     path('tools-menu/', views.tools_menu, name='tools_menu'),

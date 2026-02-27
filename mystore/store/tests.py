@@ -3067,3 +3067,655 @@ class ReportAggregationViewTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.context['total_value'], Decimal('0'))
         self.assertEqual(resp.context['potential_profit'], Decimal('0'))
+
+
+# ── Class 35: Service Layer Pure Unit Tests ─────────────────────────────────
+class ServiceLayerTests(TestCase):
+    """Pure unit tests for store/services.py — no DB required."""
+    databases = set()  # No DB access needed
+
+    def test_clamp_discount_clamped_when_above_item_total(self):
+        from store.services import clamp_discount
+        result = clamp_discount(Decimal('50.00'), Decimal('30.00'))
+        self.assertEqual(result, Decimal('30.00'))
+
+    def test_clamp_discount_unchanged_when_below_item_total(self):
+        from store.services import clamp_discount
+        result = clamp_discount(Decimal('10.00'), Decimal('30.00'))
+        self.assertEqual(result, Decimal('10.00'))
+
+    def test_clamp_discount_zero_when_none(self):
+        from store.services import clamp_discount
+        result = clamp_discount(None, Decimal('30.00'))
+        self.assertEqual(result, Decimal('0'))
+
+    def test_sale_line_total_no_discount(self):
+        from store.services import calculate_sale_line_total
+        result = calculate_sale_line_total(Decimal('10.00'), 3, None)
+        self.assertEqual(result, Decimal('30.00'))
+
+    def test_sale_line_total_with_discount(self):
+        from store.services import calculate_sale_line_total
+        result = calculate_sale_line_total(Decimal('10.00'), 3, Decimal('5.00'))
+        self.assertEqual(result, Decimal('25.00'))
+
+    def test_determine_status_completed_when_fully_paid(self):
+        from store.services import determine_payment_status
+        status, balance, completed_date = determine_payment_status(Decimal('100.00'), Decimal('100.00'))
+        self.assertEqual(status, 'completed')
+        self.assertEqual(balance, Decimal('0'))
+        self.assertIsNotNone(completed_date)
+
+    def test_determine_status_partial_when_partly_paid(self):
+        from store.services import determine_payment_status
+        status, balance, completed_date = determine_payment_status(Decimal('100.00'), Decimal('50.00'))
+        self.assertEqual(status, 'partial')
+        self.assertEqual(balance, Decimal('50.00'))
+        self.assertIsNone(completed_date)
+
+    def test_determine_status_pending_when_nothing_paid(self):
+        from store.services import determine_payment_status
+        status, balance, completed_date = determine_payment_status(Decimal('100.00'), Decimal('0'))
+        self.assertEqual(status, 'pending')
+        self.assertEqual(balance, Decimal('100.00'))
+        self.assertIsNone(completed_date)
+
+
+# ===========================================================================
+# 36. Role Permissions Utility Tests
+# ===========================================================================
+
+class RolePermissionsUtilityTests(TestCase):
+    """Unit tests for store/role_permissions.py helper functions."""
+
+    # ── access_level_for_role ──────────────────────────────────────────────
+
+    def test_access_level_md_variants(self):
+        from store.role_permissions import access_level_for_role
+        for name in ('MD', 'md', 'Managing Director', 'Manager'):
+            with self.subTest(name=name):
+                self.assertEqual(access_level_for_role(name), 'md')
+
+    def test_access_level_cashier(self):
+        from store.role_permissions import access_level_for_role
+        self.assertEqual(access_level_for_role('Cashier'), 'cashier')
+        self.assertEqual(access_level_for_role('cashier'), 'cashier')
+
+    def test_access_level_accountant(self):
+        from store.role_permissions import access_level_for_role
+        self.assertEqual(access_level_for_role('Accountant'), 'accountant')
+
+    def test_access_level_unknown_defaults_to_cashier(self):
+        from store.role_permissions import access_level_for_role
+        for name in ('Warehouse Staff', '', 'Random Role', '   '):
+            with self.subTest(name=name):
+                self.assertEqual(access_level_for_role(name), 'cashier')
+
+    # ── get_grouped_permissions ────────────────────────────────────────────
+
+    def test_get_grouped_permissions_returns_non_empty_list(self):
+        from store.role_permissions import get_grouped_permissions
+        groups = get_grouped_permissions()
+        self.assertIsInstance(groups, list)
+        self.assertGreater(len(groups), 0)
+
+    def test_each_group_has_all_required_keys(self):
+        from store.role_permissions import get_grouped_permissions
+        required = (
+            'display_name', 'category',
+            'view_key', 'view_label', 'view_perms',
+            'edit_key', 'edit_label', 'edit_perms',
+            'delete_key', 'delete_label', 'delete_perms',
+        )
+        for group in get_grouped_permissions():
+            for key in required:
+                with self.subTest(group=group['display_name'], key=key):
+                    self.assertIn(key, group)
+
+    def test_view_label_says_can_view_and_create(self):
+        from store.role_permissions import get_grouped_permissions
+        for group in get_grouped_permissions():
+            self.assertIn('Can View & Create', group['view_label'])
+
+    def test_edit_label_says_can_edit(self):
+        from store.role_permissions import get_grouped_permissions
+        for group in get_grouped_permissions():
+            self.assertIn('Can Edit', group['edit_label'])
+
+    def test_delete_label_says_can_delete(self):
+        from store.role_permissions import get_grouped_permissions
+        for group in get_grouped_permissions():
+            self.assertIn('Can Delete', group['delete_label'])
+
+    # ── get_permissions_from_post ──────────────────────────────────────────
+
+    def test_empty_post_returns_no_permissions(self):
+        from store.role_permissions import get_grouped_permissions, get_permissions_from_post
+        groups = get_grouped_permissions()
+        self.assertEqual(get_permissions_from_post({}, groups), [])
+
+    def test_view_key_in_post_selects_view_perms(self):
+        from store.role_permissions import get_grouped_permissions, get_permissions_from_post
+        groups = get_grouped_permissions()
+        first = next((g for g in groups if g['view_perms']), None)
+        if not first:
+            return
+        selected_ids = {p.id for p in get_permissions_from_post({first['view_key']: '1'}, groups)}
+        expected_ids = {p.id for p in first['view_perms']}
+        self.assertTrue(expected_ids.issubset(selected_ids))
+
+    def test_edit_key_in_post_selects_edit_perms(self):
+        from store.role_permissions import get_grouped_permissions, get_permissions_from_post
+        groups = get_grouped_permissions()
+        first = next((g for g in groups if g['edit_perms']), None)
+        if not first:
+            return
+        selected_ids = {p.id for p in get_permissions_from_post({first['edit_key']: '1'}, groups)}
+        expected_ids = {p.id for p in first['edit_perms']}
+        self.assertTrue(expected_ids.issubset(selected_ids))
+
+    def test_delete_key_in_post_selects_delete_perms(self):
+        from store.role_permissions import get_grouped_permissions, get_permissions_from_post
+        groups = get_grouped_permissions()
+        first = next((g for g in groups if g['delete_perms']), None)
+        if not first:
+            return
+        selected_ids = {p.id for p in get_permissions_from_post({first['delete_key']: '1'}, groups)}
+        expected_ids = {p.id for p in first['delete_perms']}
+        self.assertTrue(expected_ids.issubset(selected_ids))
+
+    def test_only_checked_keys_are_included(self):
+        from store.role_permissions import get_grouped_permissions, get_permissions_from_post
+        groups = get_grouped_permissions()
+        if len(groups) < 2:
+            return
+        first, second = groups[0], groups[1]
+        # Only post the first group's view key
+        post = {first['view_key']: '1'}
+        selected_ids = {p.id for p in get_permissions_from_post(post, groups)}
+        # Second group's perms should NOT be included
+        second_all_ids = (
+            {p.id for p in second['view_perms']} |
+            {p.id for p in second['edit_perms']} |
+            {p.id for p in second['delete_perms']}
+        )
+        self.assertFalse(second_all_ids & selected_ids)
+
+    # ── get_checked_keys_for_group ─────────────────────────────────────────
+
+    def test_checked_keys_reflect_group_view_permissions(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        from store.role_permissions import get_grouped_permissions, get_checked_keys_for_group
+        groups = get_grouped_permissions()
+        first = next((g for g in groups if g['view_perms']), None)
+        if not first:
+            return
+        role = DjangoGroup.objects.create(name='_TestCheckedView')
+        role.permissions.set(first['view_perms'])
+        checked = get_checked_keys_for_group(role, groups)
+        self.assertIn(first['view_key'], checked)
+        self.assertNotIn(first['delete_key'], checked)
+
+    def test_checked_keys_empty_for_group_with_no_permissions(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        from store.role_permissions import get_grouped_permissions, get_checked_keys_for_group
+        groups = get_grouped_permissions()
+        role = DjangoGroup.objects.create(name='_TestCheckedEmpty')
+        checked = get_checked_keys_for_group(role, groups)
+        self.assertEqual(len(checked), 0)
+
+    def test_all_three_keys_checked_when_all_perms_assigned(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        from store.role_permissions import get_grouped_permissions, get_checked_keys_for_group
+        groups = get_grouped_permissions()
+        first = next((
+            g for g in groups
+            if g['view_perms'] and g['edit_perms'] and g['delete_perms']
+        ), None)
+        if not first:
+            return
+        role = DjangoGroup.objects.create(name='_TestCheckedAll')
+        role.permissions.set(
+            first['view_perms'] + first['edit_perms'] + first['delete_perms']
+        )
+        checked = get_checked_keys_for_group(role, groups)
+        self.assertIn(first['view_key'], checked)
+        self.assertIn(first['edit_key'], checked)
+        self.assertIn(first['delete_key'], checked)
+
+    # ── group_permissions_by_category ─────────────────────────────────────
+
+    def test_category_grouping_returns_ordered_dict(self):
+        from collections import OrderedDict
+        from store.role_permissions import get_grouped_permissions, group_permissions_by_category
+        categorized = group_permissions_by_category(get_grouped_permissions())
+        self.assertIsInstance(categorized, OrderedDict)
+
+    def test_each_item_belongs_to_its_category(self):
+        from store.role_permissions import get_grouped_permissions, group_permissions_by_category
+        categorized = group_permissions_by_category(get_grouped_permissions())
+        for cat, items in categorized.items():
+            for item in items:
+                self.assertEqual(item['category'], cat)
+
+
+# ===========================================================================
+# 37. Role Management View Tests
+# ===========================================================================
+
+class RoleViewTests(TestCase):
+    """View-level tests for list_roles, create_role, edit_role, delete_role."""
+
+    def setUp(self):
+        self.md = User.objects.create_user('rv_md', password='pass', is_staff=True)
+        UserProfile.objects.create(user=self.md, access_level='md')
+        self.cashier = User.objects.create_user('rv_cashier', password='pass', is_staff=False)
+        UserProfile.objects.create(user=self.cashier, access_level='cashier')
+
+    # ── Access control ─────────────────────────────────────────────────────
+
+    def test_list_roles_requires_login(self):
+        self.assertEqual(self.client.get(reverse('list_roles')).status_code, 302)
+
+    def test_list_roles_rejects_cashier(self):
+        self.client.force_login(self.cashier)
+        r = self.client.get(reverse('list_roles'))
+        self.assertEqual(r.status_code, 302)
+        self.assertIn('/access-denied/', r.url)
+
+    def test_list_roles_allows_md(self):
+        self.client.force_login(self.md)
+        self.assertEqual(self.client.get(reverse('list_roles')).status_code, 200)
+
+    def test_create_role_get_allows_md(self):
+        self.client.force_login(self.md)
+        self.assertEqual(self.client.get(reverse('create_role')).status_code, 200)
+
+    def test_create_role_rejects_cashier(self):
+        self.client.force_login(self.cashier)
+        r = self.client.get(reverse('create_role'))
+        self.assertIn('/access-denied/', r.url)
+
+    def test_edit_role_rejects_cashier(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        role = DjangoGroup.objects.create(name='_rv_edit_cashier')
+        self.client.force_login(self.cashier)
+        r = self.client.get(reverse('edit_role', args=[role.id]))
+        self.assertIn('/access-denied/', r.url)
+
+    # ── Create role ────────────────────────────────────────────────────────
+
+    def test_create_role_makes_django_group(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        self.client.force_login(self.md)
+        self.client.post(reverse('create_role'), {'role_name': 'Supervisor'})
+        self.assertTrue(DjangoGroup.objects.filter(name='Supervisor').exists())
+
+    def test_create_role_assigns_view_permissions(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        from store.role_permissions import get_grouped_permissions
+        groups = get_grouped_permissions()
+        first = next((g for g in groups if g['view_perms']), None)
+        if not first:
+            return
+        self.client.force_login(self.md)
+        self.client.post(reverse('create_role'), {'role_name': '_rv_perm', first['view_key']: '1'})
+        role = DjangoGroup.objects.get(name='_rv_perm')
+        assigned = set(role.permissions.values_list('id', flat=True))
+        expected = {p.id for p in first['view_perms']}
+        self.assertTrue(expected.issubset(assigned))
+
+    def test_create_role_assigns_edit_permissions(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        from store.role_permissions import get_grouped_permissions
+        groups = get_grouped_permissions()
+        first = next((g for g in groups if g['edit_perms']), None)
+        if not first:
+            return
+        self.client.force_login(self.md)
+        self.client.post(reverse('create_role'), {'role_name': '_rv_edit_perm', first['edit_key']: '1'})
+        role = DjangoGroup.objects.get(name='_rv_edit_perm')
+        assigned = set(role.permissions.values_list('id', flat=True))
+        expected = {p.id for p in first['edit_perms']}
+        self.assertTrue(expected.issubset(assigned))
+
+    def test_create_role_rejects_duplicate_name(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        DjangoGroup.objects.create(name='_rv_dupe')
+        self.client.force_login(self.md)
+        self.client.post(reverse('create_role'), {'role_name': '_rv_dupe'})
+        self.assertEqual(DjangoGroup.objects.filter(name='_rv_dupe').count(), 1)
+
+    def test_create_role_empty_name_does_not_create_group(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        count_before = DjangoGroup.objects.count()
+        self.client.force_login(self.md)
+        self.client.post(reverse('create_role'), {'role_name': ''})
+        self.assertEqual(DjangoGroup.objects.count(), count_before)
+
+    def test_create_role_redirects_to_list_roles(self):
+        self.client.force_login(self.md)
+        r = self.client.post(reverse('create_role'), {'role_name': '_rv_redirect'})
+        self.assertRedirects(r, reverse('list_roles'))
+
+    # ── Edit role ──────────────────────────────────────────────────────────
+
+    def test_edit_role_updates_name(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        role = DjangoGroup.objects.create(name='_rv_old')
+        self.client.force_login(self.md)
+        self.client.post(reverse('edit_role', args=[role.id]), {'role_name': '_rv_new'})
+        role.refresh_from_db()
+        self.assertEqual(role.name, '_rv_new')
+
+    def test_edit_role_replaces_permissions(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        from store.role_permissions import get_grouped_permissions
+        groups = get_grouped_permissions()
+        first = next((g for g in groups if g['view_perms']), None)
+        second = next((g for g in groups if g['delete_perms'] and g is not first), None)
+        if not first or not second:
+            return
+        role = DjangoGroup.objects.create(name='_rv_replace_perms')
+        role.permissions.set(first['view_perms'])
+        self.client.force_login(self.md)
+        self.client.post(
+            reverse('edit_role', args=[role.id]),
+            {'role_name': '_rv_replace_perms', second['delete_key']: '1'},
+        )
+        role.refresh_from_db()
+        assigned = set(role.permissions.values_list('id', flat=True))
+        self.assertTrue({p.id for p in second['delete_perms']}.issubset(assigned))
+        self.assertFalse({p.id for p in first['view_perms']}.issubset(assigned))
+
+    def test_edit_role_duplicate_name_blocked(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        DjangoGroup.objects.create(name='_rv_taken')
+        role = DjangoGroup.objects.create(name='_rv_original')
+        self.client.force_login(self.md)
+        self.client.post(reverse('edit_role', args=[role.id]), {'role_name': '_rv_taken'})
+        role.refresh_from_db()
+        self.assertEqual(role.name, '_rv_original')
+
+    # ── Delete role ────────────────────────────────────────────────────────
+
+    def test_delete_role_removes_custom_role(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        role = DjangoGroup.objects.create(name='_rv_custom_delete')
+        self.client.force_login(self.md)
+        self.client.post(reverse('delete_role', args=[role.id]))
+        self.assertFalse(DjangoGroup.objects.filter(name='_rv_custom_delete').exists())
+
+    def test_delete_role_blocks_md_system_role(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        role, _ = DjangoGroup.objects.get_or_create(name='MD')
+        self.client.force_login(self.md)
+        self.client.post(reverse('delete_role', args=[role.id]))
+        self.assertTrue(DjangoGroup.objects.filter(name='MD').exists())
+
+    def test_delete_role_blocks_cashier_system_role(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        role, _ = DjangoGroup.objects.get_or_create(name='Cashier')
+        self.client.force_login(self.md)
+        self.client.post(reverse('delete_role', args=[role.id]))
+        self.assertTrue(DjangoGroup.objects.filter(name='Cashier').exists())
+
+    def test_delete_role_blocks_accountant_system_role(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        role, _ = DjangoGroup.objects.get_or_create(name='Accountant')
+        self.client.force_login(self.md)
+        self.client.post(reverse('delete_role', args=[role.id]))
+        self.assertTrue(DjangoGroup.objects.filter(name='Accountant').exists())
+
+
+# ===========================================================================
+# 38. Create User RBAC Tests
+# ===========================================================================
+
+class CreateUserRbacTests(TestCase):
+    """Tests for role assignment and admin toggle in the create_user view."""
+
+    def setUp(self):
+        self.md = User.objects.create_user('cu_md', password='pass', is_staff=True)
+        UserProfile.objects.create(user=self.md, access_level='md')
+
+    def _post(self, extra=None):
+        data = {
+            'username': 'cu_newuser',
+            'password1': 'ComplexPass99!',
+            'password2': 'ComplexPass99!',
+        }
+        if extra:
+            data.update(extra)
+        self.client.force_login(self.md)
+        return self.client.post(reverse('create_user'), data)
+
+    def test_create_user_with_role_assigns_that_group(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        role = DjangoGroup.objects.create(name='_cu_sales')
+        self._post({'role_id': role.id})
+        user = User.objects.get(username='cu_newuser')
+        self.assertIn(role, user.groups.all())
+
+    def test_create_user_with_cashier_role_sets_cashier_access_level(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        role, _ = DjangoGroup.objects.get_or_create(name='Cashier')
+        self._post({'role_id': role.id})
+        self.assertEqual(User.objects.get(username='cu_newuser').profile.access_level, 'cashier')
+
+    def test_create_user_with_md_role_sets_md_access_level(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        role, _ = DjangoGroup.objects.get_or_create(name='MD')
+        self._post({'role_id': role.id})
+        self.assertEqual(User.objects.get(username='cu_newuser').profile.access_level, 'md')
+
+    def test_create_user_with_md_role_grants_staff_flag(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        role, _ = DjangoGroup.objects.get_or_create(name='MD')
+        self._post({'role_id': role.id})
+        self.assertTrue(User.objects.get(username='cu_newuser').is_staff)
+
+    def test_create_user_unknown_role_defaults_access_level_cashier(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        role = DjangoGroup.objects.create(name='_cu_warehouse')
+        self._post({'role_id': role.id})
+        self.assertEqual(User.objects.get(username='cu_newuser').profile.access_level, 'cashier')
+
+    def test_create_user_no_role_defaults_access_level_cashier(self):
+        self._post()
+        self.assertEqual(User.objects.get(username='cu_newuser').profile.access_level, 'cashier')
+
+    def test_create_admin_sets_is_superuser(self):
+        self._post({'is_admin': 'on'})
+        self.assertTrue(User.objects.get(username='cu_newuser').is_superuser)
+
+    def test_create_admin_sets_is_staff(self):
+        self._post({'is_admin': 'on'})
+        self.assertTrue(User.objects.get(username='cu_newuser').is_staff)
+
+    def test_create_admin_sets_access_level_md(self):
+        self._post({'is_admin': 'on'})
+        self.assertEqual(User.objects.get(username='cu_newuser').profile.access_level, 'md')
+
+    def test_create_admin_without_role_succeeds(self):
+        """Admin flag must not require a role_id to create successfully."""
+        self._post({'is_admin': 'on'})
+        self.assertTrue(User.objects.filter(username='cu_newuser').exists())
+
+    def test_create_user_redirects_to_list_users(self):
+        r = self._post()
+        self.assertRedirects(r, reverse('list_users'))
+
+    def test_non_admin_user_is_not_superuser(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        role = DjangoGroup.objects.create(name='_cu_normal')
+        self._post({'role_id': role.id})
+        self.assertFalse(User.objects.get(username='cu_newuser').is_superuser)
+
+
+# ===========================================================================
+# 39. Edit User RBAC Tests
+# ===========================================================================
+
+class EditUserRbacTests(TestCase):
+    """Tests for role dropdown pre-population and saving in edit_user view."""
+
+    def setUp(self):
+        self.md = User.objects.create_user('eu_md', password='pass', is_staff=True)
+        UserProfile.objects.create(user=self.md, access_level='md')
+        self.target = User.objects.create_user(
+            'eu_target', password='pass',
+            first_name='Edit', last_name='Target', email='edit@example.com',
+        )
+        UserProfile.objects.create(user=self.target, access_level='cashier')
+
+    def _post_edit(self, extra=None):
+        data = {
+            'username': self.target.username,
+            'first_name': 'Edit',
+            'last_name': 'Target',
+            'email': 'edit@example.com',
+            'is_active': 'on',
+            'access_level': 'cashier',
+            'phone_number': '',
+            'is_active_staff': 'on',
+        }
+        if extra:
+            data.update(extra)
+        self.client.force_login(self.md)
+        return self.client.post(reverse('edit_user', args=[self.target.id]), data)
+
+    def test_edit_user_get_passes_all_roles_to_context(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        r1 = DjangoGroup.objects.create(name='_eu_roleA')
+        r2 = DjangoGroup.objects.create(name='_eu_roleB')
+        self.client.force_login(self.md)
+        response = self.client.get(reverse('edit_user', args=[self.target.id]))
+        self.assertEqual(response.status_code, 200)
+        role_ids = [r.id for r in response.context['all_roles']]
+        self.assertIn(r1.id, role_ids)
+        self.assertIn(r2.id, role_ids)
+
+    def test_edit_user_get_pre_selects_current_role(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        role = DjangoGroup.objects.create(name='_eu_current')
+        self.target.groups.add(role)
+        self.client.force_login(self.md)
+        response = self.client.get(reverse('edit_user', args=[self.target.id]))
+        self.assertEqual(response.context['current_role'].id, role.id)
+
+    def test_edit_user_get_current_role_none_when_no_group(self):
+        self.client.force_login(self.md)
+        response = self.client.get(reverse('edit_user', args=[self.target.id]))
+        self.assertIsNone(response.context['current_role'])
+
+    def test_edit_user_changes_assigned_group(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        old = DjangoGroup.objects.create(name='_eu_old')
+        new = DjangoGroup.objects.create(name='_eu_new')
+        self.target.groups.add(old)
+        self._post_edit({'role_id': new.id})
+        self.target.refresh_from_db()
+        self.assertIn(new, self.target.groups.all())
+        self.assertNotIn(old, self.target.groups.all())
+
+    def test_edit_user_syncs_access_level_from_new_role(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        role, _ = DjangoGroup.objects.get_or_create(name='MD')
+        self._post_edit({'role_id': role.id})
+        self.target.profile.refresh_from_db()
+        self.assertEqual(self.target.profile.access_level, 'md')
+
+    def test_edit_user_md_role_grants_staff_flag(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        role, _ = DjangoGroup.objects.get_or_create(name='MD')
+        self._post_edit({'role_id': role.id})
+        self.target.refresh_from_db()
+        self.assertTrue(self.target.is_staff)
+
+    def test_edit_user_unknown_role_defaults_cashier(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        role = DjangoGroup.objects.create(name='_eu_unknown')
+        self._post_edit({'role_id': role.id})
+        self.target.profile.refresh_from_db()
+        self.assertEqual(self.target.profile.access_level, 'cashier')
+
+    def test_edit_user_redirects_to_list_users(self):
+        from django.contrib.auth.models import Group as DjangoGroup
+        role = DjangoGroup.objects.create(name='_eu_redir')
+        r = self._post_edit({'role_id': role.id})
+        self.assertRedirects(r, reverse('list_users'))
+
+
+# ===========================================================================
+# 40. List Users View Tests
+# ===========================================================================
+
+class ListUsersViewTests(TestCase):
+    """Tests for the list_users view."""
+
+    def setUp(self):
+        self.md = User.objects.create_user('lu_md', password='pass', is_staff=True)
+        UserProfile.objects.create(user=self.md, access_level='md')
+        self.cashier = User.objects.create_user('lu_cashier', password='pass')
+        UserProfile.objects.create(user=self.cashier, access_level='cashier')
+
+    def test_list_users_requires_login(self):
+        self.assertEqual(self.client.get(reverse('list_users')).status_code, 302)
+
+    def test_list_users_rejects_cashier(self):
+        self.client.force_login(self.cashier)
+        r = self.client.get(reverse('list_users'))
+        self.assertEqual(r.status_code, 302)
+        self.assertIn('/access-denied/', r.url)
+
+    def test_list_users_allows_md(self):
+        self.client.force_login(self.md)
+        self.assertEqual(self.client.get(reverse('list_users')).status_code, 200)
+
+    def test_list_users_contains_all_users(self):
+        self.client.force_login(self.md)
+        response = self.client.get(reverse('list_users'))
+        usernames = [u.username for u in response.context['users']]
+        self.assertIn('lu_md', usernames)
+        self.assertIn('lu_cashier', usernames)
+
+    def test_search_by_username_filters_correctly(self):
+        self.client.force_login(self.md)
+        r = self.client.get(reverse('list_users'), {'search': 'lu_cashier'})
+        usernames = [u.username for u in r.context['users']]
+        self.assertIn('lu_cashier', usernames)
+        self.assertNotIn('lu_md', usernames)
+
+    def test_search_by_first_name_filters_correctly(self):
+        self.cashier.first_name = 'Alice'
+        self.cashier.save()
+        self.client.force_login(self.md)
+        r = self.client.get(reverse('list_users'), {'search': 'Alice'})
+        usernames = [u.username for u in r.context['users']]
+        self.assertIn('lu_cashier', usernames)
+        self.assertNotIn('lu_md', usernames)
+
+    def test_search_by_last_name_filters_correctly(self):
+        self.md.last_name = 'Director'
+        self.md.save()
+        self.client.force_login(self.md)
+        r = self.client.get(reverse('list_users'), {'search': 'Director'})
+        usernames = [u.username for u in r.context['users']]
+        self.assertIn('lu_md', usernames)
+        self.assertNotIn('lu_cashier', usernames)
+
+    def test_empty_search_returns_all_users(self):
+        self.client.force_login(self.md)
+        r = self.client.get(reverse('list_users'), {'search': ''})
+        self.assertGreaterEqual(len(r.context['users']), 2)
+
+    def test_nonmatching_search_returns_empty(self):
+        self.client.force_login(self.md)
+        r = self.client.get(reverse('list_users'), {'search': 'zzznomatch999'})
+        self.assertEqual(len(r.context['users']), 0)
+
+    def test_search_query_passed_back_to_context(self):
+        self.client.force_login(self.md)
+        r = self.client.get(reverse('list_users'), {'search': 'lu_md'})
+        self.assertEqual(r.context['search_query'], 'lu_md')
