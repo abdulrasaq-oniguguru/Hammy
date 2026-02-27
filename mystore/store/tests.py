@@ -29,6 +29,7 @@ import json
 from unittest.mock import patch, MagicMock, ANY
 
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.test import TestCase, RequestFactory
 from django.urls import reverse
@@ -877,10 +878,67 @@ class UserAccessLevelTests(TestCase):
         u2 = User.objects.create_user('u2', password='pass')
         UserProfile.objects.create(user=u1, access_level='md')
         UserProfile.objects.create(user=u2, access_level='cashier')
+
         self.assertNotEqual(
             UserProfile.objects.get(user=u1).access_level,
             UserProfile.objects.get(user=u2).access_level,
         )
+
+
+# ===========================================================================
+# 10b. MD-Only View Permission Tests
+# ===========================================================================
+
+class MdOnlyViewPermissionTests(TestCase):
+    """
+    is_md() checks user.is_staff. Confirms MD-only views redirect cashiers
+    to access_denied and allow staff (MD) users through.
+    """
+
+    def setUp(self):
+        self.md_user = User.objects.create_user(
+            'md_view_user', password='pass', is_staff=True)
+        UserProfile.objects.create(user=self.md_user, access_level='md')
+
+        self.cashier_user = User.objects.create_user(
+            'cashier_view_user', password='pass', is_staff=False)
+        UserProfile.objects.create(user=self.cashier_user, access_level='cashier')
+
+        self.access_denied_url = reverse('access_denied')
+
+    def _assert_cashier_redirected(self, url_name):
+        self.client.force_login(self.cashier_user)
+        response = self.client.get(reverse(url_name))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/access-denied/', response.url)
+
+    def _assert_md_not_redirected(self, url_name):
+        self.client.force_login(self.md_user)
+        response = self.client.get(reverse(url_name))
+        self.assertNotEqual(response.status_code, 302)
+
+    def test_financial_report_rejects_cashier(self):
+        self._assert_cashier_redirected('financial_report')
+
+    def test_discount_report_rejects_cashier(self):
+        self._assert_cashier_redirected('discount_report')
+
+    def test_delivery_report_rejects_cashier(self):
+        self._assert_cashier_redirected('delivery_report')
+
+    def test_financial_report_allows_md(self):
+        self._assert_md_not_redirected('financial_report')
+
+    def test_discount_report_allows_md(self):
+        self._assert_md_not_redirected('discount_report')
+
+    def test_delivery_report_allows_md(self):
+        self._assert_md_not_redirected('delivery_report')
+
+    def test_unauthenticated_user_cannot_reach_financial_report(self):
+        """Anonymous user is redirected (to login, not past the guard)."""
+        response = self.client.get(reverse('financial_report'))
+        self.assertEqual(response.status_code, 302)
 
 
 # ===========================================================================
@@ -942,15 +1000,20 @@ class SaleChainTests(TestCase):
         # 6000 − 10% = 5400
         self.assertEqual(receipt.total_with_delivery, Decimal('5400'))
 
-    def test_payment_discount_amount_written_back_by_receipt(self):
+    def test_payment_discount_amount_set_on_payment_save(self):
         """
-        Receipt.calculate_total() writes Payment.discount_amount via queryset
-        update so both objects agree on the discount.
+        Payment.calculate_total() derives discount_amount from discount_percentage
+        multiplied by the linked-sales total.  Calling payment.save() after sales
+        are created populates the correct discount_amount.
+        Receipt.calculate_total() no longer writes back to payment.discount_amount
+        (that circular write was the source of fragile save-chain ordering bugs).
         """
         receipt = Receipt.objects.create(user=self.user)
         payment = Payment.objects.create(discount_percentage=Decimal('10'))
         Sale.objects.create(product=self.product, quantity=1,
                             receipt=receipt, payment=payment)
+        # Explicitly re-save payment so Payment.calculate_total() runs with sales present.
+        payment.save()
         payment.refresh_from_db()
         self.assertEqual(payment.discount_amount, Decimal('600.00'))
 
@@ -1018,11 +1081,13 @@ class LoyaltyConfigurationTests(TestCase):
         result = LoyaltyConfiguration.get_active_config()
         self.assertEqual(result.pk, c.pk)
 
-    def test_get_active_config_creates_default_when_none_exist(self):
+    def test_get_active_config_creates_inactive_default_when_table_empty(self):
+        """When no config exists at all, a default seed is created with is_active=False."""
         self.assertEqual(LoyaltyConfiguration.objects.count(), 0)
         config = LoyaltyConfiguration.get_active_config()
         self.assertIsNotNone(config)
-        self.assertTrue(config.is_active)
+        # Fixed: seed is inactive so callers can detect and bail gracefully
+        self.assertFalse(config.is_active)
 
     def test_calculate_discount_double_rate(self):
         # 100 pts × ₦2/pt = ₦200
@@ -1062,13 +1127,15 @@ class LoyaltyConfigurationTests(TestCase):
         self.assertEqual(result['discount_percentage'], Decimal('50'))
         self.assertEqual(result['multiplier'], 3)
 
-    def test_deactivating_config_allows_new_default_creation(self):
+    def test_deactivating_config_returns_it_inactive(self):
+        """Deactivating the only config now returns it (inactive) instead of creating a new one."""
         c = make_loyalty_config()
         c.is_active = False
         c.save()
-        # get_active_config creates a fresh default since none are active
-        new_config = LoyaltyConfiguration.get_active_config()
-        self.assertTrue(new_config.is_active)
+        returned = LoyaltyConfiguration.get_active_config()
+        # Same object returned, now inactive — no phantom active config created
+        self.assertEqual(returned.pk, c.pk)
+        self.assertFalse(returned.is_active)
 
     def test_transaction_count_discount_percentage_stored(self):
         config = make_loyalty_config(
@@ -1737,3 +1804,1266 @@ class ReceiptPrinterRoutingTests(TestCase):
         data = json.loads(response.content)
         self.assertFalse(data['success'])
         self.assertEqual(response.status_code, 405)
+
+
+# ===========================================================================
+# 21. Sale – Line Discount Edge Cases
+# ===========================================================================
+
+class SaleLineDiscountEdgeCasesTests(TestCase):
+    """Edge cases for Sale.calculate_total(): oversized discount, None, decimal precision."""
+
+    def setUp(self):
+        # price=10000, 10% markup → selling_price=11000
+        self.product = make_product(price=10000, markup_type='percentage', markup=10)
+        self.product.refresh_from_db()
+
+    def test_discount_larger_than_line_total_gives_negative(self):
+        """discount_amount > item_total → negative line total (no guard in model)."""
+        sale = Sale(product=self.product, quantity=1, discount_amount=Decimal('12000'))
+        # 11000 - 12000 = -1000
+        self.assertEqual(sale.calculate_total(), Decimal('-1000'))
+
+    def test_discount_exactly_equals_line_total_gives_zero(self):
+        sale = Sale(product=self.product, quantity=2, discount_amount=Decimal('22000'))
+        self.assertEqual(sale.calculate_total(), Decimal('0'))
+
+    def test_none_discount_amount_treated_as_zero(self):
+        sale = Sale(product=self.product, quantity=1, discount_amount=None)
+        self.assertEqual(sale.calculate_total(), Decimal('11000'))
+
+    def test_decimal_precision_preserved(self):
+        """Fractional selling price × qty keeps decimal precision."""
+        with patch.object(Product, 'generate_barcode'):
+            p = Product.objects.create(
+                brand='Precise', price=Decimal('333.33'),
+                markup_type='percentage', markup=Decimal('0'),
+                size='S', category='shoes', shop='STORE', quantity=10,
+            )
+        p.refresh_from_db()
+        sale = Sale(product=p, quantity=3, discount_amount=Decimal('0'))
+        # 333.33 * 3 = 999.99
+        self.assertEqual(sale.calculate_total(), Decimal('999.99'))
+
+    def test_multiple_sales_different_discounts_sum_correctly_on_receipt(self):
+        """Two discounted lines: receipt total = sum of each calculate_total()."""
+        user = make_user()
+        receipt = Receipt.objects.create(user=user)
+        payment = Payment.objects.create()
+        # Line 1: 11000*2 - 1000 = 21000
+        Sale.objects.create(product=self.product, quantity=2,
+                            discount_amount=Decimal('1000'),
+                            receipt=receipt, payment=payment)
+        # Line 2: 11000*1 - 500 = 10500
+        Sale.objects.create(product=self.product, quantity=1,
+                            discount_amount=Decimal('500'),
+                            receipt=receipt, payment=payment)
+        receipt.refresh_from_db()
+        self.assertEqual(receipt.total_with_delivery, Decimal('31500'))
+
+    def test_discount_only_on_one_line_other_line_full_price(self):
+        user = make_user()
+        receipt = Receipt.objects.create(user=user)
+        payment = Payment.objects.create()
+        Sale.objects.create(product=self.product, quantity=1,
+                            discount_amount=Decimal('1000'),
+                            receipt=receipt, payment=payment)
+        Sale.objects.create(product=self.product, quantity=1,
+                            discount_amount=Decimal('0'),
+                            receipt=receipt, payment=payment)
+        receipt.refresh_from_db()
+        # (11000 - 1000) + 11000 = 21000
+        self.assertEqual(receipt.total_with_delivery, Decimal('21000'))
+
+    def test_discount_larger_than_line_total_clamped_on_save(self):
+        """discount_amount > item_total is clamped to item_total when saved."""
+        user = make_user('clamp_user')
+        receipt = Receipt.objects.create(user=user)
+        sale = Sale.objects.create(
+            product=self.product,
+            quantity=1,
+            discount_amount=Decimal('99000'),  # far exceeds 11000
+            receipt=receipt,
+            payment=Payment.objects.create(),
+        )
+        sale.refresh_from_db()
+        # Clamped to item_total (11000); total_price = 0
+        self.assertEqual(sale.discount_amount, Decimal('11000.00'))
+        self.assertEqual(sale.total_price, Decimal('0.00'))
+
+
+# ===========================================================================
+# 22. Payment – Discount Chain Interaction
+# ===========================================================================
+
+class PaymentDiscountChainTests(TestCase):
+    """
+    Payment.calculate_total() discount chain:
+    - loyalty_discount_amount reduces the final total after % discount
+    - discount_amount is derived from discount_percentage when set
+    - No guard prevents negative totals when loyalty_discount > subtotal
+    """
+
+    def setUp(self):
+        self.user = make_user()
+        # price=10000, 20% markup → selling_price=12000
+        self.product = make_product(price=10000, markup_type='percentage', markup=20)
+        self.product.refresh_from_db()
+
+    def _make_receipt_payment(self, qty=1, disc_pct=None, loyalty_disc=Decimal('0')):
+        receipt = Receipt.objects.create(user=self.user)
+        payment = Payment.objects.create(
+            discount_percentage=disc_pct,
+            loyalty_discount_amount=loyalty_disc,
+        )
+        Sale.objects.create(product=self.product, quantity=qty,
+                            receipt=receipt, payment=payment)
+        # Payment was saved before the Sale existed; recalculate now.
+        payment.save()
+        payment.refresh_from_db()
+        return payment
+
+    def test_loyalty_discount_reduces_total(self):
+        """loyalty_discount_amount is subtracted from the final payment total."""
+        payment = self._make_receipt_payment(qty=1, loyalty_disc=Decimal('500'))
+        # 12000 - 500 = 11500
+        self.assertEqual(payment.total_amount, Decimal('11500'))
+
+    def test_percentage_discount_then_loyalty_discount(self):
+        """10% off 12000 = 10800, then loyalty 800 → 10000."""
+        payment = self._make_receipt_payment(
+            qty=1, disc_pct=Decimal('10'), loyalty_disc=Decimal('800'))
+        self.assertEqual(payment.total_amount, Decimal('10000'))
+
+    def test_loyalty_discount_zero_does_not_affect_total(self):
+        payment = self._make_receipt_payment(qty=1, loyalty_disc=Decimal('0'))
+        self.assertEqual(payment.total_amount, Decimal('12000'))
+
+    def test_percentage_discount_recalculates_discount_amount(self):
+        """When discount_percentage is set, discount_amount = pct × subtotal."""
+        payment = self._make_receipt_payment(qty=1, disc_pct=Decimal('25'))
+        # 25% of 12000 = 3000
+        self.assertEqual(payment.discount_amount, Decimal('3000'))
+
+    def test_loyalty_exceeding_subtotal_gives_negative_total(self):
+        """No guard: loyalty_discount_amount > total → negative total_amount."""
+        payment = self._make_receipt_payment(qty=1, loyalty_disc=Decimal('15000'))
+        # 12000 - 15000 = -3000
+        self.assertEqual(payment.total_amount, Decimal('-3000'))
+
+    def test_two_sales_discount_percentage_on_combined_total(self):
+        """discount_percentage is applied to the SUM of all sales, not per line."""
+        receipt = Receipt.objects.create(user=self.user)
+        payment = Payment.objects.create(discount_percentage=Decimal('10'))
+        Sale.objects.create(product=self.product, quantity=1,
+                            receipt=receipt, payment=payment)
+        Sale.objects.create(product=self.product, quantity=1,
+                            receipt=receipt, payment=payment)
+        # Recalculate with both sales now linked.
+        payment.save()
+        payment.refresh_from_db()
+        # 12000 + 12000 = 24000; 10% off = 21600
+        self.assertEqual(payment.total_amount, Decimal('21600'))
+
+    def test_no_discount_full_price(self):
+        """No percentage, no loyalty → total_amount = selling_price × qty."""
+        payment = self._make_receipt_payment(qty=2)
+        self.assertEqual(payment.total_amount, Decimal('24000'))
+
+
+# ===========================================================================
+# 23. Return – Refund Amount Calculations
+# ===========================================================================
+
+class ReturnRefundAmountsTests(TestCase):
+    """
+    ReturnItem.refund_amount reflects quantity_returned × original_selling_price.
+    Return.restocking_fee and Return.refund_amount are stored fields (caller sets them).
+    """
+
+    def setUp(self):
+        self.user = make_user()
+        self.customer = make_customer()
+        # price=5000, 20% markup → selling_price=6000
+        self.product = make_product(price=5000, markup_type='percentage', markup=20)
+        self.product.refresh_from_db()
+        self.receipt = Receipt.objects.create(user=self.user, customer=self.customer)
+        self.payment = Payment.objects.create()
+        self.sale = Sale.objects.create(
+            product=self.product, quantity=10,
+            receipt=self.receipt, payment=self.payment,
+        )
+        self.sale.refresh_from_db()
+
+    def _make_return(self, restocking_fee=Decimal('0'), refund_amount=Decimal('0')):
+        return Return.objects.create(
+            receipt=self.receipt,
+            customer=self.customer,
+            subtotal=self.sale.total_price,
+            restocking_fee=restocking_fee,
+            refund_amount=refund_amount,
+            processed_by=self.user,
+        )
+
+    def _make_return_item(self, ret, qty_returned):
+        refund = self.product.selling_price * qty_returned
+        return ReturnItem.objects.create(
+            return_transaction=ret,
+            original_sale=self.sale,
+            product=self.product,
+            quantity_sold=self.sale.quantity,
+            quantity_returned=qty_returned,
+            original_selling_price=self.product.selling_price,
+            original_total=refund,
+            refund_amount=refund,
+        )
+
+    def test_partial_return_refund_is_pro_rated(self):
+        """Returning 3 out of 10: refund = 3 × selling_price."""
+        ret = self._make_return()
+        item = self._make_return_item(ret, qty_returned=3)
+        self.assertEqual(item.refund_amount, Decimal('18000'))
+
+    def test_full_return_refund_equals_original_total(self):
+        ret = self._make_return()
+        item = self._make_return_item(ret, qty_returned=10)
+        self.assertEqual(item.refund_amount, Decimal('60000'))
+
+    def test_single_item_return(self):
+        ret = self._make_return()
+        item = self._make_return_item(ret, qty_returned=1)
+        self.assertEqual(item.refund_amount, Decimal('6000'))
+
+    def test_restocking_fee_reduces_net_refund(self):
+        """restocking_fee stored on Return; net refund = gross − fee."""
+        restocking = Decimal('500')
+        gross = self.product.selling_price * 2  # 12000
+        net = gross - restocking                 # 11500
+        ret = self._make_return(restocking_fee=restocking, refund_amount=net)
+        self.assertEqual(ret.restocking_fee, Decimal('500'))
+        self.assertEqual(ret.refund_amount, Decimal('11500'))
+
+    def test_zero_restocking_fee_full_refund(self):
+        gross = self.product.selling_price * 5  # 30000
+        ret = self._make_return(restocking_fee=Decimal('0'), refund_amount=gross)
+        self.assertEqual(ret.refund_amount, Decimal('30000'))
+
+    def test_multiple_return_items_have_independent_refunds(self):
+        """Two ReturnItems on same Return carry separate refund_amount values."""
+        product2 = make_product(brand='Second', price=3000,
+                                markup_type='percentage', markup=10)
+        product2.refresh_from_db()  # selling_price=3300
+        sale2 = Sale.objects.create(
+            product=product2, quantity=5,
+            receipt=self.receipt, payment=self.payment,
+        )
+        ret = self._make_return()
+        item1 = self._make_return_item(ret, qty_returned=2)  # 2×6000=12000
+        item2 = ReturnItem.objects.create(
+            return_transaction=ret,
+            original_sale=sale2,
+            product=product2,
+            quantity_sold=5,
+            quantity_returned=3,
+            original_selling_price=product2.selling_price,
+            original_total=product2.selling_price * 3,
+            refund_amount=product2.selling_price * 3,  # 3×3300=9900
+        )
+        self.assertEqual(item1.refund_amount, Decimal('12000'))
+        self.assertEqual(item2.refund_amount, Decimal('9900'))
+
+    def test_return_number_auto_generated_with_ret_prefix(self):
+        ret = self._make_return()
+        self.assertTrue(ret.return_number.startswith('RET'))
+        self.assertIn('/', ret.return_number)
+
+
+# ===========================================================================
+# 24. Product – Inventory Stock Level Tracking
+# ===========================================================================
+
+class ProductStockLevelTests(TestCase):
+    """Sale.save() decrements product.quantity and guards against overselling."""
+
+    def setUp(self):
+        self.user = make_user()
+        self.product = make_product(price=5000, markup_type='percentage',
+                                    markup=10, quantity=20)
+        self.product.refresh_from_db()
+
+    def test_product_quantity_decremented_after_sale_save(self):
+        """Sale.save() atomically decrements product.quantity on insert."""
+        receipt = Receipt.objects.create(user=self.user)
+        payment = Payment.objects.create()
+        Sale.objects.create(product=self.product, quantity=5,
+                            receipt=receipt, payment=payment)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.quantity, 15)  # 20 - 5
+
+    def test_product_quantity_not_decremented_on_sale_update(self):
+        """Updating an existing Sale does NOT decrement quantity a second time."""
+        receipt = Receipt.objects.create(user=self.user)
+        payment = Payment.objects.create()
+        sale = Sale.objects.create(product=self.product, quantity=5,
+                                   receipt=receipt, payment=payment)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.quantity, 15)  # first decrement
+
+        # Update the sale (e.g. change discount) — should NOT decrement again
+        sale.discount_amount = Decimal('100')
+        sale.save()
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.quantity, 15)  # unchanged
+
+    def test_manual_quantity_decrement_persists(self):
+        self.product.quantity -= 5
+        with patch.object(Product, 'generate_barcode'):
+            self.product.save()
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.quantity, 15)
+
+    def test_low_stock_threshold_filter(self):
+        """Products with quantity < 10 appear in low-stock filter."""
+        low = make_product(brand='LowStock', price=1000,
+                           markup_type='percentage', markup=10, quantity=3)
+        high = make_product(brand='HighStock', price=1000,
+                            markup_type='percentage', markup=10, quantity=50)
+        low_qs = Product.objects.filter(quantity__lt=10)
+        self.assertIn(low, low_qs)
+        self.assertNotIn(high, low_qs)
+
+    def test_critical_stock_filter(self):
+        """Products with quantity < 5 appear in critical filter."""
+        critical = make_product(brand='Critical', price=1000,
+                                markup_type='percentage', markup=10, quantity=2)
+        normal = make_product(brand='Normal', price=1000,
+                              markup_type='percentage', markup=10, quantity=8)
+        critical_qs = Product.objects.filter(quantity__lt=5)
+        self.assertIn(critical, critical_qs)
+        self.assertNotIn(normal, critical_qs)
+
+    def test_zero_quantity_product_in_critical_filter(self):
+        zero = make_product(brand='ZeroStock', price=1000,
+                            markup_type='percentage', markup=10, quantity=0)
+        self.assertIn(zero, Product.objects.filter(quantity__lt=5))
+
+    def test_inventory_total_value_calculation(self):
+        """Total inventory value = sum(selling_price × quantity) across products."""
+        # self.product: selling_price=5500, qty=20 → 110000
+        p2 = make_product(brand='Second', price=2000,
+                          markup_type='percentage', markup=10, quantity=5)
+        p2.refresh_from_db()  # selling_price=2200, qty=5 → 11000
+        total_value = sum(
+            p.selling_price * p.quantity for p in Product.objects.all()
+        )
+        self.assertEqual(total_value, Decimal('110000') + Decimal('11000'))
+
+    def test_inventory_potential_profit(self):
+        """Potential profit = sum(selling_price × qty) − sum(cost × qty)."""
+        # self.product: (5500−5000)×20 = 10000 profit
+        selling = sum(p.selling_price * p.quantity for p in Product.objects.all())
+        cost = sum(p.price * p.quantity for p in Product.objects.all())
+        self.assertEqual(selling - cost, Decimal('10000'))
+
+    def test_average_markup_aggregation(self):
+        from django.db.models import Avg
+        avg = Product.objects.aggregate(avg_markup=Avg('markup'))['avg_markup']
+        self.assertEqual(avg, Decimal('10'))
+
+    def test_oversell_raises_validation_error(self):
+        """Selling more than available stock raises ValidationError."""
+        receipt = Receipt.objects.create(user=self.user)
+        payment = Payment.objects.create()
+        with self.assertRaises(ValidationError):
+            Sale.objects.create(product=self.product, quantity=21,  # only 20 in stock
+                                receipt=receipt, payment=payment)
+
+    def test_selling_exact_stock_succeeds(self):
+        """Selling exactly the available quantity is allowed."""
+        receipt = Receipt.objects.create(user=self.user)
+        payment = Payment.objects.create()
+        Sale.objects.create(product=self.product, quantity=20,
+                            receipt=receipt, payment=payment)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.quantity, 0)
+
+    def test_selling_zero_stock_raises_validation_error(self):
+        """Selling any unit when stock is 0 raises ValidationError."""
+        self.product.quantity = 0
+        with patch.object(Product, 'generate_barcode'):
+            self.product.save()
+        receipt = Receipt.objects.create(user=self.user)
+        with self.assertRaises(ValidationError):
+            Sale.objects.create(product=self.product, quantity=1,
+                                receipt=receipt, payment=Payment.objects.create())
+
+    def test_stock_guard_does_not_fire_on_update(self):
+        """Updating an existing sale never triggers the stock guard."""
+        receipt = Receipt.objects.create(user=self.user)
+        sale = Sale.objects.create(product=self.product, quantity=20,
+                                   receipt=receipt, payment=Payment.objects.create())
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.quantity, 0)
+
+        # Even though stock is now 0, updating the existing sale must not raise
+        sale.discount_amount = Decimal('500')
+        sale.save()  # should not raise
+
+
+# ===========================================================================
+# 25. Discount Report – Aggregation Formulas
+# ===========================================================================
+
+class DiscountReportAggregationTests(TestCase):
+    """
+    Verifies the exact aggregation formulas used in the discount_report view:
+    - Sum of payment-level discount_amount
+    - Sum of sale line-level discount_amount
+    - Combined total = payment + line discounts
+    """
+
+    def setUp(self):
+        from django.db.models import Sum
+        self.Sum = Sum
+        self.user = make_user()
+        self.product = make_product(price=10000, markup_type='percentage', markup=10)
+        self.product.refresh_from_db()
+
+    def test_payment_level_discount_sum(self):
+        with patch.object(Payment, 'calculate_total', return_value=Decimal('9000')):
+            p1 = Payment.objects.create()
+            Payment.objects.filter(pk=p1.pk).update(discount_amount=Decimal('1000'))
+        with patch.object(Payment, 'calculate_total', return_value=Decimal('8500')):
+            p2 = Payment.objects.create()
+            Payment.objects.filter(pk=p2.pk).update(discount_amount=Decimal('1500'))
+        total = (Payment.objects
+                 .filter(discount_amount__gt=0)
+                 .aggregate(total=self.Sum('discount_amount'))['total'] or 0)
+        self.assertEqual(total, Decimal('2500'))
+
+    def test_line_level_discount_sum(self):
+        receipt = Receipt.objects.create(user=self.user)
+        payment = Payment.objects.create()
+        Sale.objects.create(product=self.product, quantity=1,
+                            discount_amount=Decimal('500'),
+                            receipt=receipt, payment=payment)
+        Sale.objects.create(product=self.product, quantity=1,
+                            discount_amount=Decimal('300'),
+                            receipt=receipt, payment=payment)
+        # Sale with no discount should NOT be counted
+        Sale.objects.create(product=self.product, quantity=1,
+                            discount_amount=Decimal('0'),
+                            receipt=receipt, payment=payment)
+        total = (Sale.objects
+                 .filter(discount_amount__gt=0)
+                 .aggregate(total=self.Sum('discount_amount'))['total'] or 0)
+        self.assertEqual(total, Decimal('800'))
+
+    def test_combined_payment_and_line_discount_total(self):
+        with patch.object(Payment, 'calculate_total', return_value=Decimal('9000')):
+            p = Payment.objects.create()
+            Payment.objects.filter(pk=p.pk).update(discount_amount=Decimal('1000'))
+        receipt = Receipt.objects.create(user=self.user)
+        Sale.objects.create(product=self.product, quantity=1,
+                            discount_amount=Decimal('400'),
+                            receipt=receipt, payment=p)
+        pay_disc = (Payment.objects
+                    .filter(discount_amount__gt=0)
+                    .aggregate(total=self.Sum('discount_amount'))['total'] or 0)
+        line_disc = (Sale.objects
+                     .filter(discount_amount__gt=0)
+                     .aggregate(total=self.Sum('discount_amount'))['total'] or 0)
+        self.assertEqual(pay_disc + line_disc, Decimal('1400'))
+
+    def test_no_discounts_returns_zero_not_none(self):
+        total = (Payment.objects
+                 .filter(discount_amount__gt=0)
+                 .aggregate(total=self.Sum('discount_amount'))['total'] or 0)
+        self.assertEqual(total, 0)
+
+
+# ===========================================================================
+# 26. Delivery – Fee Aggregation & Average
+# ===========================================================================
+
+class DeliveryAggregationTests(TestCase):
+    """
+    delivery_report view formulas:
+    - total_delivery_fees = Sum(delivery_cost) for receipts with delivery_cost > 0
+    - avg_delivery_fee = total / count, zero-division guard when no deliveries
+    """
+
+    def setUp(self):
+        from django.db.models import Sum
+        self.Sum = Sum
+        self.user = make_user()
+
+    def _receipt_with_delivery(self, cost):
+        r = Receipt.objects.create(user=self.user)
+        Receipt.objects.filter(pk=r.pk).update(delivery_cost=cost)
+        r.refresh_from_db()
+        return r
+
+    def test_total_delivery_fees_sum(self):
+        self._receipt_with_delivery(Decimal('500'))
+        self._receipt_with_delivery(Decimal('750'))
+        self._receipt_with_delivery(Decimal('250'))
+        total = (Receipt.objects
+                 .filter(delivery_cost__gt=0)
+                 .aggregate(total=self.Sum('delivery_cost'))['total'] or 0)
+        self.assertEqual(total, Decimal('1500'))
+
+    def test_average_delivery_fee(self):
+        self._receipt_with_delivery(Decimal('600'))
+        self._receipt_with_delivery(Decimal('400'))
+        qs = Receipt.objects.filter(delivery_cost__gt=0)
+        total = qs.aggregate(total=self.Sum('delivery_cost'))['total'] or 0
+        count = qs.count()
+        avg = total / count if count > 0 else 0
+        self.assertEqual(avg, Decimal('500'))
+
+    def test_no_deliveries_average_is_zero(self):
+        """Zero-division guard: no receipts with delivery → avg = 0."""
+        qs = Receipt.objects.filter(delivery_cost__gt=0)
+        total = qs.aggregate(total=self.Sum('delivery_cost'))['total'] or 0
+        count = qs.count()
+        avg = total / count if count > 0 else 0
+        self.assertEqual(avg, 0)
+
+    def test_single_receipt_average_equals_that_fee(self):
+        self._receipt_with_delivery(Decimal('800'))
+        qs = Receipt.objects.filter(delivery_cost__gt=0)
+        total = qs.aggregate(total=self.Sum('delivery_cost'))['total'] or 0
+        count = qs.count()
+        avg = total / count if count > 0 else 0
+        self.assertEqual(avg, Decimal('800'))
+
+    def test_zero_cost_receipts_excluded_from_sum(self):
+        self._receipt_with_delivery(Decimal('0'))
+        self._receipt_with_delivery(Decimal('300'))
+        total = (Receipt.objects
+                 .filter(delivery_cost__gt=0)
+                 .aggregate(total=self.Sum('delivery_cost'))['total'] or 0)
+        self.assertEqual(total, Decimal('300'))
+
+
+# ===========================================================================
+# 27. Financial Report – Revenue, Cost & Profit Metrics
+# ===========================================================================
+
+class FinancialMetricsTests(TestCase):
+    """
+    Verifies financial_report formulas:
+    - gross_revenue = sum(selling_price × qty)
+    - total_cost    = sum(cost_price × qty)
+    - profit        = net_revenue - total_cost
+    - profit_margin = (profit / net_revenue) × 100, with zero-division guard
+    """
+
+    def setUp(self):
+        self.user = make_user()
+        # cost=5000, 20% markup → selling_price=6000
+        self.product = make_product(price=5000, markup_type='percentage', markup=20)
+        self.product.refresh_from_db()
+
+    def _make_sales(self, quantities):
+        receipt = Receipt.objects.create(user=self.user)
+        payment = Payment.objects.create()
+        for qty in quantities:
+            Sale.objects.create(product=self.product, quantity=qty,
+                                receipt=receipt, payment=payment)
+        return Sale.objects.filter(receipt=receipt)
+
+    def test_gross_revenue_single_sale(self):
+        sales = self._make_sales([3])
+        gross = sum(s.product.selling_price * s.quantity for s in sales)
+        self.assertEqual(gross, Decimal('18000'))
+
+    def test_gross_revenue_multiple_sales(self):
+        sales = self._make_sales([2, 4])
+        gross = sum(s.product.selling_price * s.quantity for s in sales)
+        self.assertEqual(gross, Decimal('36000'))
+
+    def test_total_cost_is_cost_price_times_qty(self):
+        sales = self._make_sales([3])
+        total_cost = sum(s.product.price * s.quantity for s in sales)
+        self.assertEqual(total_cost, Decimal('15000'))
+
+    def test_profit_equals_revenue_minus_cost(self):
+        sales = self._make_sales([5])
+        revenue = sum(s.product.selling_price * s.quantity for s in sales)
+        cost = sum(s.product.price * s.quantity for s in sales)
+        self.assertEqual(revenue - cost, Decimal('5000'))
+
+    def test_profit_margin_percentage(self):
+        sales = self._make_sales([10])
+        revenue = sum(s.product.selling_price * s.quantity for s in sales)  # 60000
+        cost = sum(s.product.price * s.quantity for s in sales)             # 50000
+        profit = revenue - cost                                              # 10000
+        margin = float(profit / revenue * 100) if revenue > 0 else 0
+        self.assertAlmostEqual(margin, 16.666, places=2)
+
+    def test_zero_revenue_profit_margin_is_zero(self):
+        revenue = Decimal('0')
+        profit = Decimal('0')
+        margin = (profit / revenue * 100) if revenue > 0 else 0
+        self.assertEqual(margin, 0)
+
+    def test_combined_item_and_payment_discounts_summed(self):
+        """total_discounts = item_discounts + payment_discounts."""
+        receipt = Receipt.objects.create(user=self.user)
+        payment = Payment.objects.create(discount_percentage=Decimal('10'))
+        Sale.objects.create(product=self.product, quantity=1,
+                            discount_amount=Decimal('200'),
+                            receipt=receipt, payment=payment)
+        payment.refresh_from_db()
+        sales = Sale.objects.filter(receipt=receipt)
+        unique_payments = Payment.objects.filter(sale__in=sales).distinct()
+        item_disc = sum(s.discount_amount or 0 for s in sales)
+        pay_disc = sum(p.discount_amount or 0 for p in unique_payments)
+        # item: 200, payment: 10% of (6000-200)=580 → check total is non-zero
+        self.assertGreater(item_disc + pay_disc, 0)
+
+
+# ===========================================================================
+# 28. Item Count Discount – Multiplier, Cap & Remainder
+# ===========================================================================
+
+class ItemCountDiscountMultiplierTests(TestCase):
+    """
+    apply_count_based_discount() item_count path:
+    - 2× multiplier → doubles discount percentage
+    - 3× multiplier hitting 50% cap
+    - Modulo remainder stored correctly after discount
+    - Full transaction_count cycle: earn → apply → reset → re-earn
+    """
+
+    def setUp(self):
+        self.customer = make_customer()
+
+    def _item_config(self, required, pct):
+        return make_loyalty_config(
+            calculation_type='item_count_discount',
+            required_item_count=required,
+            item_discount_percentage=Decimal(str(pct)),
+        )
+
+    def _account(self):
+        return CustomerLoyaltyAccount.objects.create(
+            customer=self.customer, is_active=True)
+
+    def test_multiplier_2x_doubles_discount_percentage(self):
+        """20 items at threshold 10, 5% each → 10% discount."""
+        self._item_config(required=10, pct=5)
+        acct = self._account()
+        acct.item_count = 20
+        acct.save()
+        result = apply_count_based_discount(make_payment(10000), self.customer)
+        self.assertIsNotNone(result)
+        self.assertEqual(result['multiplier'], 2)
+        self.assertEqual(result['discount_percentage'], Decimal('10'))
+
+    def test_multiplier_3x_applies_correct_percentage(self):
+        """30 items at threshold 10, 5% each → 15% discount."""
+        self._item_config(required=10, pct=5)
+        acct = self._account()
+        acct.item_count = 30
+        acct.save()
+        result = apply_count_based_discount(make_payment(10000), self.customer)
+        self.assertEqual(result['multiplier'], 3)
+        self.assertEqual(result['discount_percentage'], Decimal('15'))
+
+    def test_discount_capped_at_50_percent(self):
+        """3× multiplier × 20% = 60% → capped at 50%."""
+        self._item_config(required=10, pct=20)
+        acct = self._account()
+        acct.item_count = 30
+        acct.save()
+        result = apply_count_based_discount(make_payment(10000), self.customer)
+        self.assertEqual(result['discount_percentage'], Decimal('50'))
+
+    def test_discount_exactly_at_50_percent_cap_not_reduced(self):
+        """2× × 25% = 50% → at cap exactly, no reduction."""
+        self._item_config(required=10, pct=25)
+        acct = self._account()
+        acct.item_count = 20
+        acct.save()
+        result = apply_count_based_discount(make_payment(10000), self.customer)
+        self.assertEqual(result['discount_percentage'], Decimal('50'))
+
+    def test_remainder_stored_after_discount(self):
+        """27 items, threshold 10 → 2× discount, 7 items remaining."""
+        self._item_config(required=10, pct=5)
+        acct = self._account()
+        acct.item_count = 27
+        acct.save()
+        apply_count_based_discount(make_payment(10000), self.customer)
+        acct.refresh_from_db()
+        self.assertEqual(acct.item_count, 7)
+
+    def test_remainder_zero_when_exactly_divisible(self):
+        """20 items exactly (2× threshold) → 0 remainder."""
+        self._item_config(required=10, pct=5)
+        acct = self._account()
+        acct.item_count = 20
+        acct.save()
+        apply_count_based_discount(make_payment(10000), self.customer)
+        acct.refresh_from_db()
+        self.assertEqual(acct.item_count, 0)
+
+    def test_discount_amount_calculated_from_capped_percentage(self):
+        """50% cap: discount_amount = 50% × payment_total."""
+        self._item_config(required=10, pct=20)
+        acct = self._account()
+        acct.item_count = 30
+        acct.save()
+        result = apply_count_based_discount(make_payment(10000), self.customer)
+        # 50% of 10000 = 5000
+        self.assertEqual(result['discount_amount'], Decimal('5000'))
+
+    def test_transaction_count_full_cycle_earn_apply_reset_earn(self):
+        """Full cycle: reach threshold → discount applied → reset → re-earn."""
+        make_loyalty_config(
+            calculation_type='transaction_count_discount',
+            required_transaction_count=3,
+            transaction_discount_percentage=Decimal('10'),
+        )
+        acct = CustomerLoyaltyAccount.objects.create(
+            customer=self.customer, is_active=True,
+            transaction_count=3, discount_eligible=True,
+        )
+        # First application
+        result1 = apply_count_based_discount(make_payment(10000), self.customer)
+        self.assertIsNotNone(result1)
+        acct.refresh_from_db()
+        self.assertEqual(acct.transaction_count, 0)
+        self.assertFalse(acct.discount_eligible)
+        self.assertEqual(acct.discount_count, 1)
+
+        # Not yet eligible again
+        acct.transaction_count = 2
+        acct.save()
+        result2 = apply_count_based_discount(make_payment(10000), self.customer)
+        self.assertIsNone(result2)
+
+        # Reach threshold again
+        acct.transaction_count = 3
+        acct.discount_eligible = True
+        acct.save()
+        result3 = apply_count_based_discount(make_payment(10000), self.customer)
+        self.assertIsNotNone(result3)
+        acct.refresh_from_db()
+        self.assertEqual(acct.discount_count, 2)
+
+
+# ===========================================================================
+# 29. Loyalty Points – Calculation Edge Cases
+# ===========================================================================
+
+class LoyaltyPointsCalculationEdgeCasesTests(TestCase):
+    """
+    LoyaltyConfiguration.calculate_points_earned():
+    - per_transaction ignores amount (even zero)
+    - per_amount truncates fractional units via int()
+    - combined = per_transaction + per_amount
+    - calculate_discount_from_points uses points_to_currency_rate
+    - get_maximum_redeemable_amount is a percentage of transaction
+    """
+
+    def _config(self, **kw):
+        defaults = dict(
+            program_name='EdgePts',
+            is_active=True,
+            points_to_currency_rate=Decimal('1'),
+            minimum_points_for_redemption=10,
+            maximum_discount_percentage=Decimal('50'),
+            send_welcome_email=False,
+            send_points_earned_email=False,
+            send_points_redeemed_email=False,
+        )
+        defaults.update(kw)
+        return LoyaltyConfiguration.objects.create(**defaults)
+
+    def test_per_transaction_ignores_zero_amount(self):
+        config = self._config(calculation_type='per_transaction',
+                              points_per_transaction=5)
+        self.assertEqual(config.calculate_points_earned(Decimal('0')), 5)
+
+    def test_per_transaction_ignores_large_amount(self):
+        config = self._config(calculation_type='per_transaction',
+                              points_per_transaction=3)
+        self.assertEqual(config.calculate_points_earned(Decimal('999999')), 3)
+
+    def test_per_amount_truncates_fractional_units(self):
+        """750 / 500 = 1.5 units × 2 pts = 3.0 → int → 3 points."""
+        config = self._config(calculation_type='per_amount',
+                              points_per_currency_unit=Decimal('2'),
+                              currency_unit_value=Decimal('500'))
+        self.assertEqual(config.calculate_points_earned(Decimal('750')), 3)
+
+    def test_per_amount_below_one_unit_gives_zero(self):
+        """299 / 500 = 0.598 → int → 0 points."""
+        config = self._config(calculation_type='per_amount',
+                              points_per_currency_unit=Decimal('1'),
+                              currency_unit_value=Decimal('500'))
+        self.assertEqual(config.calculate_points_earned(Decimal('299')), 0)
+
+    def test_per_amount_exactly_one_unit(self):
+        config = self._config(calculation_type='per_amount',
+                              points_per_currency_unit=Decimal('1'),
+                              currency_unit_value=Decimal('500'))
+        self.assertEqual(config.calculate_points_earned(Decimal('500')), 1)
+
+    def test_combined_adds_transaction_plus_amount_points(self):
+        """combined: 5 flat + floor(1000/200)*2 = 5 + 10 = 15 points."""
+        config = self._config(calculation_type='combined',
+                              points_per_transaction=5,
+                              points_per_currency_unit=Decimal('2'),
+                              currency_unit_value=Decimal('200'))
+        self.assertEqual(config.calculate_points_earned(Decimal('1000')), 15)
+
+    def test_calculate_discount_from_points_uses_rate(self):
+        """10 points × rate 1.5 = 15 naira."""
+        config = self._config(calculation_type='per_transaction',
+                              points_per_transaction=1,
+                              points_to_currency_rate=Decimal('1.5'))
+        self.assertEqual(config.calculate_discount_from_points(10), Decimal('15.0'))
+
+    def test_maximum_redeemable_amount_is_percentage_of_transaction(self):
+        """50% cap on 10000 = 5000."""
+        config = self._config(calculation_type='per_transaction',
+                              points_per_transaction=1,
+                              maximum_discount_percentage=Decimal('50'))
+        self.assertEqual(
+            config.get_maximum_redeemable_amount(Decimal('10000')),
+            Decimal('5000'),
+        )
+
+
+# ===========================================================================
+# 30. Loyalty Redemption – Boundary Conditions
+# ===========================================================================
+
+class LoyaltyRedemptionBoundaryTests(TestCase):
+    """
+    apply_loyalty_discount() boundary conditions:
+    - points == minimum threshold (exact boundary) → success
+    - points == one below minimum → rejected
+    - discount == full transaction total (100% cap) → success
+    - discount one unit over total → rejected
+    - inactive config → error
+    - non-unit currency rate applied correctly
+    """
+
+    def setUp(self):
+        self.user = make_user()
+        self.customer = make_customer()
+        self.config = make_loyalty_config(
+            points_to_currency_rate=Decimal('1'),
+            minimum_points_for_redemption=100,
+            maximum_discount_percentage=Decimal('100'),
+        )
+        self.account = CustomerLoyaltyAccount.objects.create(
+            customer=self.customer, is_active=True)
+        self.account.add_points(2000, 'load')
+        self.receipt = Receipt.objects.create(user=self.user, customer=self.customer)
+        Receipt.objects.filter(pk=self.receipt.pk).update(
+            total_with_delivery=Decimal('1000'))
+        self.receipt.refresh_from_db()
+
+    def test_exact_minimum_points_succeeds(self):
+        result = apply_loyalty_discount(self.receipt, 100)
+        self.assertTrue(result['success'])
+
+    def test_one_below_minimum_fails(self):
+        result = apply_loyalty_discount(self.receipt, 99)
+        self.assertFalse(result['success'])
+
+    def test_discount_equals_full_transaction_total_succeeds(self):
+        """100 cap: 1000 pts = 1000 naira = 100% of 1000 receipt."""
+        result = apply_loyalty_discount(self.receipt, 1000)
+        self.assertTrue(result['success'])
+        self.assertEqual(result['discount_amount'], Decimal('1000'))
+
+    def test_discount_one_over_total_fails(self):
+        """1001 pts = 1001 naira > 1000 total → rejected."""
+        self.account.add_points(8000, 'more')
+        result = apply_loyalty_discount(self.receipt, 1001)
+        self.assertFalse(result['success'])
+
+    def test_inactive_loyalty_config_returns_error(self):
+        """Deactivating the config is now correctly seen by apply_loyalty_discount."""
+        self.config.is_active = False
+        self.config.save()
+        result = apply_loyalty_discount(self.receipt, 200)
+        self.assertFalse(result['success'])
+        self.assertIn('not active', result['error'])
+
+    def test_remaining_balance_after_minimum_redemption(self):
+        """After redeeming 100 from 2000 → 1900 remaining."""
+        result = apply_loyalty_discount(self.receipt, 100)
+        self.assertEqual(result['remaining_balance'], 1900)
+
+    def test_non_unit_currency_rate_applied(self):
+        """Rate of 2: 200 pts × 2 = 400 naira discount."""
+        self.config.points_to_currency_rate = Decimal('2')
+        self.config.save()
+        result = apply_loyalty_discount(self.receipt, 200)
+        self.assertTrue(result['success'])
+        self.assertEqual(result['discount_amount'], Decimal('400'))
+
+
+# ===========================================================================
+# 31. Receipt – Tax Amount Before Tax & Mixed Tax Types
+# ===========================================================================
+
+class ReceiptTaxInteractionTests(TestCase):
+    """
+    Receipt.get_amount_before_tax() and tax totals with edge cases:
+    - exclusive only: subtracts exclusive tax from total
+    - inclusive only: total unchanged (inclusive already inside price)
+    - both types together: only exclusive subtracted
+    - None / malformed tax_details handled gracefully
+    """
+
+    def test_amount_before_exclusive_tax_subtracts_tax(self):
+        details = json.dumps({'VAT': {'rate': 10, 'amount': 1000, 'method': 'exclusive'}})
+        r = Receipt(tax_details=details, total_with_delivery=Decimal('11000'))
+        self.assertEqual(r.get_amount_before_tax(), Decimal('10000'))
+
+    def test_amount_before_inclusive_tax_unchanged(self):
+        """Inclusive tax is already inside the price — no subtraction."""
+        details = json.dumps({'VAT': {'rate': 7.5, 'amount': 750, 'method': 'inclusive'}})
+        r = Receipt(tax_details=details, total_with_delivery=Decimal('10750'))
+        self.assertEqual(r.get_amount_before_tax(), Decimal('10750'))
+
+    def test_amount_before_tax_with_both_types_subtracts_only_exclusive(self):
+        details = json.dumps({
+            'VAT': {'rate': 7.5, 'amount': 750, 'method': 'inclusive'},
+            'ST':  {'rate': 5,   'amount': 500, 'method': 'exclusive'},
+        })
+        r = Receipt(tax_details=details, total_with_delivery=Decimal('11250'))
+        # Only 500 exclusive is subtracted → 10750
+        self.assertEqual(r.get_amount_before_tax(), Decimal('10750'))
+
+    def test_null_tax_details_inclusive_returns_zero(self):
+        r = Receipt(tax_details=None)
+        self.assertEqual(r.get_inclusive_tax_total(), Decimal('0'))
+
+    def test_null_tax_details_exclusive_returns_zero(self):
+        r = Receipt(tax_details=None)
+        self.assertEqual(r.get_exclusive_tax_total(), Decimal('0'))
+
+    def test_malformed_json_tax_details_returns_zeros(self):
+        r = Receipt(tax_details='not valid json {{{')
+        self.assertEqual(r.get_inclusive_tax_total(), Decimal('0'))
+        self.assertEqual(r.get_exclusive_tax_total(), Decimal('0'))
+
+    def test_both_tax_types_totalled_independently(self):
+        details = json.dumps({
+            'INC': {'rate': 5, 'amount': 200, 'method': 'inclusive'},
+            'EXC': {'rate': 3, 'amount': 150, 'method': 'exclusive'},
+        })
+        r = Receipt(tax_details=details)
+        self.assertEqual(r.get_inclusive_tax_total(), Decimal('200'))
+        self.assertEqual(r.get_exclusive_tax_total(), Decimal('150'))
+
+    def test_multiple_exclusive_taxes_summed(self):
+        details = json.dumps({
+            'VAT':  {'rate': 7.5, 'amount': 750,  'method': 'exclusive'},
+            'LEVY': {'rate': 2.5, 'amount': 250, 'method': 'exclusive'},
+        })
+        r = Receipt(tax_details=details)
+        self.assertEqual(r.get_exclusive_tax_total(), Decimal('1000'))
+
+
+# ===========================================================================
+# 32. Loyalty Transaction – balance_after Sequence
+# ===========================================================================
+
+class LoyaltyTransactionBalanceAfterTests(TestCase):
+    """
+    add_points() / redeem_points() create LoyaltyTransaction records.
+    Verifies: balance accumulates correctly across a sequence of transactions,
+    redeem_points returns False and creates no transaction when balance is insufficient.
+    """
+
+    def setUp(self):
+        self.customer = make_customer()
+        make_loyalty_config(
+            points_to_currency_rate=Decimal('1'),
+            minimum_points_for_redemption=10,
+            maximum_discount_percentage=Decimal('50'),
+        )
+        self.account = CustomerLoyaltyAccount.objects.create(
+            customer=self.customer, is_active=True)
+
+    def test_first_earn_balance_is_correct(self):
+        self.account.add_points(100, 'first earn')
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.current_balance, 100)
+        self.assertEqual(self.account.total_points_earned, 100)
+
+    def test_sequential_earns_accumulate(self):
+        self.account.add_points(50, 'earn 1')
+        self.account.add_points(70, 'earn 2')
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.current_balance, 120)
+        self.assertEqual(self.account.total_points_earned, 120)
+
+    def test_earn_then_redeem_balance_correct(self):
+        self.account.add_points(200, 'earn')
+        self.account.redeem_points(80, 'redeem')
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.current_balance, 120)
+        self.assertEqual(self.account.total_points_redeemed, 80)
+
+    def test_transaction_records_created_for_each_operation(self):
+        self.account.add_points(100, 'earn')
+        self.account.redeem_points(30, 'redeem')
+        count = LoyaltyTransaction.objects.filter(
+            loyalty_account=self.account).count()
+        self.assertEqual(count, 2)
+
+    def test_earn_transaction_type_is_earned(self):
+        self.account.add_points(50, 'earn')
+        txn = LoyaltyTransaction.objects.filter(loyalty_account=self.account).first()
+        self.assertEqual(txn.transaction_type, 'earned')
+
+    def test_redeem_transaction_type_is_redeemed(self):
+        self.account.add_points(100, 'earn')
+        self.account.redeem_points(40, 'redeem')
+        txn = LoyaltyTransaction.objects.filter(
+            loyalty_account=self.account,
+            transaction_type='redeemed',
+        ).first()
+        self.assertIsNotNone(txn)
+        self.assertEqual(txn.points, 40)
+
+    def test_redeem_returns_false_when_insufficient_balance(self):
+        self.account.add_points(50, 'earn')
+        result = self.account.redeem_points(100, 'too many')
+        self.assertFalse(result)
+
+    def test_failed_redeem_creates_no_transaction(self):
+        self.account.add_points(50, 'earn')
+        self.account.redeem_points(200, 'fail')
+        self.assertEqual(
+            LoyaltyTransaction.objects.filter(loyalty_account=self.account).count(), 1)
+
+    def test_failed_redeem_leaves_balance_unchanged(self):
+        self.account.add_points(50, 'earn')
+        self.account.redeem_points(200, 'fail')
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.current_balance, 50)
+
+    def test_sequential_transactions_balance_after_increases(self):
+        """Each earn transaction has a higher balance_after than the prior one."""
+        self.account.add_points(50, 'earn 1')
+        self.account.add_points(50, 'earn 2')
+        txns = list(LoyaltyTransaction.objects.filter(
+            loyalty_account=self.account).order_by('id'))
+        self.assertGreater(txns[1].balance_after, txns[0].balance_after)
+
+
+# ===========================================================================
+# 33. Store Credit – Balance Aggregation
+# ===========================================================================
+
+class StoreCreditAggregationTests(TestCase):
+    """
+    Verifies Sum aggregation of StoreCredit.remaining_balance
+    (mirrors store_credit_list view formula).
+    """
+
+    def setUp(self):
+        from django.db.models import Sum
+        self.Sum = Sum
+        self.user = make_user()
+        self.customer = make_customer()
+
+    def _make_credit(self, amount, is_active=True):
+        return StoreCredit.objects.create(
+            customer=self.customer,
+            original_amount=Decimal(str(amount)),
+            remaining_balance=Decimal(str(amount)),
+            is_active=is_active,
+            issued_by=self.user,
+        )
+
+    def test_total_balance_sums_active_credits(self):
+        self._make_credit(500)
+        self._make_credit(300)
+        total = (StoreCredit.objects
+                 .filter(is_active=True)
+                 .aggregate(total=self.Sum('remaining_balance'))['total'] or 0)
+        self.assertEqual(total, Decimal('800'))
+
+    def test_inactive_credits_excluded(self):
+        self._make_credit(500, is_active=True)
+        self._make_credit(200, is_active=False)
+        total = (StoreCredit.objects
+                 .filter(is_active=True)
+                 .aggregate(total=self.Sum('remaining_balance'))['total'] or 0)
+        self.assertEqual(total, Decimal('500'))
+
+    def test_no_credits_returns_zero_not_none(self):
+        total = (StoreCredit.objects
+                 .filter(is_active=True)
+                 .aggregate(total=self.Sum('remaining_balance'))['total'] or 0)
+        self.assertEqual(total, 0)
+
+    def test_single_credit_total_equals_its_balance(self):
+        self._make_credit(750)
+        total = (StoreCredit.objects
+                 .filter(is_active=True)
+                 .aggregate(total=self.Sum('remaining_balance'))['total'] or 0)
+        self.assertEqual(total, Decimal('750'))
+
+
+# ===========================================================================
+# 34. Report View Aggregation Tests (integration)
+# ===========================================================================
+
+class ReportAggregationViewTests(TestCase):
+    """
+    Integration tests: hit financial_report, discount_report, and
+    inventory_report with real DB data and assert correct aggregate values
+    in the response context.
+
+    All three views default to today's date when no date params are given,
+    so test data created during the run is always included.
+    """
+
+    def setUp(self):
+        self.md_user = User.objects.create_user(
+            'report_md_user', password='pass', is_staff=True
+        )
+        UserProfile.objects.create(user=self.md_user, access_level='md')
+        self.client.force_login(self.md_user)
+
+    # ------------------------------------------------------------------
+    # Internal helper
+    # ------------------------------------------------------------------
+
+    def _make_sale(self, price=10000, markup=10, qty=2, discount=None, brand=None):
+        """Create Product → Receipt → Payment → Sale; return (sale, payment)."""
+        kwargs = dict(price=price, markup=markup, markup_type='percentage',
+                      quantity=qty + 10)
+        if brand:
+            kwargs['brand'] = brand
+        p = make_product(**kwargs)
+        r = Receipt.objects.create(user=self.md_user)
+        pay = Payment.objects.create()
+        sale_kwargs = dict(product=p, quantity=qty, receipt=r, payment=pay)
+        if discount is not None:
+            sale_kwargs['discount_amount'] = Decimal(str(discount))
+        s = Sale.objects.create(**sale_kwargs)
+        pay.save()
+        return s, pay
+
+    # ------------------------------------------------------------------
+    # financial_report
+    # ------------------------------------------------------------------
+
+    def test_financial_report_gross_revenue(self):
+        """gross_revenue = selling_price * qty (price=10000, markup=10% → 11000 * 2 = 22000)."""
+        self._make_sale(price=10000, markup=10, qty=2)
+        resp = self.client.get(reverse('financial_report'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context['gross_revenue'], Decimal('22000.00'))
+
+    def test_financial_report_total_cost(self):
+        """total_cost = cost_price * qty (10000 * 2 = 20000)."""
+        self._make_sale(price=10000, markup=10, qty=2)
+        resp = self.client.get(reverse('financial_report'))
+        self.assertEqual(resp.context['total_cost'], Decimal('20000.00'))
+
+    def test_financial_report_total_revenue_equals_payment_total(self):
+        """total_revenue aggregates payment.total_amount; equals sale total when no discount."""
+        self._make_sale(price=10000, markup=10, qty=2)
+        resp = self.client.get(reverse('financial_report'))
+        self.assertEqual(resp.context['total_revenue'], Decimal('22000.00'))
+
+    def test_financial_report_no_sales_returns_zero(self):
+        """With no sales today, all revenue/cost metrics are zero."""
+        resp = self.client.get(reverse('financial_report'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context['gross_revenue'], Decimal('0'))
+        self.assertEqual(resp.context['total_revenue'], Decimal('0'))
+        self.assertEqual(resp.context['total_cost'], Decimal('0'))
+
+    # ------------------------------------------------------------------
+    # discount_report
+    # ------------------------------------------------------------------
+
+    def test_discount_report_line_discount_total(self):
+        """line_discount_total = sum of Sale.discount_amount for today's discounted sales."""
+        self._make_sale(price=10000, markup=10, qty=2, discount=500)
+        resp = self.client.get(reverse('discount_report'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context['line_discount_total'], Decimal('500.00'))
+        self.assertEqual(resp.context['line_transactions'], 1)
+
+    def test_discount_report_payment_discount_total(self):
+        """payment_discount_total = sum of Payment.discount_amount for today's discounted payments."""
+        _, pay = self._make_sale(price=10000, markup=10, qty=1, brand='Disc Pay Product')
+        Payment.objects.filter(pk=pay.pk).update(discount_amount=Decimal('300.00'))
+        resp = self.client.get(reverse('discount_report'))
+        self.assertEqual(resp.context['payment_discount_total'], Decimal('300.00'))
+        self.assertEqual(resp.context['payment_transactions'], 1)
+
+    def test_discount_report_total_is_line_plus_payment(self):
+        """total_discount_amount = line_discount_total + payment_discount_total."""
+        self._make_sale(price=10000, markup=10, qty=2, discount=500, brand='Line Disc')
+        _, pay2 = self._make_sale(price=5000, markup=20, qty=1, brand='Pay Disc')
+        Payment.objects.filter(pk=pay2.pk).update(discount_amount=Decimal('200.00'))
+        resp = self.client.get(reverse('discount_report'))
+        self.assertEqual(
+            resp.context['total_discount_amount'],
+            resp.context['line_discount_total'] + resp.context['payment_discount_total'],
+        )
+
+    def test_discount_report_no_discounts_returns_zero(self):
+        """With no discounts applied, all totals are zero."""
+        self._make_sale(price=5000, markup=20, qty=1)
+        resp = self.client.get(reverse('discount_report'))
+        self.assertEqual(resp.context['total_discount_amount'], 0)
+        self.assertEqual(resp.context['total_transactions'], 0)
+
+    # ------------------------------------------------------------------
+    # inventory_report
+    # ------------------------------------------------------------------
+
+    def test_inventory_report_total_value(self):
+        """total_value = selling_price * quantity (11000 * 20 = 220000)."""
+        make_product(price=10000, markup=10, markup_type='percentage', quantity=20)
+        resp = self.client.get(reverse('inventory_report'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context['total_value'], Decimal('220000.00'))
+
+    def test_inventory_report_potential_profit(self):
+        """potential_profit = total_value - total_cost_value (220000 - 200000 = 20000)."""
+        make_product(price=10000, markup=10, markup_type='percentage', quantity=20)
+        resp = self.client.get(reverse('inventory_report'))
+        self.assertEqual(resp.context['total_cost_value'], Decimal('200000.00'))
+        self.assertEqual(resp.context['potential_profit'], Decimal('20000.00'))
+
+    def test_inventory_report_low_and_critical_stock_counts(self):
+        """low_stock_count = qty<10; critical_stock_count = qty<5."""
+        make_product(brand='Critical Item', price=5000, markup=10,
+                     markup_type='percentage', quantity=3)   # critical (qty<5) and low (qty<10)
+        make_product(brand='Low Only Item', price=5000, markup=10,
+                     markup_type='percentage', quantity=7)   # low (qty<10), not critical
+        make_product(brand='Normal Item', price=5000, markup=10,
+                     markup_type='percentage', quantity=20)  # neither
+        resp = self.client.get(reverse('inventory_report'))
+        self.assertEqual(resp.context['low_stock_count'], 2)
+        self.assertEqual(resp.context['critical_stock_count'], 1)
+
+    def test_inventory_report_no_products_returns_zero(self):
+        """With no products, value and profit metrics are zero."""
+        resp = self.client.get(reverse('inventory_report'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context['total_value'], Decimal('0'))
+        self.assertEqual(resp.context['potential_profit'], Decimal('0'))

@@ -6703,7 +6703,7 @@ def financial_report(request):
             start_date_obj = datetime.strptime(start_date, '%Y-%m-%d')
             end_date_obj = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
             sales = sales.filter(sale_date__range=[start_date_obj, end_date_obj])
-        except:
+        except (ValueError, TypeError):
             pass
     else:
         # Default to today's date if no filters applied
@@ -6720,21 +6720,28 @@ def financial_report(request):
     # ENHANCED FINANCIAL METRICS
 
     # 1. Revenue Analysis
-    gross_revenue = sum(sale.product.selling_price * sale.quantity for sale in sales)
-    total_revenue = sum(payment.total_amount for payment in unique_payments if payment.total_amount)
+    gross_revenue = sales.aggregate(
+        total=Sum(ExpressionWrapper(F('product__selling_price') * F('quantity'), output_field=DecimalField()))
+    )['total'] or Decimal('0')
+    total_revenue = unique_payments.aggregate(total=Sum('total_amount'))['total'] or Decimal('0')
 
     # 2. Discount Analysis
-    total_item_discounts = sum(sale.discount_amount or 0 for sale in sales)
-    total_payment_discounts = sum(payment.discount_amount or 0 for payment in unique_payments)
+    total_item_discounts = sales.aggregate(total=Sum('discount_amount'))['total'] or Decimal('0')
+    total_payment_discounts = unique_payments.aggregate(total=Sum('discount_amount'))['total'] or Decimal('0')
     total_discounts = total_item_discounts + total_payment_discounts
 
-    # 3. Delivery Fee Analysis
-    total_delivery_fees = sum(payment.sale_set.first().delivery.delivery_cost or 0
-                              for payment in unique_payments
-                              if payment.sale_set.exists() and payment.sale_set.first().delivery)
+    # 3. Delivery Fee Analysis — deduplicate via distinct Delivery objects to avoid
+    #    double-counting when multiple sales share the same delivery record.
+    total_delivery_fees = (
+        Delivery.objects.filter(sale__in=sales)
+        .distinct()
+        .aggregate(total=Sum('delivery_cost'))['total'] or Decimal('0')
+    )
 
     # 4. Cost and Profit Analysis
-    total_cost = sum(sale.product.price * sale.quantity for sale in sales)
+    total_cost = sales.aggregate(
+        total=Sum(ExpressionWrapper(F('product__price') * F('quantity'), output_field=DecimalField()))
+    )['total'] or Decimal('0')
     net_revenue = total_revenue - total_delivery_fees  # Revenue without delivery fees
     total_profit = net_revenue - total_cost
     profit_margin = (total_profit / net_revenue * 100) if net_revenue > 0 else 0
@@ -6777,9 +6784,12 @@ def financial_report(request):
         'failed': unique_payments.filter(payment_status='failed').count(),
     }
 
-    completed_amount = sum(p.total_amount for p in unique_payments.filter(payment_status='completed'))
-    partial_amount = sum(p.total_paid for p in unique_payments.filter(payment_status='partial'))
-    pending_amount = sum(p.total_amount for p in unique_payments.filter(payment_status='pending'))
+    completed_amount = unique_payments.filter(payment_status='completed').aggregate(
+        total=Sum('total_amount'))['total'] or Decimal('0')
+    partial_amount = unique_payments.filter(payment_status='partial').aggregate(
+        total=Sum('total_paid'))['total'] or Decimal('0')
+    pending_amount = unique_payments.filter(payment_status='pending').aggregate(
+        total=Sum('total_amount'))['total'] or Decimal('0')
 
     # 7. Monthly Revenue Trend with detailed breakdown
     monthly_data = []
@@ -6798,7 +6808,11 @@ def financial_report(request):
 
     for month in monthly_raw:
         month_sales = sales.filter(sale_date__month=month['month'].month, sale_date__year=month['month'].year)
-        delivery_fees = sum(s.delivery.delivery_cost or 0 for s in month_sales if s.delivery)
+        delivery_fees = (
+            Delivery.objects.filter(sale__in=month_sales)
+            .distinct()
+            .aggregate(total=Sum('delivery_cost'))['total'] or Decimal('0')
+        )
 
         monthly_data.append({
             'month': month['month'],
@@ -7504,9 +7518,13 @@ def inventory_report(request):
     if low_stock:
         products = products.filter(quantity__lt=10)
 
-    # Calculate enhanced inventory metrics
-    total_value = sum(product.selling_price * product.quantity for product in products)
-    total_cost_value = sum(product.price * product.quantity for product in products)
+    # Calculate enhanced inventory metrics via DB aggregation (avoids full queryset load)
+    totals = products.aggregate(
+        total_value=Sum(ExpressionWrapper(F('selling_price') * F('quantity'), output_field=DecimalField())),
+        total_cost_value=Sum(ExpressionWrapper(F('price') * F('quantity'), output_field=DecimalField())),
+    )
+    total_value = totals['total_value'] or Decimal('0')
+    total_cost_value = totals['total_cost_value'] or Decimal('0')
     potential_profit = total_value - total_cost_value
 
     # Additional inventory statistics

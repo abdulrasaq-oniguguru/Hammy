@@ -1,6 +1,7 @@
 import datetime
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
+from django.db.models import F, Sum
 from datetime import datetime
 from io import BytesIO
 from barcode import EAN13
@@ -148,6 +149,12 @@ class Product(models.Model):
             models.Index(fields=['category', 'color']),
             models.Index(fields=['shop', 'location']),
             models.Index(fields=['price', 'quantity']),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(quantity__gte=0),
+                name='product_quantity_non_negative',
+            ),
         ]
 
     def __init__(self, *args, **kwargs):
@@ -805,25 +812,22 @@ class Receipt(models.Model):
             return Decimal('0')
 
         # Get subtotal from all sales
-        subtotal = sum((sale.total_price for sale in self.sales.all()), Decimal('0'))
+        subtotal = self.sales.aggregate(total=Sum('total_price'))['total'] or Decimal('0')
 
-        # Get discount from payment (if any)
-        # Discount is calculated on SUBTOTAL only, not including delivery
+        # Get discount from payment (if any).
+        # Re-derive from discount_percentage so the receipt total is correct even
+        # when Payment.save() ran before any Sales were linked.
+        # NOTE: we deliberately do NOT write back to payment.discount_amount here
+        # to break the old circular save chain.  Payment.save() is the sole owner
+        # of payment.discount_amount.
         discount = Decimal('0')
         sales = self.sales.all()
         if sales.exists():
             first_sale = sales.first()
             if hasattr(first_sale, 'payment') and first_sale.payment:
                 payment = first_sale.payment
-                # Recalculate discount to ensure consistency
-                # Discount % is applied to subtotal, NOT to (subtotal + delivery)
                 if payment.discount_percentage:
                     discount = subtotal * (Decimal(str(payment.discount_percentage)) / Decimal('100'))
-
-                    # Update payment's discount_amount to match if needed
-                    if payment.discount_amount != discount:
-                        payment.discount_amount = discount
-                        Payment.objects.filter(pk=payment.pk).update(discount_amount=discount)
                 else:
                     discount = payment.discount_amount or Decimal('0')
 
@@ -958,7 +962,7 @@ class Payment(models.Model):
         """Calculate the total amount based on related sales and apply the discount."""
         if self.pk:
             # Get the sum of all related sales (without delivery cost)
-            total = sum((sale.total_price for sale in self.sale_set.all()), Decimal('0'))
+            total = self.sale_set.aggregate(total=Sum('total_price'))['total'] or Decimal('0')
 
             # Calculate the discount amount based on the total and discount percentage
             if self.discount_percentage:
@@ -983,7 +987,9 @@ class Payment(models.Model):
 
     def update_payment_status(self):
         """Update payment status based on total paid vs total amount"""
-        self.total_paid = sum((method.amount for method in self.payment_methods.filter(status='completed')), Decimal('0'))
+        self.total_paid = self.payment_methods.filter(status='completed').aggregate(
+            total=Sum('amount')
+        )['total'] or Decimal('0')
         self.balance_due = self.total_amount - self.total_paid
 
         if self.total_paid >= self.total_amount:
@@ -1009,22 +1015,26 @@ class Payment(models.Model):
         return summary
 
     def save(self, *args, **kwargs):
-        # Save first to ensure the instance has a primary key
-        super().save(*args, **kwargs)
+        with transaction.atomic():
+            # Save once to persist structural fields and ensure a PK exists
+            super().save(*args, **kwargs)
 
-        # After saving, calculate the amount and discount
-        self.total_amount = self.calculate_total()
+            # Calculate totals and status from DB aggregates
+            self.total_amount = self.calculate_total()
+            self.update_payment_status()
 
-        # Update payment status
-        self.update_payment_status()
-
-        # Save again to update the calculated fields
-        super().save(*args,
-                     update_fields=['total_amount', 'discount_amount', 'loyalty_discount_amount', 'total_paid',
-                                    'balance_due', 'payment_status', 'completed_date'])
+            # Persist calculated fields via queryset update — avoids a second model-level save
+            Payment.objects.filter(pk=self.pk).update(
+                total_amount=self.total_amount,
+                discount_amount=self.discount_amount,
+                loyalty_discount_amount=self.loyalty_discount_amount,
+                total_paid=self.total_paid,
+                balance_due=self.balance_due,
+                payment_status=self.payment_status,
+                completed_date=self.completed_date,
+            )
 
         # Trigger receipt recalculation when payment changes (e.g., discount applied)
-        # This ensures receipt total matches payment total
         if self.pk and self.sale_set.exists():
             first_sale = self.sale_set.first()
             if first_sale and first_sale.receipt:
@@ -1173,17 +1183,38 @@ class Sale(models.Model):
         return item_total - total_discount
 
     def save(self, *args, **kwargs):
+        is_new = self.pk is None  # capture before super() assigns the pk
+
+        # Guard: prevent selling more than available stock on new sales
+        if is_new and self.quantity > self.product.quantity:
+            raise ValidationError(
+                f"Insufficient stock for '{self.product.brand}'. "
+                f"Available: {self.product.quantity}, requested: {self.quantity}."
+            )
+
+        # Clamp discount: stored discount_amount cannot exceed the line total
+        item_total = self.product.selling_price * self.quantity
+        if self.discount_amount and self.discount_amount > item_total:
+            self.discount_amount = item_total
+
         self.total_price = self.calculate_total()
 
-        if self.receipt and not self.receipt.customer:
-            self.receipt.customer = self.customer
-            self.receipt.save()
+        with transaction.atomic():
+            if self.receipt and not self.receipt.customer:
+                self.receipt.customer = self.customer
+                self.receipt.save()
 
-        super().save(*args, **kwargs)
+            super().save(*args, **kwargs)
 
-        # After saving, trigger receipt recalculation to ensure totals are correct
-        if self.receipt:
-            self.receipt.save()
+            # Decrement product stock atomically on first insert only
+            if is_new:
+                Product.objects.filter(pk=self.product_id).update(
+                    quantity=F('quantity') - self.quantity
+                )
+
+            # After saving, trigger receipt recalculation to ensure totals are correct
+            if self.receipt:
+                self.receipt.save()
 
     def __str__(self):
         return f"{self.product} x {self.quantity} (Total: {self.total_price})"
@@ -2257,15 +2288,23 @@ class LoyaltyConfiguration(models.Model):
 
     @classmethod
     def get_active_config(cls):
-        """Get the currently active loyalty configuration"""
+        """Get the currently active loyalty configuration.
+
+        - Returns the active config if one exists.
+        - If configs exist but none is active, returns the most recently
+          created one WITHOUT activating it (callers all check is_active).
+        - Only seeds a default config (inactive) when the table is empty.
+        """
         try:
             return cls.objects.get(is_active=True)
         except cls.DoesNotExist:
-            # Create default config if none exists
+            most_recent = cls.objects.order_by('-id').first()
+            if most_recent is not None:
+                return most_recent  # inactive; callers check is_active
             return cls.objects.create(
                 program_name="Loyalty Rewards Program",
-                is_active=True,
-                customer_type='all'
+                is_active=False,
+                customer_type='all',
             )
         except cls.MultipleObjectsReturned:
             return cls.objects.filter(is_active=True).first()
